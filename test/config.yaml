@@ -1,0 +1,23 @@
+$options:
+  useCustomLibrary:
+    mac: true
+    linux: false
+build:
+  ninja:
+    version: ${host.ninja.version}
+    fetch: http://ninja-v${version}.tar.gz
+  cFlags:
+    o: 3
+    production:
+      wAll: true
+    debug:
+      o: 0
+require:
+  requiredLibrary: tmake/requiredLibrary
+  useCustomLibrary:
+    customLibrary: tmake/customLibrary
+host:
+  mac:
+    compiler: clang
+  linux:
+    compiler: gcc

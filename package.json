@@ -1,0 +1,51 @@
+{
+  "name": "js-moss",
+  "description": "moss is a set of parsing rules for yaml and json",
+  "version": "0.1.0",
+  "homepage": "https://github.com/1e1f/js-moss",
+  "author": {
+    "name": "Leif Shackelford",
+    "email": "structuresound@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/1e1f/js-moss.git"
+  },
+  "bugs": {
+    "url": "https://github.com/1e1f/js-moss/issues"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/1e1f/js-moss/blob/master/LICENSE-MIT"
+    }
+  ],
+  "main": "dist/index.js",
+  "types": "interfaces/index.d.ts",
+  "scripts": {
+    "build": "gulp scripts",
+    "test": "NODE_ENV=test mocha --recursive --compilers ts:ts-node/register --bail",
+    "cover": "NODE_ENV=test nyc --report-dir coverage npm t",
+    "travis": "npm run build && npm run cover"
+  },
+  "Keywords": [],
+  "devDependencies": {
+    "@types/chai": "^3.4.34",
+    "@types/js-yaml": "^3.5.29",
+    "@types/mocha": "^2.2.32",
+    "@types/node": "^6.0.46",
+    "chai": "^3.5.0",
+    "coveralls": "^2.11.9",
+    "gulp": "^3.9.1",
+    "gulp-typescript": "^3.1.1",
+    "mocha": "^3.2.0",
+    "nyc": "^8.4.0",
+    "ts-node": "^2.0.0",
+    "typescript": "^2.1.6"
+  },
+  "dependencies": {
+    "js-yaml": "^3.6.1",
+    "path": "^0.12.7",
+    "typed-json-transform": "^0.16.9"
+  }
+}

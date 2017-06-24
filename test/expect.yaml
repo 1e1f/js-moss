@@ -1,0 +1,12 @@
+build:
+  ninja:
+    version: 1.5.7
+    fetch: 'http://ninja-v1.5.7.tar.gz'
+  cFlags:
+    o: 0
+    wAll: true
+require:
+  requiredLibrary: tmake/requiredLibrary
+  customLibrary: tmake/customLibrary
+host:
+  compiler: clang
