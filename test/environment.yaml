@@ -4,6 +4,8 @@ $options:
   production: true
   debug: true
 $environment:
+  target:
+    endianness: LE
   host:
     ninja:
       version:

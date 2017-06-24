@@ -35,10 +35,21 @@ export function inheritAndApplyOptions(trie: Moss.Trie, parent: Moss.Trie) {
   }
 }
 
-function parse(input: any, heap: any, stack?: Object) {
+function parse(input: any, heap: any, stack?: Object): any {
   if (check(input, String)) {
-    const local = stack ? _parse(input, stack, false) : input;
-    return _parse(local, heap, true);
+    // let ret = input;
+    // let shouldRecur = false;
+    const dictionary = combine(heap, stack);
+    // if (stack) {
+    //   const { value, changed } = _parse(input, stack, false);
+    //   ret = value;
+    //   if (changed) shouldRecur = true;
+    // }
+    const { value, changed } = _parse(input, dictionary, true);
+    if (changed) {
+      return parse(value, heap, stack);
+    }
+    return value;
   } else if (check(input, Object)) {
     for (const key of Object.keys(input)) {
       input[key] = parse(input[key], heap, input);

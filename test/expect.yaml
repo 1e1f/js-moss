@@ -5,6 +5,9 @@ build:
   cFlags:
     o: 0
     wAll: true
+  defines:
+    LE: 4321
+    TARGET_ENDIANNESS: "4321"
 require:
   requiredLibrary: tmake/requiredLibrary
   customLibrary: tmake/customLibrary

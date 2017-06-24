@@ -6,6 +6,9 @@ build:
   ninja:
     version: ${host.ninja.version}
     fetch: http://ninja-v${version}.tar.gz
+  defines:
+    LE: 4321
+    TARGET_ENDIANNESS: ${${target.endianness}}
   cFlags:
     o: 3
     production:

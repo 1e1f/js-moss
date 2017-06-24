@@ -1,10 +1,7 @@
 import { valueForKeyPath, check, contains } from 'typed-json-transform';
 import { interpolate } from './interpolate';
 
-function _parse(input: string, trie: Object, opt?: any, fuse?: any[]): any {
-  if (!fuse) {
-    fuse = [];
-  }
+function _parse(input: string, trie: Object, opt?: any): { value: any, changed: boolean } {
   const { value, changed } = interpolate(input, (str: string) => {
     const res = valueForKeyPath(str, trie);
     if (res) {
@@ -14,13 +11,9 @@ function _parse(input: string, trie: Object, opt?: any, fuse?: any[]): any {
     }
   });
   if (changed) {
-    if (!contains(fuse, value)) {
-      fuse.push(value);
-      return _parse(value, trie, opt, fuse);
-    }
-    return value;
+    return { value, changed: true };
   }
-  return input;
+  return { value: input, changed: false };
 }
 
 export function parse(template: string, trie: Object, mustPass?: boolean): any {
