@@ -11,9 +11,8 @@ declare namespace Moss {
 }
 
 declare module 'moss' {
-  export function inheritAndApplyOptions(trie: Moss.Trie, parent: Moss.Trie)
-
-  export function parseLayer(layer: Moss.Trie, parent: Moss.Trie)
-  export function parseTrie(trunk: Moss.Trie, baseParser: Moss.Trie)
-  export function load(trunk: Moss.Trie, baseParser: Moss.Trie)
+  export function inheritAndApplyOptions(trie: Moss.Trie, parent: Moss.Trie): any
+  export function parseLayer(layer: Moss.Trie, parent: Moss.Trie): any
+  export function parseTrie(trunk: Moss.Trie, baseParser: Moss.Trie): any
+  export function load(trunk: Moss.Trie, baseParser: Moss.Trie): any
 }
