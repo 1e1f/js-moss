@@ -17,11 +17,5 @@ function _parse(input: string, trie: Object, opt?: any): { value: any, changed: 
 }
 
 export function parse(template: string, trie: Object, mustPass?: boolean): any {
-  if (!template) {
-    throw new Error(`can't interpolate undefined`);
-  }
-  if (!trie) {
-    throw new Error(`interpolating ${template} against undefined or null trie`);
-  }
   return _parse(template, trie, { mustPass: mustPass });
 }

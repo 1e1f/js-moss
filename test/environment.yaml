@@ -1,13 +1,13 @@
-$options:
+$select:
   mac: true
   linux: false
   production: true
-  debug: true
-$environment:
+  debug: false
+$heap:
   target:
     endianness: LE
   host:
     ninja:
       version:
-        mac: 1.5.7
-        linux: 1.4Ï
+        -mac: 1.5.7
+        -linux: 1.4

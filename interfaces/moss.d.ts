@@ -1,18 +1,34 @@
 declare namespace Moss {
-  interface Trie {
+  interface State {
+    stack?: any
+    heap?: any
+    selectors?: any
+    index?: number
+  }
+
+  interface Branch {
     [index: string]: any;
-    $options?: any
-    $environment?: any
+    $select?: any
+    $each?: any
+    $stack?: any
+    $heap?: any
   }
 
   interface Layer {
-    options?: any;
+    data: Branch
+    state: State
+  }
+
+  type Function = (context: Moss.Layer, args: any) => any;
+
+  interface Functions {
+    [index: string]: Function
   }
 }
 
 declare module 'moss' {
-  export function inheritAndApplyOptions(trie: Moss.Trie, parent: Moss.Trie): any
-  export function parseLayer(layer: Moss.Trie, parent: Moss.Trie): any
-  export function parseTrie(trunk: Moss.Trie, baseParser: Moss.Trie): any
-  export function load(trunk: Moss.Trie, baseParser: Moss.Trie): any
+  export function getFunctions(): Moss.Functions;
+  export function addFunctions(userFunctions: Moss.Functions): null;
+  export function moss(input: Moss.Branch, state: Moss.State): any
+  export function load(trunk: Moss.Branch, baseParser?: Moss.Branch): any;
 }

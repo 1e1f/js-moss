@@ -1,26 +1,30 @@
-$options:
+$select:
   useCustomLibrary:
-    mac: true
-    linux: false
+    -mac: true
+    -linux: false
+$heap:
+  host:
+    -mac:
+      compiler: clang
+    -linux:
+      compiler: gcc
 build:
   ninja:
-    version: ${host.ninja.version}
+    $stack:
+      version: ${host.ninja.version}
     fetch: http://ninja-v${version}.tar.gz
+    cc: ${host.compiler}
   defines:
-    LE: 4321
+    $stack:
+      LE: 4321
     TARGET_ENDIANNESS: ${${target.endianness}}
   cFlags:
-    o: 3
-    production:
+    -production:
       wAll: true
-    debug:
+      o: 3
+    -debug:
       o: 0
 require:
   requiredLibrary: tmake/requiredLibrary
-  useCustomLibrary:
+  -useCustomLibrary:
     customLibrary: tmake/customLibrary
-host:
-  mac:
-    compiler: clang
-  linux:
-    compiler: gcc
