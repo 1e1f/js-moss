@@ -9,9 +9,10 @@ declare namespace Moss {
   interface Branch {
     [index: string]: any;
     $select?: any
-    $each?: any
-    $stack?: any
-    $heap?: any
+    $map?: any
+    $temp?: any
+    $store?: any
+    $function?: any
   }
 
   interface Layer {
@@ -19,7 +20,7 @@ declare namespace Moss {
     state: State
   }
 
-  type Function = (context: Moss.Layer, args: any) => any;
+  type Function = (state: Moss.Layer, args: any) => any;
 
   interface Functions {
     [index: string]: Function

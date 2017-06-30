@@ -1,6 +1,7 @@
 /// <reference path="../interfaces/interpolate.d.ts" />
-import { check } from 'typed-json-transform';
 
+import { check, valueForKeyPath } from 'typed-json-transform';
+import * as yaml from 'js-yaml';
 
 function join(input: any, raw: any) {
   if (raw && check(raw, String)) {
@@ -100,9 +101,28 @@ export function concat(stack: Elem[][]) {
   return { value: out, changed: changed };
 }
 
-export function interpolate(input: any, replace: (sub: string) => string) {
+export function __interpolate(input: any, replace: (sub: string) => string) {
   if (!check(input, String)) {
     return input;
   }
   return concat(expand(input, replace));
+}
+
+function _interpolate(input: string, trie: Object, opt?: any): { value: any, changed: boolean } {
+  const { value, changed } = __interpolate(input, (str: string) => {
+    const res = valueForKeyPath(str, trie);
+    if (res) {
+      return res;
+    } else if (opt.mustPass) {
+      throw new Error(`no value for required keypath ${str} in interpolation stack \n${yaml.dump(trie)}`);
+    }
+  });
+  if (changed) {
+    return { value, changed: true };
+  }
+  return { value: input, changed: false };
+}
+
+export function interpolate(template: string, trie: Object, mustPass?: boolean): any {
+  return _interpolate(template, trie, { mustPass: mustPass });
 }

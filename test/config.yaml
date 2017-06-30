@@ -1,29 +1,41 @@
 $select:
   useCustomLibrary:
-    -mac: true
-    -linux: false
-$heap:
+    -: false
+    -ios: true
+$store:
+  targets:
+    -ios:
+      device:
+        arch: arm
+        endianness: BE
+      simulator:
+        arch: x64
+        endianness: LE
   host:
-    -mac:
+    -host-mac:
       compiler: clang
-    -linux:
+    -host-linux:
       compiler: gcc
 build:
-  ninja:
-    $stack:
-      version: ${host.ninja.version}
-    fetch: http://ninja-v${version}.tar.gz
-    cc: ${host.compiler}
-  defines:
-    $stack:
-      LE: 4321
-    TARGET_ENDIANNESS: ${${target.endianness}}
-  cFlags:
-    -production:
-      wAll: true
-      o: 3
-    -debug:
-      o: 0
+  $map:
+    $in: ${store.targets}
+    $out:
+      ninja:
+        $temp:
+          version: ${store.host.ninja.version}
+        fetch: http://ninja-v${version}.tar.gz
+        cc: ${store.host.compiler}
+      defines:
+        $temp:
+          LE: 4321
+          BE: 1234
+        TARGET_ENDIANNESS: ${${endianness}}
+      cFlags:
+        -production:
+          wAll: true
+          o: 3
+        -debug:
+          o: 0
 require:
   requiredLibrary: tmake/requiredLibrary
   -useCustomLibrary:

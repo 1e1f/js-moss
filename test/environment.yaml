@@ -1,13 +1,18 @@
 $select:
-  mac: true
-  linux: false
+  host-mac: true
+  host-linux: false
   production: true
   debug: false
-$heap:
-  target:
-    endianness: LE
+  ios: true
+  mac: false
+$store:
   host:
     ninja:
       version:
-        -mac: 1.5.7
-        -linux: 1.4
+        -host-mac: 1.5.7
+        -host-linux: 1.4
+  targets:
+    -mac:
+      desktop:
+        arch: x86
+        endianness: LE
