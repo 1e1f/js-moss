@@ -4,8 +4,13 @@ $select:
     -ios: true
 $store:
   targets:
-    -ios:
+    -mac, linux:
       device:
+        arch: x64
+        endianness: LE
+    -ios !linux:
+      device:
+        optimize: true
         arch: arm
         endianness: BE
       simulator:
@@ -18,15 +23,13 @@ $store:
       compiler: gcc
 build:
   $map:
-    $in: ${store.targets}
-    $out:
+    from: ${store.targets}
+    to:
       ninja:
-        $temp:
-          version: ${store.host.ninja.version}
-        fetch: http://ninja-v${version}.tar.gz
+        fetch: http://ninja-v${store.host.ninja.version}.tar.gz
         cc: ${store.host.compiler}
       defines:
-        $temp:
+        $:
           LE: 4321
           BE: 1234
         TARGET_ENDIANNESS: ${${endianness}}

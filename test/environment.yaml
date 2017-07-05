@@ -11,8 +11,3 @@ $store:
       version:
         -host-mac: 1.5.7
         -host-linux: 1.4
-  targets:
-    -mac:
-      desktop:
-        arch: x86
-        endianness: LE

@@ -3,7 +3,6 @@ declare namespace Moss {
     stack?: any
     heap?: any
     selectors?: any
-    index?: number
   }
 
   interface Branch {

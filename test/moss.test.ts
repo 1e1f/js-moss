@@ -3,17 +3,23 @@ import * as yaml from 'js-yaml';
 import { join } from 'path';
 import { assert } from 'chai';
 
-import { load } from '../src';
-
+import { load, Push } from '../src';
+import { clone, contains, each } from 'typed-json-transform';
 
 describe('moss', () => {
-  it('can parse with an environment and config file', () => {
-    const config = yaml.load(readFileSync(join(__dirname, 'config.yaml'), 'utf8'));
-    const environment = yaml.load(readFileSync(join(__dirname, 'environment.yaml'), 'utf8'));
-    const expect = yaml.load(readFileSync(join(__dirname, 'expect.yaml'), 'utf8'));
+    it('can set state', () => {
+        const trunk = yaml.load(readFileSync(join(__dirname, 'environment.yaml'), 'utf8'));
+        const result = Push.branch(trunk, Push.newState()).state;
+        assert.isString(result.heap.host.ninja.version);
+        assert.isBoolean(result.selectors.production);
+    });
 
-    const result = load(config, environment);
+    it('can parse with state', () => {
+        const config = yaml.load(readFileSync(join(__dirname, 'config.yaml'), 'utf8'));
+        const environment = yaml.load(readFileSync(join(__dirname, 'environment.yaml'), 'utf8'));
+        const expect = yaml.load(readFileSync(join(__dirname, 'expect.yaml'), 'utf8'));
+        const result = load(config, environment);
 
-    assert.deepEqual(result, expect);
-  });
+        assert.deepEqual(result, expect);
+    });
 });
