@@ -4,7 +4,7 @@ build:
       cc: clang
       fetch: 'http://ninja-v1.5.7.tar.gz'
     cFlags:
-      o: 3
+      O: 3
       wAll: true
     defines:
       TARGET_ENDIANNESS: 1234
@@ -15,7 +15,7 @@ build:
       cc: clang
       fetch: 'http://ninja-v1.5.7.tar.gz'
     cFlags:
-      o: 3
+      O: 3
       wAll: true
     defines:
       TARGET_ENDIANNESS: 4321

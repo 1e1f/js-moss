@@ -5,9 +5,3 @@ $select:
   debug: false
   ios: true
   mac: false
-$:
-  host:
-    ninja:
-      version:
-        -host-mac: 1.5.7
-        -host-linux: 1.4

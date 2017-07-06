@@ -19,6 +19,10 @@ $:
         arch: x64
         endianness: LE
   host:
+    ninja:
+        version:
+          -host-mac: 1.5.7
+          -host-linux: 1.4
     compiler:
       -host-mac: clang
       -host-linux: gcc
@@ -37,12 +41,11 @@ build:
       cFlags:
         -production:
           wAll: true
-          o: 3
+          O: 3
         -debug:
-          o: 0
-      -useCustomLibrary:
-        link:
-          ${graphicsLib}: ${graphicsLib}
+          O: 0
+      link:
+        ${graphicsLib}: ${graphicsLib}
 require:
   requiredLibrary: tmake/requiredLibrary
   -useCustomLibrary:

@@ -10,7 +10,6 @@ describe('moss', () => {
     it('can set state', () => {
         const trunk = yaml.load(readFileSync(join(__dirname, 'environment.yaml'), 'utf8'));
         const result = Push.branch(trunk, Push.newLayer()).state;
-        assert.isString(result.stack.host.ninja.version);
         assert.isBoolean(result.selectors.production);
     });
 
@@ -18,7 +17,15 @@ describe('moss', () => {
         const config = yaml.load(readFileSync(join(__dirname, 'config.yaml'), 'utf8'));
         const environment = yaml.load(readFileSync(join(__dirname, 'environment.yaml'), 'utf8'));
         const expect = yaml.load(readFileSync(join(__dirname, 'expect.yaml'), 'utf8'));
+        
         const result = load(config, environment);
+
+        assert.deepEqual(result, expect);
+    });
+
+    it('test equivalent js code', () => {
+        const expect = yaml.load(readFileSync(join(__dirname, 'expect.yaml'), 'utf8'));
+        const result = require('./compare').default;
 
         assert.deepEqual(result, expect);
     });
