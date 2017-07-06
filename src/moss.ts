@@ -30,11 +30,11 @@ const functions: Moss.Functions = {}
 export function parse(current: Moss.Layer): Moss.Layer {
   const { state, data } = current;
   if (!check(data, Object)) {
-    return interpolate(data, current);
+    return { data: interpolate(data, current), state };
   }
   for (let key of Object.keys(data)) {
     if (key[0] == '$' && key[1] == '{') {
-      const res = interpolate(key, current).data;
+      const res: string = <any>interpolate(key, current);
       data[res] = data[key]
       delete data[key];
       key = res;
@@ -52,12 +52,19 @@ export function parse(current: Moss.Layer): Moss.Layer {
       const res = _cascade({ [key]: data[key] }, state);
       if (check(res, Object)) {
         delete data[key];
-        extend(data, Push.branch(res, current).data);
+        const layer = parse(pack(res, current.state));
+        extend(data, layer.data);
+        // extend(state, layer.state);
       } else if (res) {
         return { data: res, state };
       }
+    } else if (key[0] == '\\') {
+      data[key.slice(1)] = data[key];
+      delete data[key];
     } else {
-      data[key] = Push.branch(data[key], current).data;
+      const layer = Push.branch(data[key], current);
+      data[key] = layer.data;
+      extend(state, layer.state);
     }
   }
   return current;
@@ -101,16 +108,16 @@ addFunctions({
     return args;
   },
   $map: (layer: Moss.Layer, { from, to }: any) => {
-    const { state } = layer;
     if (!from) {
       throw new Error(`for $map please supply 'from:' as input`);
     }
     if (!to) {
       throw new Error(`for $map please supply 'to:' as `);
     }
+
     let fromLayer: Moss.Layer;
     if (check(from, String)) {
-      fromLayer = interpolate(from, layer);
+      fromLayer = { data: interpolate(from, layer), state: layer.state };
     } else {
       fromLayer = Push.branch(from, layer);
     }
@@ -126,7 +133,7 @@ addFunctions({
   }
 });
 
-function interpolate(input: any, layer: Moss.Layer): any {
+function interpolate(input: any, layer: Moss.Layer): Moss.Branch {
   const { data, state } = layer;
   let dictionary;
   if (check(data, Object)) {
@@ -134,8 +141,8 @@ function interpolate(input: any, layer: Moss.Layer): any {
   } else {
     dictionary = { ...state.auto, ...state.stack }
   }
-  const res = _interpolate(input, dictionary);
-  return { data: res, state: layer.state };
+  return _interpolate(input, dictionary);
+  // return { data: res, state: layer.state };
 }
 
 function _interpolate(input: any, dictionary: any): any {

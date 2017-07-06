@@ -12,14 +12,12 @@ $:
         arch: x64
         endianness: LE
     -ios !linux:
-      $function:
-        device:
-          $:
-            arch: arm
-            endianness: BE
-        simulator:
-          arch: x64
-          endianness: LE
+      device:
+        arch: arm
+        endianness: BE
+      simulator:
+        arch: x64
+        endianness: LE
   host:
     compiler:
       -host-mac: clang
