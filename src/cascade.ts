@@ -42,8 +42,8 @@ export function select(input: string[], cssString: string): number {
 }
 
 export const parseSelectors = ($select: any) => {
-    const keywords: string[] = ['-'];
-    const selectors: string[] = ['-'];
+    const keywords: string[] = ['*'];
+    const selectors: string[] = ['*'];
     each($select, (opt: string | number, key: string) => {
         const selector = key;
         keywords.push(selector);
@@ -59,7 +59,7 @@ export const branchSelect = (input: any, options: any, stack: any, keypath: stri
     if (check(input, Object)) {
         for (const key of Object.keys(input)) {
             if (key[0] == '-') {
-                const css = key.slice(1);
+                const css = key.slice(1) || '-';
                 if (select(keywords, css)) {
                     const inlinePrecedence = select(selectors, css);
                     if (inlinePrecedence > 0) {

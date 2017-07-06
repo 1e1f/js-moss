@@ -5,7 +5,7 @@ $select:
   debug: false
   ios: true
   mac: false
-$store:
+$:
   host:
     ninja:
       version:

@@ -9,8 +9,8 @@ import { clone, contains, each } from 'typed-json-transform';
 describe('moss', () => {
     it('can set state', () => {
         const trunk = yaml.load(readFileSync(join(__dirname, 'environment.yaml'), 'utf8'));
-        const result = Push.branch(trunk, Push.newState()).state;
-        assert.isString(result.heap.host.ninja.version);
+        const result = Push.branch(trunk, Push.newLayer()).state;
+        assert.isString(result.stack.host.ninja.version);
         assert.isBoolean(result.selectors.production);
     });
 

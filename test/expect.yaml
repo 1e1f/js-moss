@@ -8,6 +8,8 @@ build:
       wAll: true
     defines:
       TARGET_ENDIANNESS: 1234
+    link:
+      opengl: opengl
   simulator:
     ninja:
       cc: clang
@@ -17,6 +19,8 @@ build:
       wAll: true
     defines:
       TARGET_ENDIANNESS: 4321
+    link:
+      opengl: opengl
 require:
   requiredLibrary: tmake/requiredLibrary
   customLibrary: tmake/customLibrary

@@ -82,6 +82,10 @@ export function expand(str: string, replace: (sub: string) => string) {
           ptr.state.dollar = true;
           break;
         default:
+          if (ptr.state.dollar) {
+            append('$');
+            ptr.state.dollar = false;
+          }
           append(char);
           break;
       }

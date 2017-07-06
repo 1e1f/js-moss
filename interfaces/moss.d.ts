@@ -1,7 +1,7 @@
 declare namespace Moss {
   interface State {
+    auto?: any
     stack?: any
-    heap?: any
     selectors?: any
   }
 

@@ -1,7 +1,7 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
 import { extend, check, combine, combineN, contains, clone, each, okmap, union, or, hashField } from 'typed-json-transform';
-import { interpolate } from './interpolate';
+import { interpolate as __interpolate } from './interpolate';
 import { cascade as _cascade, parseSelectors, select } from './cascade';
 import * as yaml from 'js-yaml';
 
@@ -27,107 +27,55 @@ function sort() {
 
 const functions: Moss.Functions = {}
 
-export namespace Parse {
-  export function cascade(current: Moss.Layer) {
-    const { state, data } = current;
-    if (!check(data, Object)) {
-      return current;
-    }
-    return <Moss.Layer>{ data: _cascade(data, state), state };
+export function parse(current: Moss.Layer): Moss.Layer {
+  const { state, data } = current;
+  if (!check(data, Object)) {
+    return interpolate(data, current);
   }
-
-  export function call(current: Moss.Layer) {
-    const { state, data } = current;
-    if (!check(data, Object)) {
-      return current;
+  for (let key of Object.keys(data)) {
+    if (key[0] == '$' && key[1] == '{') {
+      const res = interpolate(key, current).data;
+      data[res] = data[key]
+      delete data[key];
+      key = res;
     }
-    for (const key of Object.keys(data)) {
-      if (key[0] == '$') {
-        if (!functions[key]) {
-          throw new Error(`${key} is not a known procedure`);
-        }
-        const res = functions[key](current, data[key]);
+    if (key[0] == '$') {
+      if (!functions[key]) {
+        throw new Error(`${key} is not a known procedure`);
+      }
+      const res = functions[key](current, data[key]);
+      delete data[key];
+      if (res) {
+        extend(data, res);
+      }
+    } else if (key[0] == '-') {
+      const res = _cascade({ [key]: data[key] }, state);
+      if (check(res, Object)) {
         delete data[key];
-        if (res) {
-          extend(data, res);
-        }
+        extend(data, Push.branch(res, current).data);
+      } else if (res) {
+        return { data: res, state };
       }
+    } else {
+      data[key] = Push.branch(data[key], current).data;
     }
-    return current;
   }
-
-  export function iterate(current: Moss.Layer) {
-    const { state, data } = current;
-    if (!check(data, Object)) {
-      return current;
-    }
-    for (const key of Object.keys(data)) {
-      const next = data[key];
-      if (check(next, Object)) {
-        data[key] = Push.branch(next, state).data;
-      } else {
-        data[key] = processLeaf(next, current);
-      }
-    }
-    return current;
-  }
-
-  export function parse(current: Moss.Layer) {
-    const { state, data } = current;
-    if (!check(data, Object)) {
-      return current;
-    }
-    for (const key of Object.keys(data)) {
-      if (key[0] == '$') {
-        if (!functions[key]) {
-          throw new Error(`${key} is not a known procedure`);
-        }
-        const res = functions[key](current, data[key]);
-        delete data[key];
-        if (res) {
-          extend(data, res);
-        }
-      } else if (key[0] == '-') {
-        const res = _cascade({ [key]: data[key] }, state);
-        if (check(res, Object)) {
-          delete data[key];
-          extend(data, res);
-        } else if (res) {
-          return { data: res, state };
-        }
-      } else {
-        const next = data[key];
-        if (check(next, Object)) {
-          data[key] = Push.branch(next, state).data;
-        } else {
-          data[key] = processLeaf(next, current);
-        }
-      }
-    }
-    return current;
-  }
-
-  export function branch(current: Moss.Layer) {
-    return parse(current);
-    // return iterate(call(cascade(current)));
-  }
+  return current;
 }
 
 export namespace Push {
-  export const newState = () => {
-    return { heap: {}, stack: {}, selectors: {} };
+  export const newState = (): Moss.State => {
+    return { auto: {}, stack: {}, selectors: {} };
   }
 
-  export const state = ({ stack, heap, selectors }: Moss.State) => {
-    return <Moss.State>{
-      stack: clone(stack),
-      heap,
-      selectors: clone(selectors),
-    }
+  export const newLayer = (): Moss.Layer => {
+    return { data: {}, state: newState() }
   }
 
-  export const branch = (input: Moss.Branch, _state: Moss.State) => {
-    return Parse.branch(pack(input, state(_state)));
+  export const branch = (input: Moss.Branch, layer: Moss.Layer) => {
+    const state = clone(layer.state);
+    extend(state.auto, layer.data);
+    return parse(pack(input, state));
   }
 }
 
@@ -140,17 +88,17 @@ export function addFunctions(userFunctions: Moss.Functions) {
 }
 
 addFunctions({
-  $select: ({ state }: Moss.Layer, args: any) => {
-    const selected = Push.branch(args, state).data;
+  $select: (current: Moss.Layer, args: any) => {
+    const { state } = current;
+    const selected = Push.branch(args, current).data;
     extend(state.selectors, selected);
   },
-  $store: ({ state }: Moss.Layer, args: any) => {
-    const selected = Push.branch(args, state).data;
-    extend(state.heap, selected);
+  $: (layer: Moss.Layer, args: any) => {
+    const selected = Push.branch(args, layer).data;
+    extend(layer.state.stack, selected);
   },
-  $: ({ state }: Moss.Layer, args: any) => {
-    const selected = Push.branch(args, state).data;
-    extend(state.stack, selected);
+  $function: ({ state, data }: Moss.Layer, args: any) => {
+    return args;
   },
   $map: (layer: Moss.Layer, { from, to }: any) => {
     const { state } = layer;
@@ -160,29 +108,40 @@ addFunctions({
     if (!to) {
       throw new Error(`for $map please supply 'to:' as `);
     }
+    let fromLayer: Moss.Layer;
     if (check(from, String)) {
-      from = processLeaf(from, layer);
+      fromLayer = interpolate(from, layer);
     } else {
-      from = Push.branch(from, state).data;
+      fromLayer = Push.branch(from, layer);
     }
     let i = 0;
-    return okmap(from, (item, key) => {
-      const iState = Push.state(state);
-      iState.stack.index = i;
+    return okmap(fromLayer.data, (item, key) => {
+      // console.log('mapping with context', item);
+      const iLayer = Push.branch(item, fromLayer);
+      iLayer.state.stack.index = i;
       i++;
-      extend(iState.stack, Push.branch(item, iState).data);
       const iData = clone(to);
-      return { [key]: Parse.branch(pack(iData, iState)).data };
+      return { [key]: Push.branch(iData, iLayer).data };
     });
   }
 });
 
-function processLeaf(input: any, layer: Moss.Layer): any {
+function interpolate(input: any, layer: Moss.Layer): any {
   const { data, state } = layer;
-  const dictionary = combineN({ store: state.heap }, data, state.stack);
-  const { value, changed } = interpolate(input, dictionary, true);
+  let dictionary;
+  if (check(data, Object)) {
+    dictionary = { ...state.auto, ...data, ...state.stack };
+  } else {
+    dictionary = { ...state.auto, ...state.stack }
+  }
+  const res = _interpolate(input, dictionary);
+  return { data: res, state: layer.state };
+}
+
+function _interpolate(input: any, dictionary: any): any {
+  const { value, changed } = __interpolate(input, dictionary, true);
   if (changed) {
-    return processLeaf(value, layer);
+    return _interpolate(value, dictionary);
   }
   return value;
 }
@@ -193,8 +152,8 @@ function pack(input: Moss.Branch, state: Moss.State) {
 
 export function load(trunk: Moss.Branch, baseParser?: Moss.Branch) {
   if (baseParser) {
-    const { state } = Push.branch(baseParser, Push.newState());
-    return Push.branch(trunk, state).data;
+    const layer = Push.branch(baseParser, Push.newLayer());
+    return Push.branch(trunk, layer).data;
   }
-  return Push.branch(trunk, Push.newState()).data;
+  return Push.branch(trunk, Push.newLayer()).data;
 }

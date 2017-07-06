@@ -5,4 +5,4 @@
 
 moss is a set of parsing rules for yaml and json
 
-see more and use interactively in your browser @ https://triemake.com
+see more and use interactively in your browser @ https://triemake.com/moss/playground

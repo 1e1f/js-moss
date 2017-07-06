@@ -1,33 +1,36 @@
 $select:
   useCustomLibrary:
-    -: false
+    -*: false
     -ios: true
-$store:
+$:
+  graphicsLib:
+    -*: opengl
+    -win: directx
   targets:
     -mac, linux:
       device:
         arch: x64
         endianness: LE
     -ios !linux:
-      device:
-        optimize: true
-        arch: arm
-        endianness: BE
-      simulator:
-        arch: x64
-        endianness: LE
+      $function:
+        device:
+          $:
+            arch: arm
+            endianness: BE
+        simulator:
+          arch: x64
+          endianness: LE
   host:
-    -host-mac:
-      compiler: clang
-    -host-linux:
-      compiler: gcc
+    compiler:
+      -host-mac: clang
+      -host-linux: gcc
 build:
   $map:
-    from: ${store.targets}
+    from: ${targets}
     to:
       ninja:
-        fetch: http://ninja-v${store.host.ninja.version}.tar.gz
-        cc: ${store.host.compiler}
+        fetch: http://ninja-v${host.ninja.version}.tar.gz
+        cc: ${host.compiler}
       defines:
         $:
           LE: 4321
@@ -39,6 +42,9 @@ build:
           o: 3
         -debug:
           o: 0
+      -useCustomLibrary:
+        link:
+          ${graphicsLib}: ${graphicsLib}
 require:
   requiredLibrary: tmake/requiredLibrary
   -useCustomLibrary:
