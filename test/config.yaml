@@ -21,9 +21,8 @@ $:
         endianness: LE
     -ios !linux:
       device:
-        $:
-          arch: arm
-          endianness: BE
+        arch: arm
+        endianness: BE
       simulator:
         arch: x64
         endianness: LE
