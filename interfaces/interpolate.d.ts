@@ -3,6 +3,7 @@ interface State {
   dollar?: boolean
   open?: boolean
   dirty?: boolean
+  terminal?: string
 }
 
 interface Elem {

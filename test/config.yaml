@@ -3,6 +3,14 @@ $select:
     -*: false
     -ios: true
 $:
+  host:
+    ninja:
+        version:
+          -host-mac: 1.5.7
+          -host-linux: 1.4
+    compiler:
+      -host-mac: clang
+      -host-linux: gcc
   graphicsLib:
     -*: opengl
     -win: directx
@@ -13,39 +21,33 @@ $:
         endianness: LE
     -ios !linux:
       device:
-        arch: arm
-        endianness: BE
+        $:
+          arch: arm
+          endianness: BE
       simulator:
         arch: x64
         endianness: LE
-  host:
+  build():
     ninja:
-        version:
-          -host-mac: 1.5.7
-          -host-linux: 1.4
-    compiler:
-      -host-mac: clang
-      -host-linux: gcc
+      fetch: http://ninja-v${host.ninja.version}.tar.gz
+      cc: $host.compiler
+    defines:
+      $:
+        LE: 4321
+        BE: 1234
+      TARGET_ENDIANNESS: ${$endianness}
+    cFlags:
+      -production:
+        wAll: true
+        O: 3
+      -debug:
+        O: 0
+    link:
+      ${graphicsLib}: $graphicsLib
 build:
   $map:
-    from: ${targets}
-    to:
-      ninja:
-        fetch: http://ninja-v${host.ninja.version}.tar.gz
-        cc: ${host.compiler}
-      defines:
-        $:
-          LE: 4321
-          BE: 1234
-        TARGET_ENDIANNESS: ${${endianness}}
-      cFlags:
-        -production:
-          wAll: true
-          O: 3
-        -debug:
-          O: 0
-      link:
-        ${graphicsLib}: ${graphicsLib}
+    from: $targets
+    to: $build
 require:
   requiredLibrary: tmake/requiredLibrary
   -useCustomLibrary:

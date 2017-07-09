@@ -1,6 +1,6 @@
 /// <reference path="../interfaces/interpolate.d.ts" />
 
-import { check, valueForKeyPath } from 'typed-json-transform';
+import { check, valueForKeyPath, isEqual } from 'typed-json-transform';
 import * as yaml from 'js-yaml';
 
 function join(input: any, raw: any) {
@@ -16,7 +16,7 @@ function newState() {
   return { state: {}, raw: '', subst: '' };
 }
 
-export function expand(str: string, replace: (sub: string) => string) {
+export function expand(str: string, replace: (sub: string) => string, call: (sub: any) => any) {
   let changed = false;
   const template = String(str);
   let i = 0;
@@ -28,9 +28,45 @@ export function expand(str: string, replace: (sub: string) => string) {
 
   function append(char: string) {
     if (ptr.state.open) {
-      ptr.subst = join(ptr.subst, char);
+      ptr.subst += char;
     } else {
-      ptr.raw = join(ptr.raw, char);
+      ptr.raw += char;
+    }
+  }
+
+  function open(terminal: string) {
+    if (ptr.state.open) {
+      y++;
+      stack[x][y] = newState();
+      ptr = stack[x][y];
+    }
+    ptr.state.open = true;
+    ptr.state.terminal = terminal;
+    ptr.state.dollar = false;
+  }
+
+  function close() {
+    ptr.state.open = false;
+    ptr.state.terminal = '';
+    let res;
+    if (check(ptr.subst, Object)) {
+      res = call(ptr.subst);
+    } else {
+      res = replace(ptr.subst) || '';
+    }
+    if (y > 0) {
+      delete stack[x][y];
+      y--;
+      ptr = stack[x][y];
+      ptr.subst = join(ptr.subst, res);
+    }
+    else {
+      if (res) { ptr.state.dirty = true };
+      ptr.raw = join(ptr.raw, res);
+      x++;
+      y = 0;
+      stack[x] = [newState()];
+      ptr = stack[x][y];
     }
   }
 
@@ -43,34 +79,26 @@ export function expand(str: string, replace: (sub: string) => string) {
       switch (char) {
         case '{':
           if (ptr.state.dollar) {
-            if (ptr.state.open) {
-              y++;
-              stack[x][y] = newState();
-              ptr = stack[x][y];
-            }
-            ptr.state.open = true;
-            ptr.state.dollar = false;
+            open('}');
             break;
           }
           append(char);
           break;
         case '}':
           if (ptr.state.open) {
-            const res = replace(ptr.subst) || '';
-            if (y > 0) {
-              delete stack[x][y];
-              y--;
-              ptr = stack[x][y];
-              ptr.subst = join(ptr.subst, res);
+            if (ptr.state.terminal == ' ') {
+              close();
             }
-            else {
-              if (res) { ptr.state.dirty = true };
-              ptr.raw = join(ptr.raw, res);
-              x++;
-              y = 0;
-              stack[x] = [newState()];
-              ptr = stack[x][y];
+            if (ptr.state.open) {
+              close();
             }
+            break;
+          }
+          append(char);
+          break;
+        case ' ':
+          if (ptr.state.open && ptr.state.terminal == ' ') {
+            close();
             break;
           }
           append(char);
@@ -83,13 +111,16 @@ export function expand(str: string, replace: (sub: string) => string) {
           break;
         default:
           if (ptr.state.dollar) {
-            append('$');
-            ptr.state.dollar = false;
+            open(' ');
           }
           append(char);
           break;
       }
     }
+  }
+
+  if (ptr.state.open) {
+    close();
   }
   // delete ptr.state;
   return stack;
@@ -105,28 +136,11 @@ export function concat(stack: Elem[][]) {
   return { value: out, changed: changed };
 }
 
-export function __interpolate(input: any, replace: (sub: string) => string) {
+export function interpolate(input: any, replace: (sub: string) => string, call: (sub: any) => any) {
   if (!check(input, String)) {
-    return input;
+    return { value: input, changed: false };
   }
-  return concat(expand(input, replace));
-}
-
-function _interpolate(input: string, trie: Object, opt?: any): { value: any, changed: boolean } {
-  const { value, changed } = __interpolate(input, (str: string) => {
-    const res = valueForKeyPath(str, trie);
-    if (res) {
-      return res;
-    } else if (opt.mustPass) {
-      throw new Error(`no value for required keypath ${str} in interpolation stack \n${yaml.dump(trie)}`);
-    }
-  });
-  if (changed) {
-    return { value, changed: true };
-  }
-  return { value: input, changed: false };
-}
-
-export function interpolate(template: string, trie: Object, mustPass?: boolean): any {
-  return _interpolate(template, trie, { mustPass: mustPass });
+  const exp = expand(input, replace, call);
+  const res = concat(exp);
+  return res;
 }

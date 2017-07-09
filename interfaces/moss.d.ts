@@ -29,6 +29,7 @@ declare namespace Moss {
 declare module 'moss' {
   export function getFunctions(): Moss.Functions;
   export function addFunctions(userFunctions: Moss.Functions): null;
-  export function moss(input: Moss.Branch, state: Moss.State): any
+  export function parse(input: Moss.Layer): any
+  export function next(current: Moss.Layer, input: any): any;
   export function load(trunk: Moss.Branch, baseParser?: Moss.Branch): any;
 }
