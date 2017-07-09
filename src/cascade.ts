@@ -58,8 +58,8 @@ export const branchSelect = (input: any, options: any, stack: any, keypath: stri
     const { keywords, selectors } = parseSelectors(options);
     if (check(input, Object)) {
         for (const key of Object.keys(input)) {
-            if (key[0] == '-') {
-                const css = key.slice(1) || '-';
+            if (key[0] == '=') {
+                const css = key.slice(1) || '*';
                 if (select(keywords, css)) {
                     const inlinePrecedence = select(selectors, css);
                     if (inlinePrecedence > 0) {

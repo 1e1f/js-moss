@@ -34,15 +34,9 @@ export function parse(current: Moss.Layer): Moss.Layer {
       delete data[key];
     }
     else {
-      if (key[0] == '$') {
-        const res: string = <any>interpolate(current, key).data;
-        data[res] = data[key]
-        delete data[key];
-        key = res;
-      }
-      if (key[0] == '<') {
+      if (key.slice(-1) === '<') {
         let res;
-        const fn = key.slice(1);
+        const fn = key.slice(0, key.length - 1);
         if (functions[fn]) {
           res = functions[fn](current, data[key]);
         } else {
@@ -52,7 +46,7 @@ export function parse(current: Moss.Layer): Moss.Layer {
         if (res) {
           extend(data, res);
         }
-      } else if (key[0] == '-') {
+      } else if (key[0] == '=') {
         const res = _cascade({ [key]: data[key] }, state);
         if (check(res, Object)) {
           delete data[key];
@@ -61,6 +55,12 @@ export function parse(current: Moss.Layer): Moss.Layer {
         } else if (res) {
           return { data: res, state };
         }
+      } else if (key[0] == '$') {
+        const res: string = <any>interpolate(current, key).data;
+        const layer = next(current, data[key]);
+        data[res] = layer.data;
+        extend(state, layer.state);
+        delete data[key];
       } else {
         const layer = next(current, data[key]);
         data[key] = layer.data;

@@ -14,29 +14,29 @@ no: false
 `
 
 const configFile = `
--yes:
+=yes:
   override: 1
-  -no:
+  =no:
     override: 7
-  -yes:
-    $func:
-      -deferred:
+  =yes:
+    func>:
+      =deferred:
         setting: true
     basic:
-      -deferred: true
+      =deferred: true
       settings: true
     override: 2
--no:
+=no:
   override: 0
 `
 
 const expectFile = `
 override: 2
 basic:
-  -deferred: true
+  =deferred: true
   settings: true
-$func:
-  -deferred:
+func>:
+  =deferred:
     setting: true
 `
 

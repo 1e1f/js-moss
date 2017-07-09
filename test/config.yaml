@@ -1,27 +1,29 @@
-<select:
+select<:
   useCustomLibrary:
-    -*: false
-    -ios: true
-<$:
+    =: false
+    =ios: true
+$<:
+  compiler: &compiler
+    cc: $host.compiler
   host:
     ninja:
         version:
-          -host-mac: 1.5.7
-          -host-linux: 1.4
+          =host-mac: 1.5.7
+          =host-linux: 1.4
     compiler:
-      -host-mac: clang
-      -host-linux: gcc
+      =host-mac: clang
+      =host-linux: gcc
   graphicsLib:
-    -*: opengl
-    -win: directx
+    =*: opengl
+    =win: directx
   targets:
-    -mac, linux:
+    =mac, linux:
       device:
         arch: x64
         endianness: LE
-    -ios !linux:
+    =ios !linux:
       device:
-        <$>:
+        $<>:
           arch: arm
           endianness: BE
       simulator:
@@ -29,26 +31,27 @@
         endianness: LE
   build>:
     ninja:
+      # cc: $host.compiler
+      <<: *compiler
       fetch: http://ninja-v${host.ninja.version}.tar.gz
-      cc: $host.compiler
     defines:
-      <$:
+      $<:
         LE: 4321
         BE: 1234
       TARGET_ENDIANNESS: ${$endianness}
     cFlags:
-      -production:
+      =production:
         wAll: true
         O: 3
-      -debug:
+      =debug:
         O: 0
     link:
       $graphicsLib: $graphicsLib
 build:
-  <map:
+  map<:
     from: $targets
     to: $build
 require:
   requiredLibrary: tmake/requiredLibrary
-  -useCustomLibrary:
+  =useCustomLibrary:
     customLibrary: tmake/customLibrary
