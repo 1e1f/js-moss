@@ -1,8 +1,8 @@
-$select:
+<select:
   useCustomLibrary:
     -*: false
     -ios: true
-$:
+<$:
   host:
     ninja:
         version:
@@ -21,18 +21,18 @@ $:
         endianness: LE
     -ios !linux:
       device:
-        \$:
+        <$>:
           arch: arm
           endianness: BE
       simulator:
         arch: x64
         endianness: LE
-  build():
+  build>:
     ninja:
       fetch: http://ninja-v${host.ninja.version}.tar.gz
       cc: $host.compiler
     defines:
-      $:
+      <$:
         LE: 4321
         BE: 1234
       TARGET_ENDIANNESS: ${$endianness}
@@ -43,9 +43,9 @@ $:
       -debug:
         O: 0
     link:
-      ${graphicsLib}: $graphicsLib
+      $graphicsLib: $graphicsLib
 build:
-  $map:
+  <map:
     from: $targets
     to: $build
 require:

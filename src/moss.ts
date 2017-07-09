@@ -26,44 +26,46 @@ export const next = (current: Moss.Layer, input: Moss.Branch) => {
 export function parse(current: Moss.Layer): Moss.Layer {
   const { state, data } = current;
   for (let key of Object.keys(data)) {
-    if (key[0] == '$') {
-      if (key[1] == '{') {
+    if (key[0] == '\\') {
+      data[key.slice(1)] = data[key];
+      delete data[key];
+    } else if (key.slice(-1) === '>') {
+      data[key.slice(0, key.length - 1)] = data[key];
+      delete data[key];
+    }
+    else {
+      if (key[0] == '$') {
         const res: string = <any>interpolate(current, key).data;
         data[res] = data[key]
         delete data[key];
         key = res;
       }
-    }
-    if (key[0] == '\\') {
-      data[key.slice(1)] = data[key];
-      delete data[key];
-    } else if (key.slice(-2) === '()') {
-      data[key.slice(0, key.length - 2)] = data[key];
-      delete data[key];
-    } else if (key[0] == '$') {
-      let res;
-      if (functions[key]) {
-        res = functions[key](current, data[key]);
-      } else {
-        throw new Error(`no known function ${key}`);
-      }
-      delete data[key];
-      if (res) {
-        extend(data, res);
-      }
-    } else if (key[0] == '-') {
-      const res = _cascade({ [key]: data[key] }, state);
-      if (check(res, Object)) {
+      if (key[0] == '<') {
+        let res;
+        const fn = key.slice(1);
+        if (functions[fn]) {
+          res = functions[fn](current, data[key]);
+        } else {
+          throw new Error(`no known function ${fn}`);
+        }
         delete data[key];
-        const layer = parse({ data: res, state });
-        extend(data, layer.data);
-      } else if (res) {
-        return { data: res, state };
+        if (res) {
+          extend(data, res);
+        }
+      } else if (key[0] == '-') {
+        const res = _cascade({ [key]: data[key] }, state);
+        if (check(res, Object)) {
+          delete data[key];
+          const layer = parse({ data: res, state });
+          extend(data, layer.data);
+        } else if (res) {
+          return { data: res, state };
+        }
+      } else {
+        const layer = next(current, data[key]);
+        data[key] = layer.data;
+        extend(state, layer.state);
       }
-    } else {
-      const layer = next(current, data[key]);
-      data[key] = layer.data;
-      extend(state, layer.state);
     }
   }
   return current;
@@ -86,7 +88,7 @@ export function addFunctions(userFunctions: Moss.Functions) {
 }
 
 addFunctions({
-  $select: (current: Moss.Layer, args: any) => {
+  select: (current: Moss.Layer, args: any) => {
     const { state } = current;
     const selected = next(current, args).data;
     extend(state.selectors, selected);
@@ -95,10 +97,10 @@ addFunctions({
     const selected = next(layer, args).data;
     extend(layer.state.stack, selected);
   },
-  $function: ({ state, data }: Moss.Layer, args: any) => {
+  function: ({ state, data }: Moss.Layer, args: any) => {
     return args;
   },
-  $each: (layer: Moss.Layer, args: any) => {
+  each: (layer: Moss.Layer, args: any) => {
     if (!args.of) {
       throw new Error(`for $each please supply 'of:' as input`);
     }
@@ -114,7 +116,7 @@ addFunctions({
       i++;
     });
   },
-  $map: (parent: Moss.Layer, args: any) => {
+  map: (parent: Moss.Layer, args: any) => {
     const layer = next(parent, args);
     const { data } = layer;
     if (!data.from) {
