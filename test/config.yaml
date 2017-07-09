@@ -16,19 +16,6 @@ $<:
   graphicsLib:
     =*: opengl
     =win: directx
-  targets:
-    =mac, linux:
-      device:
-        arch: x64
-        endianness: LE
-    =ios !linux:
-      device:
-        $<>:
-          arch: arm
-          endianness: BE
-      simulator:
-        arch: x64
-        endianness: LE
   build>:
     ninja:
       # cc: $host.compiler
@@ -49,7 +36,19 @@ $<:
       $graphicsLib: $graphicsLib
 build:
   map<:
-    from: $targets
+    from:
+      =mac, linux:
+        device:
+          arch: x64
+          endianness: LE
+      =ios !linux:
+        device:
+          $<>:
+            arch: arm
+            endianness: BE
+        simulator:
+          arch: x64
+          endianness: LE
     to: $build
 require:
   requiredLibrary: tmake/requiredLibrary

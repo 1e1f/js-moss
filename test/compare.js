@@ -1,3 +1,5 @@
+'use strict';
+
 const selectors = { // $select
     'host-mac': true,
     'host-linux': false,

@@ -100,20 +100,21 @@ addFunctions({
   function: ({ state, data }: Moss.Layer, args: any) => {
     return args;
   },
-  each: (layer: Moss.Layer, args: any) => {
-    if (!args.of) {
-      throw new Error(`for $each please supply 'of:' as input`);
+  each: (parent: Moss.Layer, args: any) => {
+    const layer = next(parent, args);
+    const { data } = layer;
+    if (!data.of) {
+      throw new Error(`for $each please supply an 'of:' branch`);
     }
-    if (!args.do) {
-      throw new Error(`for $each please supply 'do:' as `);
+    if (!data.do) {
+      throw new Error(`for $each please supply a 'do:' branch `);
     }
-    const iLayer = next(layer, args.of);
     let i = 0;
-    each(iLayer.data, (item, key) => {
-      const layer = next(iLayer, item);
-      layer.state.stack.index = i;
-      next(layer, clone(args.do));
+    each(data.of, (item, key) => {
+      const ret = next(layer, item);
+      ret.state.stack.index = i;
       i++;
+      next(ret, clone(data.do)).data;
     });
   },
   map: (parent: Moss.Layer, args: any) => {
