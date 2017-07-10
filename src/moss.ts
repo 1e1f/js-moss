@@ -25,6 +25,7 @@ export const next = (current: Moss.Layer, input: Moss.Branch) => {
 
 export function parse(current: Moss.Layer): Moss.Layer {
   const { state, data } = current;
+  let scalarVal;
   for (let key of Object.keys(data)) {
     if (key[0] == '\\') {
       data[key.slice(1)] = data[key];
@@ -48,12 +49,12 @@ export function parse(current: Moss.Layer): Moss.Layer {
         }
       } else if (key[0] == '=') {
         const res = _cascade({ [key]: data[key] }, state);
+        delete data[key];
         if (check(res, Object)) {
-          delete data[key];
           const layer = parse({ data: res, state });
           extend(data, layer.data);
-        } else if (res) {
-          return { data: res, state };
+        } else if (res != undefined) {
+          scalarVal = interpolate(current, res).data;
         }
       } else if (key[0] == '$') {
         const res: string = <any>interpolate(current, key).data;
@@ -67,6 +68,9 @@ export function parse(current: Moss.Layer): Moss.Layer {
         extend(state, layer.state);
       }
     }
+  }
+  if (scalarVal) {
+    return { data: scalarVal, state }
   }
   return current;
 }
@@ -152,13 +156,15 @@ function interpolate(layer: Moss.Layer, input: any): Moss.Layer {
 
 function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
   const { value, changed } = __interpolate(input, (str: string) => {
+    if (!str) return '';
     const res = valueForKeyPath(str, dictionary);
     if (res) {
       return res;
     } else {
       throw new Error(`no value for required keypath ${str} in interpolation stack \n${yaml.dump(dictionary)} `);
     }
-  }, (res) => {
+  }, (res: Object) => {
+    if (!Object.keys(res)) return '';
     return next(layer, res).data;
   });
   if (changed) {
