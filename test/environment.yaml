@@ -5,3 +5,4 @@ select<:
   debug: false
   ios: true
   mac: false
+  dark: true

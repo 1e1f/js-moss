@@ -50,6 +50,14 @@ build:
           arch: x64
           endianness: LE
     to: $build
+theme:
+  colors:
+    purple: rgb(184, 0, 142)
+    =dark:
+      blue: rgb(184, 0, 142)
+  gradients:
+    rainbow:
+      =: linear-gradient(to right, ${colors.purple}, ${colors.blue})
 require:
   requiredLibrary: tmake/requiredLibrary
   =useCustomLibrary:

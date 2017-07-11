@@ -54,18 +54,18 @@ export function parse(current: Moss.Layer): Moss.Layer {
           const layer = parse({ data: res, state });
           extend(data, layer.data);
         } else if (res != undefined) {
-          scalarVal = interpolate(current, res).data;
+          const layer = interpolate(current, res);
+          scalarVal = layer.data;
         }
       } else if (key[0] == '$') {
         const res: string = <any>interpolate(current, key).data;
         const layer = next(current, data[key]);
         data[res] = layer.data;
-        extend(state, layer.state);
+        extend(state, { selectors: layer.state.selectors, stack: layer.state.stack });
         delete data[key];
       } else {
         const layer = next(current, data[key]);
         data[key] = layer.data;
-        extend(state, layer.state);
       }
     }
   }
@@ -74,6 +74,8 @@ export function parse(current: Moss.Layer): Moss.Layer {
   }
   return current;
 }
+
+// function extendLayer = ()
 
 export const newState = (): Moss.State => {
   return { auto: {}, stack: {}, selectors: {} };
