@@ -14,12 +14,12 @@ describe('moss', () => {
     });
 
     it('can parse with state', () => {
-        const config = yaml.load(readFileSync(join(__dirname, 'config.yaml'), 'utf8'));
-        const environment = yaml.load(readFileSync(join(__dirname, 'environment.yaml'), 'utf8'));
-        const expect = yaml.load(readFileSync(join(__dirname, 'expect.yaml'), 'utf8'));
+        const config = readFileSync(join(__dirname, 'config.yaml'), 'utf8');
+        const environment = readFileSync(join(__dirname, 'environment.yaml'), 'utf8');
 
         const result = load(config, environment);
 
+        const expect = yaml.load(readFileSync(join(__dirname, 'expect.yaml'), 'utf8'));
         assert.deepEqual(result, expect);
     });
 

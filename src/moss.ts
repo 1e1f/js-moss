@@ -17,13 +17,13 @@ export const next = (current: Moss.Layer, input: Moss.Branch) => {
   const state = clone(current.state);
   extend(state.auto, current.data);
   if (check(input, Object)) {
-    return parse({ data: input, state });
+    return _parse({ data: input, state });
   } else {
     return interpolate(current, input);
   }
 }
 
-export function parse(current: Moss.Layer): Moss.Layer {
+export function _parse(current: Moss.Layer): Moss.Layer {
   const { state, data } = current;
   for (let key of Object.keys(data)) {
     if (key[0] == '\\') {
@@ -50,7 +50,7 @@ export function parse(current: Moss.Layer): Moss.Layer {
         const res = _cascade({ [key]: data[key] }, state);
         if (check(res, Object)) {
           delete data[key];
-          const layer = parse({ data: res, state });
+          const layer = _parse({ data: res, state });
           extend(data, layer.data);
         } else if (res) {
           return { data: res, state };
@@ -169,10 +169,21 @@ function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
   return value;
 }
 
-export function load(trunk: Moss.Branch, baseParser?: Moss.Branch) {
+export function parse(trunk: Moss.Branch, baseParser?: Moss.Branch) {
   if (baseParser) {
     const layer = next(newLayer(), baseParser);
     return next(layer, trunk).data;
   }
   return next(newLayer(), trunk).data;
+}
+
+export function load(config: string, baseParser: string) {
+  if (baseParser) {
+    return parse(yaml.load(config), yaml.load(baseParser));
+  }
+  return parse(yaml.load(config));
+}
+
+export function transform(config: string, baseParser: string) {
+  return yaml.dump(load(config, baseParser));;
 }
