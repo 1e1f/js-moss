@@ -21,6 +21,12 @@ build:
       TARGET_ENDIANNESS: 4321
     link:
       opengl: opengl
+theme:
+  colors:
+    purple: rgb(184, 0, 142)
+    blue: rgb(184, 0, 142)
+  gradients:
+    rainbow: linear-gradient(to right, rgb(184, 0, 142), rgb(184, 0, 142))
 require:
   requiredLibrary: tmake/requiredLibrary
   customLibrary: tmake/customLibrary

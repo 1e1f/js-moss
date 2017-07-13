@@ -1,10 +1,13 @@
+'use strict';
+
 const selectors = { // $select
     'host-mac': true,
     'host-linux': false,
     production: true,
     debug: false,
     ios: true,
-    mac: false
+    mac: false,
+    dark: true
 }
 
 const host = { // $
@@ -77,6 +80,22 @@ for (const key of Object.keys(targets)) { // $map
     }
     ref.link = { [graphicsLib]: graphicsLib };
 }
+
+const theme = {
+    colors: {
+        purple: 'rgb(184, 0, 142)',
+        blue: selectors.dark ? 'rgb(184, 0, 142)' : undefined
+    },
+    gradients: {
+        rainbow: ''
+    }
+};
+
+if (selectors.dark) {
+    theme.gradients.rainbow = `linear-gradient(to right, ${theme.colors.purple}, ${theme.colors.blue})`;
+}
+
+out.theme = theme;
 
 if (selectors.useCustomLibrary) {
     out.require.customLibrary = 'tmake/customLibrary'

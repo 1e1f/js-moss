@@ -16,19 +16,6 @@ $<:
   graphicsLib:
     =*: opengl
     =win: directx
-  targets:
-    =mac, linux:
-      device:
-        arch: x64
-        endianness: LE
-    =ios !linux:
-      device:
-        $<>:
-          arch: arm
-          endianness: BE
-      simulator:
-        arch: x64
-        endianness: LE
   build>:
     ninja:
       # cc: $host.compiler
@@ -49,8 +36,28 @@ $<:
       $graphicsLib: $graphicsLib
 build:
   map<:
-    from: $targets
+    from:
+      =mac, linux:
+        device:
+          arch: x64
+          endianness: LE
+      =ios !linux:
+        device:
+          $<>:
+            arch: arm
+            endianness: BE
+        simulator:
+          arch: x64
+          endianness: LE
     to: $build
+theme:
+  colors:
+    purple: rgb(184, 0, 142)
+    =dark:
+      blue: rgb(184, 0, 142)
+  gradients:
+    rainbow:
+      =: linear-gradient(to right, ${colors.purple}, ${colors.blue})
 require:
   requiredLibrary: tmake/requiredLibrary
   =useCustomLibrary:

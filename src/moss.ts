@@ -25,6 +25,7 @@ export const next = (current: Moss.Layer, input: Moss.Branch) => {
 
 export function _parse(current: Moss.Layer): Moss.Layer {
   const { state, data } = current;
+  let scalarVal;
   for (let key of Object.keys(data)) {
     if (key[0] == '\\') {
       data[key.slice(1)] = data[key];
@@ -48,28 +49,33 @@ export function _parse(current: Moss.Layer): Moss.Layer {
         }
       } else if (key[0] == '=') {
         const res = _cascade({ [key]: data[key] }, state);
+        delete data[key];
         if (check(res, Object)) {
-          delete data[key];
           const layer = _parse({ data: res, state });
           extend(data, layer.data);
-        } else if (res) {
-          return { data: res, state };
+        } else if (res != undefined) {
+          const layer = interpolate(current, res);
+          scalarVal = layer.data;
         }
       } else if (key[0] == '$') {
         const res: string = <any>interpolate(current, key).data;
         const layer = next(current, data[key]);
         data[res] = layer.data;
-        extend(state, layer.state);
+        extend(state, { selectors: layer.state.selectors, stack: layer.state.stack });
         delete data[key];
       } else {
         const layer = next(current, data[key]);
         data[key] = layer.data;
-        extend(state, layer.state);
       }
     }
   }
+  if (scalarVal) {
+    return { data: scalarVal, state }
+  }
   return current;
 }
+
+// function extendLayer = ()
 
 export const newState = (): Moss.State => {
   return { auto: {}, stack: {}, selectors: {} };
@@ -100,20 +106,21 @@ addFunctions({
   function: ({ state, data }: Moss.Layer, args: any) => {
     return args;
   },
-  each: (layer: Moss.Layer, args: any) => {
-    if (!args.of) {
-      throw new Error(`for $each please supply 'of:' as input`);
+  each: (parent: Moss.Layer, args: any) => {
+    const layer = next(parent, args);
+    const { data } = layer;
+    if (!data.of) {
+      throw new Error(`for $each please supply an 'of:' branch`);
     }
-    if (!args.do) {
-      throw new Error(`for $each please supply 'do:' as `);
+    if (!data.do) {
+      throw new Error(`for $each please supply a 'do:' branch `);
     }
-    const iLayer = next(layer, args.of);
     let i = 0;
-    each(iLayer.data, (item, key) => {
-      const layer = next(iLayer, item);
-      layer.state.stack.index = i;
-      next(layer, clone(args.do));
+    each(data.of, (item, key) => {
+      const ret = next(layer, item);
+      ret.state.stack.index = i;
       i++;
+      next(ret, clone(data.do)).data;
     });
   },
   map: (parent: Moss.Layer, args: any) => {
@@ -151,13 +158,15 @@ function interpolate(layer: Moss.Layer, input: any): Moss.Layer {
 
 function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
   const { value, changed } = __interpolate(input, (str: string) => {
+    if (!str) return '';
     const res = valueForKeyPath(str, dictionary);
     if (res) {
       return res;
     } else {
       throw new Error(`no value for required keypath ${str} in interpolation stack \n${yaml.dump(dictionary)} `);
     }
-  }, (res) => {
+  }, (res: Object) => {
+    if (!Object.keys(res)) return '';
     return next(layer, res).data;
   });
   if (changed) {
