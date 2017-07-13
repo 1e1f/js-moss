@@ -21,6 +21,13 @@ $<:
       # cc: $host.compiler
       <<: *compiler
       fetch: http://ninja-v${host.ninja.version}.tar.gz
+    sources:
+      =:
+      - 'common.c'
+      =ios:
+      - 'ios.c'
+      =ios simulator:
+      - 'simulator.c'
     defines:
       $<:
         LE: 4321
@@ -49,6 +56,8 @@ build:
         simulator:
           arch: x64
           endianness: LE
+          select<>:
+            simulator: 1
     to: $build
 theme:
   colors:

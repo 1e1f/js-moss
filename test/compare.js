@@ -69,7 +69,12 @@ for (const key of Object.keys(targets)) { // $map
         LE: 4321,
         BE: 1234
     }
-    ref.defines = { TARGET_ENDIANNESS: endianness[target.endianness] } // ${${endianness}}
+    ref.sources = ['common.c'];
+    if (selectors.ios) ref.sources.push('ios.c');
+    if (key == 'simulator') ref.sources.push('simulator.c');
+    ref.defines = {
+        TARGET_ENDIANNESS: endianness[target.endianness]
+    } // ${${endianness}}
     ref.cFlags = {}
     if (selectors.production) { // -production
         ref.cFlags.wAll = true;
@@ -78,7 +83,9 @@ for (const key of Object.keys(targets)) { // $map
     if (selectors.debug) { // -debug
         ref.cFlags.O = 0;
     }
-    ref.link = { [graphicsLib]: graphicsLib };
+    ref.link = {
+        [graphicsLib]: graphicsLib
+    };
 }
 
 const theme = {

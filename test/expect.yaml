@@ -3,6 +3,9 @@ build:
     ninja:
       cc: clang
       fetch: 'http://ninja-v1.5.7.tar.gz'
+    sources:
+    - common.c
+    - ios.c
     cFlags:
       O: 3
       wAll: true
@@ -14,6 +17,10 @@ build:
     ninja:
       cc: clang
       fetch: 'http://ninja-v1.5.7.tar.gz'
+    sources:
+    - common.c
+    - ios.c
+    - simulator.c
     cFlags:
       O: 3
       wAll: true

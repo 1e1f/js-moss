@@ -25,7 +25,7 @@ export const next = (current: Moss.Layer, input: Moss.Branch) => {
 
 export function _parse(current: Moss.Layer): Moss.Layer {
   const { state, data } = current;
-  let scalarVal;
+  let memo;
   for (let key of Object.keys(data)) {
     if (key[0] == '\\') {
       data[key.slice(1)] = data[key];
@@ -50,12 +50,19 @@ export function _parse(current: Moss.Layer): Moss.Layer {
       } else if (key[0] == '=') {
         const res = _cascade({ [key]: data[key] }, state);
         delete data[key];
-        if (check(res, Object)) {
+        if (check(res, Array)) {
+          if (check(memo, Array)) {
+            memo = (memo as any[]).concat(res);
+          } else {
+            memo = res;
+          }
+        }
+        else if (check(res, Object)) {
           const layer = _parse({ data: res, state });
           extend(data, layer.data);
         } else if (res != undefined) {
           const layer = interpolate(current, res);
-          scalarVal = layer.data;
+          memo = layer.data;
         }
       } else if (key[0] == '$') {
         const res: string = <any>interpolate(current, key).data;
@@ -69,8 +76,8 @@ export function _parse(current: Moss.Layer): Moss.Layer {
       }
     }
   }
-  if (scalarVal) {
-    return { data: scalarVal, state }
+  if (memo) {
+    return { data: memo, state }
   }
   return current;
 }
