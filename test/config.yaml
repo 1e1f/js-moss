@@ -14,7 +14,7 @@ $<:
       =host-mac: clang
       =host-linux: gcc
   graphicsLib:
-    =*: opengl
+    =: opengl
     =win: directx
   build>:
     ninja:
@@ -23,11 +23,11 @@ $<:
       fetch: http://ninja-v${host.ninja.version}.tar.gz
     sources:
       =:
-      - 'common.c'
-      =ios:
-      - 'ios.c'
-      =ios simulator:
-      - 'simulator.c'
+        - 'common.c'
+      +ios:
+        - 'ios.c'
+      +ios simulator:
+        - 'simulator.c'
     defines:
       $<:
         LE: 4321
@@ -61,13 +61,13 @@ build:
     to: $build
 theme:
   colors:
-    purple: rgb(184, 0, 142)
-    =dark:
+    =:
+      purple: rgb(184, 0, 142)
+    +dark:
       blue: rgb(184, 0, 142)
   gradients:
-    rainbow:
-      =: linear-gradient(to right, ${colors.purple}, ${colors.blue})
+    rainbow: linear-gradient(to right, ${colors.purple}, ${colors.blue})
 require:
   requiredLibrary: tmake/requiredLibrary
-  =useCustomLibrary:
+  +useCustomLibrary:
     customLibrary: tmake/customLibrary

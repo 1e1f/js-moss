@@ -1,4 +1,4 @@
-import { check, contains, each, keyPaths, sumIfEvery, greatestResult, valueForKeyPath, setValueForKeyPath } from 'typed-json-transform';
+import { check, contains, each, extend, keyPaths, map, sumIfEvery, greatestResult, valueForKeyPath, setValueForKeyPath } from 'typed-json-transform';
 
 export function startsWith(string: string, s: string) {
     return string.slice(0, s.length) === s;
@@ -42,8 +42,8 @@ export function select(input: string[], cssString: string): number {
 }
 
 export const parseSelectors = ($select: any) => {
-    const keywords: string[] = ['*'];
-    const selectors: string[] = ['*'];
+    const keywords: string[] = [];
+    const selectors: string[] = [];
     each($select, (opt: string | number, key: string) => {
         const selector = key;
         keywords.push(selector);
@@ -54,50 +54,70 @@ export const parseSelectors = ($select: any) => {
     }
 }
 
-export const branchSelect = (input: any, options: any, stack: any, keypath: string = '', precedence = 0) => {
-    const { keywords, selectors } = parseSelectors(options);
-    if (check(input, Object)) {
-        for (const key of Object.keys(input)) {
-            if (key[0] == '=') {
-                const css = key.slice(1) || '*';
-                if (select(keywords, css)) {
-                    const inlinePrecedence = select(selectors, css);
-                    if (inlinePrecedence > 0) {
-                        branchSelect(input[key], options, stack, keypath, precedence + inlinePrecedence);
-                    }
-                }
-            } else {
-                if (!stack[precedence]) {
-                    stack[precedence] = {};
-                }
-                const nextKeypath = keypath ? [keypath, key].join('.') : key;
-                stack[precedence][nextKeypath] = input[key];
-            }
+type nextFn = (ctx: any, data: any) => any
+
+export const shouldRecur = (data: any, prefix: string): any => {
+    if (!check(data, Object)) return false;
+    for (const key of Object.keys(data)) {
+        if (key[0] == prefix) {
+            return true;
         }
-    } else {
-        if (!stack[precedence]) {
-            stack[precedence] = {};
+    }
+    return false;
+}
+
+export const shouldCascade = (data: any): any => {
+    for (const key of Object.keys(data)) {
+        if (key[0] == '=' || key[0] == '+' || key[0] == '-') {
+            return true;
         }
-        stack[precedence][keypath] = input;
     }
 }
 
-interface Level { [index: string]: any }
+export const base = (data: any): any => {
+    const res: any = {};
+    for (const key of Object.keys(data)) {
+        if (!contains(['=', '-', '+'], key[0]))
+            res[key] = data[key];
+    }
+    return Object.keys(res).length ? res : undefined;
+}
 
-export const cascade = (input: Moss.Branch, state: Moss.State) => {
-    const stack: Level[] = [];
-    branchSelect(input, state.selectors, stack);
-    let res = {};
-    for (const level of stack) {
-        if (level) {
-            for (const key of Object.keys(level)) {
-                if (key) {
-                    setValueForKeyPath(level[key], key, res);
-                } else {
-                    res = level[key];
+interface cascadeOptions {
+    prefix: string,
+    usePrecedence?: boolean,
+    onMatch?: (match: any) => void
+}
+
+export const cascade = (ctx: any, data: any, options: cascadeOptions): any => {
+    const { keywords, selectors } = parseSelectors(ctx.state.selectors);
+    const { usePrecedence, prefix, onMatch } = options;
+    let highest = 0;
+    let res;
+    for (const key of Object.keys(data)) {
+        if (key[0] == prefix) {
+            const css = key.slice(1);
+            if (!css) {
+                if (highest == 0) {
+                    res = data[key];
+                    if (onMatch) onMatch(data[key]);
+                }
+            } else {
+                if (select(keywords, css)) {
+                    const precedence = select(selectors, css);
+                    if (precedence > highest) {
+                        res = data[key];
+                        if (usePrecedence) {
+                            highest = precedence;
+                        }
+                        if (onMatch) onMatch(data[key]);
+                    }
                 }
             }
         }
+    }
+    if (shouldRecur(res, prefix)) {
+        return cascade(ctx, res, options);
     }
     return res;
 }

@@ -1,8 +1,8 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
-import { extend, check, combine, combineN, contains, clone, each, okmap, union, or, hashField, valueForKeyPath } from 'typed-json-transform';
+import { arrayify, extend, check, combine, combineN, contains, clone, each, map, okmap, union, difference, or, hashField, valueForKeyPath } from 'typed-json-transform';
 import { interpolate as __interpolate } from './interpolate';
-import { cascade as _cascade, parseSelectors, select } from './cascade';
+import { base, cascade as _cascade, shouldCascade, parseSelectors, select } from './cascade';
 import * as yaml from 'js-yaml';
 
 
@@ -13,19 +13,66 @@ function filter(trie: any, options: any) {
 
 const functions: Moss.Functions = {}
 
-export const next = (current: Moss.Layer, input: Moss.Branch) => {
+export const next = (current: Moss.Layer, input: Moss.Branch): Moss.Layer => {
   const state = clone(current.state);
   extend(state.auto, current.data);
-  if (check(input, Object)) {
-    return _parse({ data: input, state });
+  if (check(input, Array)) {
+    return { data: map(input, i => next(current, i).data), state };
+  }
+  else if (check(input, Object)) {
+    if (shouldCascade(input)) {
+      const pruned = cascade({ data: input, state });
+      if (check(pruned, Object)) {
+        return branch({ data: pruned, state });
+      } else {
+        return next(current, pruned);
+      }
+    } else {
+      return branch({ data: input, state });
+    }
   } else {
     return interpolate(current, input);
   }
 }
 
-export function _parse(current: Moss.Layer): Moss.Layer {
+export function cascade(current: Moss.Layer): any {
   const { state, data } = current;
-  let memo;
+
+  const existing = base(data);
+  const selected = _cascade(current, data, { prefix: '=', usePrecedence: true });
+  let res: any;
+  if (existing) {
+    res = combine(existing, selected);
+  } else {
+    res = selected;
+  }
+  _cascade(current, data, {
+    prefix: '+', usePrecedence: false, onMatch: (val) => {
+      if (check(res, Array)) {
+        res = union(res, arrayify(val))
+      } else if (check(res, Object)) {
+        extend(res, val);
+      }
+    }
+  });
+
+  _cascade(current, data, {
+    prefix: '-', usePrecedence: false, onMatch: (val) => {
+      if (check(res, Array)) {
+        res = difference(res, arrayify(val));
+      } else if (check(res, Object)) {
+        for (const key of Object.keys(val)) {
+          delete res[key];
+        }
+      }
+    }
+  });
+
+  return res;
+}
+
+export function branch(current: Moss.Layer): Moss.Layer {
+  const { state, data } = current;
   for (let key of Object.keys(data)) {
     if (key[0] == '\\') {
       data[key.slice(1)] = data[key];
@@ -47,23 +94,6 @@ export function _parse(current: Moss.Layer): Moss.Layer {
         if (res) {
           extend(data, res);
         }
-      } else if (key[0] == '=') {
-        const res = _cascade({ [key]: data[key] }, state);
-        delete data[key];
-        if (check(res, Array)) {
-          if (check(memo, Array)) {
-            memo = (memo as any[]).concat(res);
-          } else {
-            memo = res;
-          }
-        }
-        else if (check(res, Object)) {
-          const layer = _parse({ data: res, state });
-          extend(data, layer.data);
-        } else if (res != undefined) {
-          const layer = interpolate(current, res);
-          memo = layer.data;
-        }
       } else if (key[0] == '$') {
         const res: string = <any>interpolate(current, key).data;
         const layer = next(current, data[key]);
@@ -75,9 +105,6 @@ export function _parse(current: Moss.Layer): Moss.Layer {
         data[key] = layer.data;
       }
     }
-  }
-  if (memo) {
-    return { data: memo, state }
   }
   return current;
 }

@@ -3,56 +3,54 @@ import * as yaml from 'js-yaml';
 import { join } from 'path';
 import { assert } from 'chai';
 
-import { load } from '../src';
-import { clone, contains, each } from 'typed-json-transform';
+import { check, clone, contains, each } from 'typed-json-transform';
 
-import { cascade } from '../src/cascade';
+import { load, next, newLayer } from '../src';
 
-const options = `
-yes: true
-no: false
+const env =
+  `select<:
+  also: true
+  yes: true
+  no: false
 `
 
-const configFile = `
-=yes:
-  override: 1
+const configFile =
+  `=yes:
   =no:
-    override: 7
+    version: 7
   =yes:
-    func>:
-      =deferred:
-        setting: true
-    basic:
-      =deferred: true
-      settings: true
-    override: 2
+    nested:
+      setting: true
+      object:
+        =yes:
+          key: value
+      array:
+        =yes:
+        - no
+        =yes also:
+        - item
+        - nextItem
+    version: 2
 =no:
-  override: 0
+  version: 0
 `
 
 const expectFile = `
-override: 2
-basic:
-  =deferred: true
-  settings: true
-func>:
-  =deferred:
-    setting: true
+version: 2
+nested:
+  setting: true
+  object:
+    key: value
+  array:
+  - item
+  - nextItem
 `
 
 describe('cascade', () => {
   it('can parse with an environment and config file', () => {
-    const config = {
-      data: yaml.load(configFile),
-      state: {
-        selectors: yaml.load(options)
-      }
-    }
-
-    const result = cascade(config.data, config.state);
+    const result = load(configFile, env);
+    // console.log(result);
     const expect = yaml.load(expectFile);
     assert.deepEqual(result, expect);
   });
 });
-
-
