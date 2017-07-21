@@ -5,7 +5,13 @@ import * as yaml from 'js-yaml';
 
 function join(current: any, next: any) {
   if (current && check(current, String)) {
-    return current + next;
+    if (next || check(next, Number)) {
+      return current + next;
+    }
+  } else if (check(current, Number)) {
+    if (next || check(next, Number)) {
+      return current + next;
+    }
   } else if (next || check(next, Number)) {
     return next;
   }
@@ -102,7 +108,6 @@ export function expand(str: string, replace: (sub: string) => string, call: (sub
         case ' ':
           if (ptr.state.open && ptr.state.terminal == ' ') {
             close();
-            break;
           }
           append(char);
           break;
