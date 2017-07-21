@@ -5,7 +5,7 @@ import { assert } from 'chai';
 
 import { check, clone, contains, each } from 'typed-json-transform';
 
-import { load, next, newLayer } from '../src';
+import { load, parse, next, newLayer } from '../src';
 
 const env =
   `select<:
@@ -47,10 +47,17 @@ nested:
 `
 
 describe('cascade', () => {
-  it('can parse with an environment and config file', () => {
+  it('to selectors', () => {
     const result = load(configFile, env);
     // console.log(result);
     const expect = yaml.load(expectFile);
     assert.deepEqual(result, expect);
+  });
+
+  it('inherit and extend', () => {
+    const test = yaml.load(readFileSync(join(__dirname, 'inherit.yaml'), 'utf8'));
+    // console.log(result);
+    const result = parse(test.config);
+    assert.deepEqual(result, test.expect);
   });
 });

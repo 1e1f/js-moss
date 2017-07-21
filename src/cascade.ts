@@ -77,8 +77,7 @@ export const shouldCascade = (data: any): any => {
 export const base = (data: any): any => {
     const res: any = {};
     for (const key of Object.keys(data)) {
-        if (!contains(['=', '-', '+'], key[0]))
-            res[key] = data[key];
+        if (!contains(['=', '-', '+'], key[0])) res[key] = data[key];
     }
     return Object.keys(res).length ? res : undefined;
 }
@@ -98,19 +97,23 @@ export const cascade = (ctx: any, data: any, options: cascadeOptions): any => {
         if (key[0] == prefix) {
             const css = key.slice(1);
             if (!css) {
-                if (highest == 0) {
-                    res = data[key];
-                    if (onMatch) onMatch(data[key]);
+                if (onMatch) {
+                    const xformed = onMatch(data[key]);
+                    if (xformed) res = xformed;
                 }
+                else res = data[key];
             } else {
                 if (select(keywords, css)) {
                     const precedence = select(selectors, css);
                     if (precedence > highest) {
-                        res = data[key];
                         if (usePrecedence) {
                             highest = precedence;
                         }
-                        if (onMatch) onMatch(data[key]);
+                        if (onMatch) {
+                            const xformed = onMatch(data[key]);
+                            if (xformed) res = xformed;
+                        }
+                        else res = data[key];
                     }
                 }
             }

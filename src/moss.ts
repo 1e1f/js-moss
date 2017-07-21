@@ -39,7 +39,14 @@ export function cascade(current: Moss.Layer): any {
   const { state, data } = current;
 
   const existing = base(data);
-  const selected = _cascade(current, data, { prefix: '=', usePrecedence: true });
+  const selected = _cascade(current, data, {
+    prefix: '=', usePrecedence: true, onMatch: (val) => {
+      if (check(val, String)) {
+        val = interpolate(current, val).data;
+      }
+      return val;
+    }
+  });
   let res: any;
   if (existing) {
     res = combine(existing, selected);
@@ -47,7 +54,12 @@ export function cascade(current: Moss.Layer): any {
     res = selected;
   }
   _cascade(current, data, {
-    prefix: '+', usePrecedence: false, onMatch: (val) => {
+    prefix: '+',
+    usePrecedence: false,
+    onMatch: (val) => {
+      if (check(val, String)) {
+        val = interpolate(current, val).data;
+      }
       if (check(res, Array)) {
         res = union(res, arrayify(val))
       } else if (check(res, Object)) {
@@ -55,12 +67,17 @@ export function cascade(current: Moss.Layer): any {
       }
     }
   });
-
   _cascade(current, data, {
     prefix: '-', usePrecedence: false, onMatch: (val) => {
+      if (check(val, String)) {
+        val = interpolate(current, val).data;
+      }
       if (check(res, Array)) {
         res = difference(res, arrayify(val));
       } else if (check(res, Object)) {
+        if (check(val, String)) {
+          delete res[val];
+        }
         for (const key of Object.keys(val)) {
           delete res[key];
         }
@@ -191,25 +208,25 @@ function interpolate(layer: Moss.Layer, input: any): Moss.Layer {
 }
 
 function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
-  const { value, changed } = __interpolate(input, (str: string) => {
+  const { value, changed } = __interpolate(input, (str: string) => { // replace from trie
     if (!str) return '';
     const res = valueForKeyPath(str, dictionary);
     if (res) {
       return res;
     } else {
-      throw new Error(`no value for required keypath ${str} in interpolation stack \n${yaml.dump(dictionary)} `);
+      throw new Error(`key path [ ${str} ] is not defined in stack}`);
     }
-  }, (res: Object) => {
+  }, (res: Object) => { // call method
     if (!Object.keys(res)) return '';
     return next(layer, res).data;
   });
   if (changed) {
     if (check(value, Object)) {
-      return value;
+      return clone(value);
     }
     return _interpolate(layer, value, dictionary);
   }
-  return value;
+  return clone(value);
 }
 
 export function parse(trunk: Moss.Branch, baseParser?: Moss.Branch) {
