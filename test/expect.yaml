@@ -31,6 +31,7 @@ build:
 theme:
   colors:
     purple: rgb(184, 0, 142)
+    mix: rgb(184, 0, 142)
     blue: rgb(184, 0, 142)
   gradients:
     rainbow: linear-gradient(to right, rgb(184, 0, 142), rgb(184, 0, 142))

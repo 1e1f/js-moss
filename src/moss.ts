@@ -211,7 +211,7 @@ function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
   const { value, changed } = __interpolate(input, (str: string) => { // replace from trie
     if (!str) return '';
     const res = valueForKeyPath(str, dictionary);
-    if (res) {
+    if (res || check(res, Number)) {
       return res;
     } else {
       throw new Error(`key path [ ${str} ] is not defined in stack}`);

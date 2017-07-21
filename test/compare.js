@@ -88,9 +88,14 @@ for (const key of Object.keys(targets)) { // $map
     };
 }
 
+const r = 184;
+const g = 0;
+const b = 142;
+
 const theme = {
     colors: {
         purple: 'rgb(184, 0, 142)',
+        mix : `rgb(${r}, ${g}, ${b})`,
         blue: selectors.dark ? 'rgb(184, 0, 142)' : undefined
     },
     gradients: {

@@ -3,13 +3,13 @@
 import { check, valueForKeyPath, isEqual } from 'typed-json-transform';
 import * as yaml from 'js-yaml';
 
-function join(input: any, raw: any) {
-  if (raw && check(raw, String)) {
-    return input + raw;
-  } else if (raw) {
-    return raw;
+function join(current: any, next: any) {
+  if (current && check(current, String)) {
+    return current + next;
+  } else if (next || check(next, Number)) {
+    return next;
   }
-  return input;
+  return current;
 }
 
 function newState() {
@@ -39,6 +39,7 @@ export function expand(str: string, replace: (sub: string) => string, call: (sub
       y++;
       stack[x][y] = newState();
       ptr = stack[x][y];
+      ptr.raw = '';
     }
     ptr.state.open = true;
     ptr.state.terminal = terminal;
@@ -52,7 +53,9 @@ export function expand(str: string, replace: (sub: string) => string, call: (sub
     if (check(ptr.subst, Object)) {
       res = call(ptr.subst);
     } else {
-      res = replace(ptr.subst) || '';
+      res = replace(ptr.subst);
+      if (!res)
+        if (!check(res, Number)) res = '';
     }
     if (y > 0) {
       delete stack[x][y];
@@ -111,7 +114,12 @@ export function expand(str: string, replace: (sub: string) => string, call: (sub
           break;
         default:
           if (ptr.state.dollar) {
-            open(' ');
+            if (ptr.raw.length == 0 || ptr.raw.slice(-1) == ' ') {
+              open(' ');
+            } else {
+              ptr.state.dollar = false;
+              append('$');
+            }
           }
           append(char);
           break;

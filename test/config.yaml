@@ -63,6 +63,11 @@ theme:
   colors:
     =:
       purple: rgb(184, 0, 142)
+      $<:
+        r: 184 
+        g: 0
+        b: 142
+      mix: rgb(${r}, ${g}, ${b})
     +dark:
       blue: rgb(184, 0, 142)
   gradients:
