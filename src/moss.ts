@@ -219,6 +219,15 @@ function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
   }, (res: Object) => { // call method
     if (!Object.keys(res)) return '';
     return next(layer, res).data;
+  }, () => {
+    const merged = { ...layer.state.auto, ...layer.data, ...layer.state.stack };
+    const pruned: any = {};
+    each(merged, (v, k) => {
+      if (check(v, Number)) {
+        pruned[k] = v;
+      }
+    });
+    return pruned;
   });
   if (changed) {
     if (check(value, Object)) {

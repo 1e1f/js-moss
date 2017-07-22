@@ -68,7 +68,7 @@ theme:
         g: 0
         b: 142
         a: 20
-        rr: =$r + $a
+        rr: =r + a
         bb: ={$b + ${a}}
       mix: rgb(${rr}, ${g}, ${bb})
     +dark:

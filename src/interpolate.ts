@@ -23,7 +23,7 @@ function newState() {
   return { state: {}, raw: '', subst: '' };
 }
 
-export function expand(str: string, replace: (sub: string) => string, call: (sub: any) => any) {
+export function expand(str: string, replace: (sub: string) => string, call: (sub: any) => any, getStack: any) {
   let changed = false;
   const template = String(str);
   let i = 0;
@@ -65,7 +65,12 @@ export function expand(str: string, replace: (sub: string) => string, call: (sub
       if (op == '$') {
         res = replace(ptr.subst);
       } else if (op == '=') {
-        res = math.eval(ptr.subst);
+        const vars = getStack();
+        if (Object.keys(vars).length) {
+          res = math.eval(ptr.subst, vars);
+        } else {
+          res = math.eval(ptr.subst);
+        }
       }
       if (!res)
         if (!check(res, Number)) res = '';
@@ -157,7 +162,7 @@ export function concat(stack: Elem[][]) {
   return { value: out, changed: changed };
 }
 
-export function interpolate(input: any, replace: (sub: string) => string, call: (sub: any) => any) {
+export function interpolate(input: any, replace: (sub: string) => string, call: (sub: any) => any, getStack: () => any) {
   if (!check(input, String)) {
     return { value: input, changed: false };
   }
@@ -165,7 +170,7 @@ export function interpolate(input: any, replace: (sub: string) => string, call: 
   //   const res: string = interpolate(input.slice(1), replace, call);
   //   return math.eval(res);
   // }
-  const exp = expand(input, replace, call);
+  const exp = expand(input, replace, call, getStack);
   const res = concat(exp);
   return res;
 }
