@@ -148,6 +148,10 @@ export function expand(str: string, replace: (sub: string) => string, call: (sub
   while (ptr.state.op) {
     close();
   }
+  if (ptr.state.detecting) {
+    append(ptr.state.detecting);
+    ptr.state.detecting = '';
+  }
   // delete ptr.state;
   return stack;
 };

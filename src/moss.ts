@@ -1,6 +1,6 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
-import { arrayify, extend, check, combine, combineN, contains, clone, each, map, okmap, union, difference, or, hashField, valueForKeyPath } from 'typed-json-transform';
+import { arrayify, extend, check, combine, combineN, contains, clone, each, map, okmap, union, difference, or, hashField, sum, valueForKeyPath } from 'typed-json-transform';
 import { interpolate as __interpolate } from './interpolate';
 import { base, cascade as _cascade, shouldCascade, parseSelectors, select } from './cascade';
 import * as yaml from 'js-yaml';
@@ -109,7 +109,11 @@ export function branch(current: Moss.Layer): Moss.Layer {
         }
         delete data[key];
         if (res) {
-          extend(data, res);
+          if (check(res, Object)) {
+            extend(data, res);
+          } else {
+            current.data = res;
+          }
         }
       } else if (key[0] == '$') {
         const res: string = <any>interpolate(current, key).data;
@@ -183,15 +187,82 @@ addFunctions({
     if (!data.to) {
       throw new Error(`for $map please supply 'to:' as `);
     }
-    let i = 0;
-    // const iterable = next(parent, data.from);
-    return okmap(data.from, (item, key) => {
-      const ret = next(layer, item);
-      ret.state.stack.index = i;
-      i++;
-      // console.log('mapping with layer', layer.state);
-      return { [key]: next(ret, clone(data.to)).data };
-    });
+    if (check(data.from, Array)) {
+      const a = map(data.from, (val, i) => {
+        const ret = next(parent, val);
+        ret.state.stack.index = i;
+        ret.state.stack.value = val;
+        return next(ret, clone(data.to)).data;
+      });
+      return a;
+    }
+    else if (check(data.from, Object)) {
+      let i = 0;
+      return okmap(data.from, (item, key) => {
+        const ret = next(parent, item);
+        ret.state.stack.index = i;
+        ret.state.stack.key = key;
+        i++;
+        // console.log('mapping with layer', layer.state);
+        return { [key]: next(ret, clone(data.to)).data };
+      });
+    }
+  },
+  reduce: (parent: Moss.Layer, args: any) => {
+    const layer = next(parent, args);
+    const { data } = layer;
+    if (!data.each) {
+      throw new Error(`for $map please supply 'each:' as input`);
+    }
+    if (!data.with) {
+      throw new Error(`for $map please supply 'with:' as input`);
+    }
+    if (!(data.memo || check(data.memo, Number))) {
+      throw new Error(`for $map please supply 'memo:' as input`);
+    }
+    if (check(data.each, Array)) {
+      let res: any = data.memo;
+      each(data.each, (val, i) => {
+        const ret = next(parent, val);
+        if (functions[data.with]) {
+          res = functions[data.with](ret, { value: val, memo: res, index: i });
+        }
+        else {
+          ret.state.stack.index = i;
+          ret.state.stack.value = val;
+          ret.state.stack.memo = res;
+          res = next(ret, data.with).data;
+        }
+      });
+      return res;
+    }
+    if (check(data.each, Object)) {
+      let i = 0;
+      const { state } = layer;
+      state.stack.memo = data.memo;
+      each(data.each, (val, key) => {
+        state.stack.index = i;
+        i++;
+        state.stack.key = key;
+        state.stack.value = val;
+        const res = next(layer, clone(data.with)).data;
+        if (check(res, Object)) {
+          extend(state.stack.memo, res);
+        }
+        else state.stack.memo = res;
+      });
+      return state.stack.memo;
+    }
+  },
+  group: (parent: Moss.Layer, args: any) => {
+    const layer = next(parent, args);
+    const { data } = layer;
+    return sum(data, (v) => v);
+  },
+  sum: (parent: Moss.Layer, args: any) => {
+    const layer = next(parent, args);
+    const { data } = layer;
+    return sum(data, (v) => v);
   }
 });
 
@@ -221,13 +292,7 @@ function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
     return next(layer, res).data;
   }, () => {
     const merged = { ...layer.state.auto, ...layer.data, ...layer.state.stack };
-    const pruned: any = {};
-    each(merged, (v, k) => {
-      if (check(v, Number)) {
-        pruned[k] = v;
-      }
-    });
-    return pruned;
+    return merged;
   });
   if (changed) {
     if (check(value, Object)) {
