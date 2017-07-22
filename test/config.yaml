@@ -67,7 +67,10 @@ theme:
         r: 184 
         g: 0
         b: 142
-      mix: rgb(${r}, ${g}, ${b})
+        a: 20
+        rr: =$r + $a
+        bb: ={$b + ${a}}
+      mix: rgb(${rr}, ${g}, ${bb})
     +dark:
       blue: rgb(184, 0, 142)
   gradients:
