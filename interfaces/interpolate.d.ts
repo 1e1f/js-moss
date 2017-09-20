@@ -11,3 +11,8 @@ interface Elem {
   raw: string
   subst: string
 }
+
+
+declare module 'interpolate' {
+  export function interpolate(input: any, replace: (sub: string) => string, call: (sub: any) => any): any;
+}
