@@ -1,0 +1,46 @@
+config:
+  select<:
+    conditionalExtension: 1
+  a:
+    b: c
+    d: e
+  b:
+    =: $a
+    +:
+      e: f
+  c:
+    =: $a
+    -: b
+  d:
+    =: $a
+    +:
+      e: f
+    -: $b
+  n: [1, 2]
+  o:
+    =: $n
+    +conditionalExtension: 3
+  p:
+    =: $n
+    -: 1
+  q: [3,4,5]
+  r:
+    =: $n
+    +: $q
+    -: [2, 3]
+expect:
+  a:
+    b: c
+    d: e
+  b:
+    b: c
+    d: e
+    e: f
+  c:
+    d: e
+  d: {}
+  n: [1,2]
+  o: [1,2,3]
+  p: [2]
+  q: [3,4,5]
+  r: [1,4,5]

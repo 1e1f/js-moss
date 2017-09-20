@@ -1,0 +1,71 @@
+config:
+  $<:
+    weather:
+      seattle:
+        type: rain
+        amount: .2
+      montana:
+        type: rain
+        amount: .05
+      minneapolis:
+        type: snow
+        amount: 1
+      chicago:
+        type: snow
+        amount: 3
+  mapObject:
+    map<:
+      from:
+        a:
+        b:
+          select<>:
+            ext: 1
+      to>:
+        =: basic
+        =ext: extended
+  mapArray:
+    map<:
+      from: [1,2,3]
+      to>: =value * 2
+  reduceArray:
+    reduce<:
+      each: [1,2,3,4]
+      with>: =memo * value
+      memo: 1
+  sumArray:
+    $<:
+      var: 15
+    sum<: [10, $var, -30]
+  reduceObject:
+    reduce<:
+      each: $weather
+      with>: =memo + $value.amount
+      memo: 0
+  mapReduceObject:
+    reduce<:
+      each: $weather
+      with>:
+        $value.type: =memo.${value.type} + value.amount
+      memo:
+        rain: 0
+        snow: 0
+  mapReduceArray:
+    reduce<:
+      each:
+        map<:
+          from: [1,2,3,4]
+          to>: =value * 2
+      with>: =memo * value
+      memo: 1
+expect:
+  mapObject:
+    a: basic
+    b: extended
+  mapArray: [2,4,6]
+  reduceArray: 24
+  sumArray: -5
+  reduceObject: 4.25
+  mapReduceObject:
+    rain: .25
+    snow: 4
+  mapReduceArray: 384

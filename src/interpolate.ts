@@ -2,21 +2,28 @@
 
 import { check, valueForKeyPath, isEqual } from 'typed-json-transform';
 import * as yaml from 'js-yaml';
+import * as math from 'mathjs';
 
-function join(input: any, raw: any) {
-  if (raw && check(raw, String)) {
-    return input + raw;
-  } else if (raw) {
-    return raw;
+function join(current: any, next: any) {
+  if (current && check(current, String)) {
+    if (next || check(next, Number)) {
+      return current + next;
+    }
+  } else if (check(current, Number)) {
+    if (next || check(next, Number)) {
+      return parseInt('' + current + '' + next);
+    }
+  } else if (next || check(next, Number)) {
+    return next;
   }
-  return input;
+  return current;
 }
 
 function newState() {
   return { state: {}, raw: '', subst: '' };
 }
 
-export function expand(str: string, replace: (sub: string) => string, call: (sub: any) => any) {
+export function expand(str: string, replace: (sub: string) => string, call: (sub: any) => any, getStack: any) {
   let changed = false;
   const template = String(str);
   let i = 0;
@@ -27,33 +34,48 @@ export function expand(str: string, replace: (sub: string) => string, call: (sub
   let ptr = stack[x][y];
 
   function append(char: string) {
-    if (ptr.state.open) {
+    if (ptr.state.op) {
       ptr.subst += char;
     } else {
       ptr.raw += char;
     }
   }
 
-  function open(terminal: string) {
-    if (ptr.state.open) {
+  function open(op: string, terminal: string) {
+    ptr.state.detecting = '';
+    const existing = ptr.state.op;
+    if (existing) {
       y++;
       stack[x][y] = newState();
       ptr = stack[x][y];
+      ptr.raw = '';
     }
-    ptr.state.open = true;
+    ptr.state.op = op;
     ptr.state.terminal = terminal;
-    ptr.state.dollar = false;
   }
 
   function close() {
-    ptr.state.open = false;
+    const op = ptr.state.op;
+    ptr.state.op = '';
     ptr.state.terminal = '';
     let res;
     if (check(ptr.subst, Object)) {
       res = call(ptr.subst);
     } else {
-      res = replace(ptr.subst) || '';
+      if (op == '$') {
+        res = replace(ptr.subst);
+      } else if (op == '=') {
+        const vars = getStack();
+        if (Object.keys(vars).length) {
+          res = math.eval(ptr.subst, vars);
+        } else {
+          res = math.eval(ptr.subst);
+        }
+      }
+      if (!res)
+        if (!check(res, Number)) res = '';
     }
+    // console.log(op, ':', ptr.subst, '=', res);
     if (y > 0) {
       delete stack[x][y];
       y--;
@@ -72,55 +94,63 @@ export function expand(str: string, replace: (sub: string) => string, call: (sub
 
   for (i = 0; i != template.length; i++) {
     const char = template[i];
-    if (ptr.state.escape == true) {
+    if (ptr.state.escape) {
       ptr.state.escape = false;
       append(char);
     } else {
+      const op = ptr.state.detecting;
       switch (char) {
         case '{':
-          if (ptr.state.dollar) {
-            open('}');
+          if (op) {
+            open(op, '}');
             break;
           }
           append(char);
           break;
         case '}':
-          if (ptr.state.open) {
+          if (ptr.state.op) {
             if (ptr.state.terminal == ' ') {
               close();
             }
-            if (ptr.state.open) {
-              close();
-            }
+            close();
             break;
           }
           append(char);
           break;
         case ' ':
-          if (ptr.state.open && ptr.state.terminal == ' ') {
+          if (ptr.state.op && ptr.state.terminal == char) {
             close();
-            break;
           }
           append(char);
           break;
         case '\\':
           ptr.state.escape = true;
           break;
-        case '$':
-          ptr.state.dollar = true;
-          break;
         default:
-          if (ptr.state.dollar) {
-            open(' ');
+          if (op) {
+            if (ptr.raw.length == 0 || ptr.raw.slice(-1) == ' ') {
+              if (op == '$') open(op, ' ');
+              else if (op == '=') open(op, '__');
+            } else {
+              append(op);
+              ptr.state.detecting = '';
+            }
           }
-          append(char);
+          if (char == '=' || char == '$') {
+            ptr.state.detecting = char;
+          } else {
+            append(char);
+          }
           break;
       }
     }
   }
-
-  if (ptr.state.open) {
+  while (ptr.state.op) {
     close();
+  }
+  if (ptr.state.detecting) {
+    append(ptr.state.detecting);
+    ptr.state.detecting = '';
   }
   // delete ptr.state;
   return stack;
@@ -136,11 +166,15 @@ export function concat(stack: Elem[][]) {
   return { value: out, changed: changed };
 }
 
-export function interpolate(input: any, replace: (sub: string) => string, call: (sub: any) => any) {
+export function interpolate(input: any, replace: (sub: string) => string, call: (sub: any) => any, getStack: () => any) {
   if (!check(input, String)) {
     return { value: input, changed: false };
   }
-  const exp = expand(input, replace, call);
+  // if (input[0] == '=') {
+  //   const res: string = interpolate(input.slice(1), replace, call);
+  //   return math.eval(res);
+  // }
+  const exp = expand(input, replace, call, getStack);
   const res = concat(exp);
   return res;
 }

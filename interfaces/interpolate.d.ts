@@ -1,7 +1,7 @@
 interface State {
   escape?: boolean
-  dollar?: boolean
-  open?: boolean
+  detecting?: string
+  op?: string
   dirty?: boolean
   terminal?: string
 }

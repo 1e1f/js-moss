@@ -1,0 +1,33 @@
+config:
+  =yes:
+    =no:
+      version: 7
+    =yes:
+      nested:
+        setting: true
+        object:
+          =yes:
+            key: value
+        array:
+          =yes:
+          - no
+          =yes also:
+          - item
+          - nextItem
+      version: 2
+  =no:
+    version: 0
+env:
+  select<:
+    also: true
+    yes: true
+    no: false
+expect:
+  version: 2
+  nested:
+    setting: true
+    object:
+      key: value
+    array:
+    - item
+    - nextItem

@@ -1,8 +1,8 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
-import { extend, check, combine, combineN, contains, clone, each, okmap, union, or, hashField, valueForKeyPath } from 'typed-json-transform';
+import { arrayify, extend, check, combine, combineN, contains, clone, each, map, okmap, union, difference, or, hashField, sum, valueForKeyPath } from 'typed-json-transform';
 import { interpolate as __interpolate } from './interpolate';
-import { cascade as _cascade, parseSelectors, select } from './cascade';
+import { base, cascade as _cascade, shouldCascade, parseSelectors, select } from './cascade';
 import * as yaml from 'js-yaml';
 
 
@@ -13,19 +13,83 @@ function filter(trie: any, options: any) {
 
 const functions: Moss.Functions = {}
 
-export const next = (current: Moss.Layer, input: Moss.Branch) => {
+export const next = (current: Moss.Layer, input: Moss.Branch): Moss.Layer => {
   const state = clone(current.state);
   extend(state.auto, current.data);
-  if (check(input, Object)) {
-    return parse({ data: input, state });
+  if (check(input, Array)) {
+    return { data: map(input, i => next(current, i).data), state };
+  }
+  else if (check(input, Object)) {
+    if (shouldCascade(input)) {
+      const pruned = cascade({ data: input, state });
+      if (check(pruned, Object)) {
+        return branch({ data: pruned, state });
+      } else {
+        return next(current, pruned);
+      }
+    } else {
+      return branch({ data: input, state });
+    }
   } else {
     return interpolate(current, input);
   }
 }
 
-export function parse(current: Moss.Layer): Moss.Layer {
+export function cascade(current: Moss.Layer): any {
   const { state, data } = current;
-  let scalarVal;
+
+  const existing = base(data);
+  const selected = _cascade(current, data, {
+    prefix: '=', usePrecedence: true, onMatch: (val) => {
+      if (check(val, String)) {
+        val = interpolate(current, val).data;
+      }
+      return val;
+    }
+  });
+  let res: any;
+  if (existing) {
+    res = combine(existing, selected);
+  } else {
+    res = selected;
+  }
+  _cascade(current, data, {
+    prefix: '+',
+    usePrecedence: false,
+    onMatch: (val) => {
+      if (check(val, String)) {
+        val = interpolate(current, val).data;
+      }
+      if (check(res, Array)) {
+        res = union(res, arrayify(val))
+      } else if (check(res, Object)) {
+        extend(res, val);
+      }
+    }
+  });
+  _cascade(current, data, {
+    prefix: '-', usePrecedence: false, onMatch: (val) => {
+      if (check(val, String)) {
+        val = interpolate(current, val).data;
+      }
+      if (check(res, Array)) {
+        res = difference(res, arrayify(val));
+      } else if (check(res, Object)) {
+        if (check(val, String)) {
+          delete res[val];
+        }
+        for (const key of Object.keys(val)) {
+          delete res[key];
+        }
+      }
+    }
+  });
+
+  return res;
+}
+
+export function branch(current: Moss.Layer): Moss.Layer {
+  const { state, data } = current;
   for (let key of Object.keys(data)) {
     if (key[0] == '\\') {
       data[key.slice(1)] = data[key];
@@ -45,17 +109,11 @@ export function parse(current: Moss.Layer): Moss.Layer {
         }
         delete data[key];
         if (res) {
-          extend(data, res);
-        }
-      } else if (key[0] == '=') {
-        const res = _cascade({ [key]: data[key] }, state);
-        delete data[key];
-        if (check(res, Object)) {
-          const layer = parse({ data: res, state });
-          extend(data, layer.data);
-        } else if (res != undefined) {
-          const layer = interpolate(current, res);
-          scalarVal = layer.data;
+          if (check(res, Object)) {
+            extend(data, res);
+          } else {
+            current.data = res;
+          }
         }
       } else if (key[0] == '$') {
         const res: string = <any>interpolate(current, key).data;
@@ -68,9 +126,6 @@ export function parse(current: Moss.Layer): Moss.Layer {
         data[key] = layer.data;
       }
     }
-  }
-  if (scalarVal) {
-    return { data: scalarVal, state }
   }
   return current;
 }
@@ -132,15 +187,82 @@ addFunctions({
     if (!data.to) {
       throw new Error(`for $map please supply 'to:' as `);
     }
-    let i = 0;
-    // const iterable = next(parent, data.from);
-    return okmap(data.from, (item, key) => {
-      const ret = next(layer, item);
-      ret.state.stack.index = i;
-      i++;
-      // console.log('mapping with layer', layer.state);
-      return { [key]: next(ret, clone(data.to)).data };
-    });
+    if (check(data.from, Array)) {
+      const a = map(data.from, (val, i) => {
+        const ret = next(parent, val);
+        ret.state.stack.index = i;
+        ret.state.stack.value = val;
+        return next(ret, clone(data.to)).data;
+      });
+      return a;
+    }
+    else if (check(data.from, Object)) {
+      let i = 0;
+      return okmap(data.from, (item, key) => {
+        const ret = next(parent, item);
+        ret.state.stack.index = i;
+        ret.state.stack.key = key;
+        i++;
+        // console.log('mapping with layer', layer.state);
+        return { [key]: next(ret, clone(data.to)).data };
+      });
+    }
+  },
+  reduce: (parent: Moss.Layer, args: any) => {
+    const layer = next(parent, args);
+    const { data } = layer;
+    if (!data.each) {
+      throw new Error(`for $map please supply 'each:' as input`);
+    }
+    if (!data.with) {
+      throw new Error(`for $map please supply 'with:' as input`);
+    }
+    if (!(data.memo || check(data.memo, Number))) {
+      throw new Error(`for $map please supply 'memo:' as input`);
+    }
+    if (check(data.each, Array)) {
+      let res: any = data.memo;
+      each(data.each, (val, i) => {
+        const ret = next(parent, val);
+        if (functions[data.with]) {
+          res = functions[data.with](ret, { value: val, memo: res, index: i });
+        }
+        else {
+          ret.state.stack.index = i;
+          ret.state.stack.value = val;
+          ret.state.stack.memo = res;
+          res = next(ret, data.with).data;
+        }
+      });
+      return res;
+    }
+    if (check(data.each, Object)) {
+      let i = 0;
+      const { state } = layer;
+      state.stack.memo = data.memo;
+      each(data.each, (val, key) => {
+        state.stack.index = i;
+        i++;
+        state.stack.key = key;
+        state.stack.value = val;
+        const res = next(layer, clone(data.with)).data;
+        if (check(res, Object)) {
+          extend(state.stack.memo, res);
+        }
+        else state.stack.memo = res;
+      });
+      return state.stack.memo;
+    }
+  },
+  group: (parent: Moss.Layer, args: any) => {
+    const layer = next(parent, args);
+    const { data } = layer;
+    return sum(data, (v) => v);
+  },
+  sum: (parent: Moss.Layer, args: any) => {
+    const layer = next(parent, args);
+    const { data } = layer;
+    return sum(data, (v) => v);
   }
 });
 
@@ -157,31 +279,45 @@ function interpolate(layer: Moss.Layer, input: any): Moss.Layer {
 }
 
 function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
-  const { value, changed } = __interpolate(input, (str: string) => {
+  const { value, changed } = __interpolate(input, (str: string) => { // replace from trie
     if (!str) return '';
     const res = valueForKeyPath(str, dictionary);
-    if (res) {
+    if (res || check(res, Number)) {
       return res;
     } else {
-      throw new Error(`no value for required keypath ${str} in interpolation stack \n${yaml.dump(dictionary)} `);
+      throw new Error(`key path [ ${str} ] is not defined in stack}`);
     }
-  }, (res: Object) => {
+  }, (res: Object) => { // call method
     if (!Object.keys(res)) return '';
     return next(layer, res).data;
+  }, () => {
+    const merged = { ...layer.state.auto, ...layer.data, ...layer.state.stack };
+    return merged;
   });
   if (changed) {
     if (check(value, Object)) {
-      return value;
+      return clone(value);
     }
     return _interpolate(layer, value, dictionary);
   }
-  return value;
+  return clone(value);
 }
 
-export function load(trunk: Moss.Branch, baseParser?: Moss.Branch) {
+export function parse(trunk: Moss.Branch, baseParser?: Moss.Branch) {
   if (baseParser) {
     const layer = next(newLayer(), baseParser);
     return next(layer, trunk).data;
   }
   return next(newLayer(), trunk).data;
+}
+
+export function load(config: string, baseParser: string) {
+  if (baseParser) {
+    return parse(yaml.load(config), yaml.load(baseParser));
+  }
+  return parse(yaml.load(config));
+}
+
+export function transform(config: string, baseParser: string) {
+  return yaml.dump(load(config, baseParser));;
 }
