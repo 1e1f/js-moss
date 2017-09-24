@@ -31,7 +31,7 @@ declare module 'moss' {
   export function addFunctions(userFunctions: Moss.Functions): null;
   export function next(current: Moss.Layer, input: any): any;
 
-  export function parse(trunk: Moss.Branch, baseParser?: Moss.Branch): any;
+  export function parse(trunk: Moss.Branch, baseParser?: Moss.Branch, shell?: (std: string) => string): any;
   export function load(config: string, baseParser: string): any;
   export function transform(config: string, baseParser: string): string;
 }

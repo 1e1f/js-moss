@@ -13,11 +13,11 @@ function filter(trie: any, options: any) {
 
 const functions: Moss.Functions = {}
 
-export const next = (current: Moss.Layer, input: Moss.Branch): Moss.Layer => {
+export const next = (current: Moss.Layer, input: Moss.Branch, interpolateOptions?: Expand.Options): Moss.Layer => {
   const state = clone(current.state);
   extend(state.auto, current.data);
   if (check(input, Array)) {
-    return { data: map(input, i => next(current, i).data), state };
+    return { data: map(input, i => next(current, i, interpolateOptions).data), state };
   }
   else if (check(input, Object)) {
     if (shouldCascade(input)) {
@@ -25,13 +25,13 @@ export const next = (current: Moss.Layer, input: Moss.Branch): Moss.Layer => {
       if (check(pruned, Object)) {
         return branch({ data: pruned, state });
       } else {
-        return next(current, pruned);
+        return next(current, pruned, interpolateOptions);
       }
     } else {
       return branch({ data: input, state });
     }
   } else {
-    return interpolate(current, input);
+    return interpolate(current, input, interpolateOptions);
   }
 }
 
@@ -88,7 +88,7 @@ export function cascade(current: Moss.Layer): any {
   return res;
 }
 
-export function branch(current: Moss.Layer): Moss.Layer {
+export function branch(current: Moss.Layer, interpolateOptions?: Expand.Options): Moss.Layer {
   const { state, data } = current;
   for (let key of Object.keys(data)) {
     if (key[0] == '\\') {
@@ -116,13 +116,13 @@ export function branch(current: Moss.Layer): Moss.Layer {
           }
         }
       } else if (key[0] == '$') {
-        const res: string = <any>interpolate(current, key).data;
-        const layer = next(current, data[key]);
+        const res: string = <any>interpolate(current, key, interpolateOptions).data;
+        const layer = next(current, data[key], interpolateOptions);
         data[res] = layer.data;
         extend(state, { selectors: layer.state.selectors, stack: layer.state.stack });
         delete data[key];
       } else {
-        const layer = next(current, data[key]);
+        const layer = next(current, data[key], interpolateOptions);
         data[key] = layer.data;
       }
     }
@@ -266,7 +266,7 @@ addFunctions({
   }
 });
 
-function interpolate(layer: Moss.Layer, input: any): Moss.Layer {
+function interpolate(layer: Moss.Layer, input: any, options?: Expand.Options): Moss.Layer {
   const { data, state } = layer;
   let dictionary;
   if (check(data, Object)) {
@@ -278,22 +278,32 @@ function interpolate(layer: Moss.Layer, input: any): Moss.Layer {
   return { data: res, state: layer.state };
 }
 
+const userOptions = {};
+
 function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
-  const { value, changed } = __interpolate(input, (str: string) => { // replace from trie
-    if (!str) return '';
-    const res = valueForKeyPath(str, dictionary);
-    if (res || check(res, Number)) {
-      return res;
-    } else {
-      throw new Error(`key path [ ${str} ] is not defined in stack}`);
-    }
-  }, (res: Object) => { // call method
-    if (!Object.keys(res)) return '';
-    return next(layer, res).data;
-  }, () => {
-    const merged = { ...layer.state.auto, ...layer.data, ...layer.state.stack };
-    return merged;
-  });
+  const expandOptions = {
+    ...{
+      replace: (str: string) => { // replace from trie
+        if (!str) return '';
+        const res = valueForKeyPath(str, dictionary);
+        if (res || check(res, Number)) {
+          return res;
+        } else {
+          throw new Error(`key path [ ${str} ] is not defined in stack}`);
+        }
+      },
+      call: (res: Object) => { // call method
+        if (!Object.keys(res)) return '';
+        return next(layer, res).data;
+      },
+      shell: () => 'no shell method supplied',
+      getStack: () => {
+        const merged = { ...layer.state.auto, ...layer.data, ...layer.state.stack };
+        return merged;
+      }
+    }, ...userOptions
+  }
+  const { value, changed } = __interpolate(input, expandOptions);
   if (changed) {
     if (check(value, Object)) {
       return clone(value);
@@ -301,6 +311,10 @@ function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
     return _interpolate(layer, value, dictionary);
   }
   return clone(value);
+}
+
+export function setOptions(options: Expand.Options) {
+  extend(userOptions, options);
 }
 
 export function parse(trunk: Moss.Branch, baseParser?: Moss.Branch) {

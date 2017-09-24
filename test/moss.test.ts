@@ -2,8 +2,9 @@ import { readFileSync } from 'fs';
 import * as yaml from 'js-yaml';
 import { join } from 'path';
 import { assert } from 'chai';
+import { exec } from 'shelljs';
 
-import { load, parse, next, newLayer } from '../src';
+import { load, parse, next, newLayer, setOptions } from '../src';
 import { clone, contains, each } from 'typed-json-transform';
 
 describe('moss', () => {
@@ -36,6 +37,21 @@ describe('moss', () => {
     it('kitchen sink', () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'kitchen.yaml'), 'utf8'));
         assert.deepEqual(parse(config, env), expect);
+    });
+
+    it('without shell', () => {
+        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'shell.yaml'), 'utf8'));
+        assert.deepEqual(parse(config, env), expect.withoutShell);
+    });
+
+    it('shell', () => {
+        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'shell.yaml'), 'utf8'));
+        setOptions({
+            shell: (str) => {
+                return (<string>exec(str, { silent: true }).stdout).replace('\r', '').replace('\n', '');
+            }
+        });
+        assert.deepEqual(parse(config, env), expect.withShell);
     });
 
     it('test equivalent js code', () => {

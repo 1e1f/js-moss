@@ -1,0 +1,8 @@
+config:
+  a: $(echo testSuccess)
+expect:
+  withoutShell:
+    a: no shell method supplied
+  withShell:
+    a: testSuccess
+  

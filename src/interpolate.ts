@@ -23,14 +23,17 @@ function newState() {
   return { state: {}, raw: '', subst: '' };
 }
 
-export function expand(str: string, replace: (sub: string) => string, call: (sub: any) => any, getStack: any) {
+
+
+export function expand(str: string, options: Expand.Options) {
+  const { replace, call, shell, getStack } = options;
   let changed = false;
   const template = String(str);
   let i = 0;
   let x = 0;
   let y = 0;
 
-  const stack: Elem[][] = [[{ state: {}, raw: '', subst: '' }]];
+  const stack: Expand.Elem[][] = [[{ state: {}, raw: '', subst: '' }]];
   let ptr = stack[x][y];
 
   function append(char: string) {
@@ -41,8 +44,8 @@ export function expand(str: string, replace: (sub: string) => string, call: (sub
     }
   }
 
-  function open(op: string, terminal: string) {
-    ptr.state.detecting = '';
+  function open(op: Expand.Op, terminal: Expand.Terminal) {
+    ptr.state.detecting = null;
     const existing = ptr.state.op;
     if (existing) {
       y++;
@@ -56,15 +59,20 @@ export function expand(str: string, replace: (sub: string) => string, call: (sub
 
   function close() {
     const op = ptr.state.op;
-    ptr.state.op = '';
-    ptr.state.terminal = '';
+    if (ptr.state.terminal == ')') {
+
+    }
+    ptr.state.op = null;
+    ptr.state.terminal = null;
     let res;
     if (check(ptr.subst, Object)) {
       res = call(ptr.subst);
     } else {
-      if (op == '$') {
+      if (op == 'replace') {
         res = replace(ptr.subst);
-      } else if (op == '=') {
+      } else if (op == 'shell') {
+        res = shell(ptr.subst);
+      } else if (op == 'math') {
         const vars = getStack();
         if (Object.keys(vars).length) {
           res = math.eval(ptr.subst, vars);
@@ -72,8 +80,9 @@ export function expand(str: string, replace: (sub: string) => string, call: (sub
           res = math.eval(ptr.subst);
         }
       }
-      if (!res)
+      if (!res) {
         if (!check(res, Number)) res = '';
+      }
     }
     // console.log(op, ':', ptr.subst, '=', res);
     if (y > 0) {
@@ -98,16 +107,23 @@ export function expand(str: string, replace: (sub: string) => string, call: (sub
       ptr.state.escape = false;
       append(char);
     } else {
-      const op = ptr.state.detecting;
+      const detecting = ptr.state.detecting;
       switch (char) {
-        case '{':
-          if (op) {
-            open(op, '}');
+        case '(':
+          if (detecting) {
+            open('shell', ')');
             break;
           }
           append(char);
           break;
-        case '}':
+        case '{':
+          if (detecting) {
+            open(detecting == '$' ? 'replace' : 'math', '}');
+            break;
+          }
+          append(char);
+          break;
+        case '}': case ')':
           if (ptr.state.op) {
             if (ptr.state.terminal == ' ') {
               close();
@@ -127,13 +143,13 @@ export function expand(str: string, replace: (sub: string) => string, call: (sub
           ptr.state.escape = true;
           break;
         default:
-          if (op) {
+          if (detecting) {
             if (ptr.raw.length == 0 || ptr.raw.slice(-1) == ' ') {
-              if (op == '$') open(op, ' ');
-              else if (op == '=') open(op, '__');
+              if (detecting == '=') open('math', '__null__');
+              else open('replace', ' ');
             } else {
-              append(op);
-              ptr.state.detecting = '';
+              append(detecting);
+              ptr.state.detecting = null;
             }
           }
           if (char == '=' || char == '$') {
@@ -150,13 +166,13 @@ export function expand(str: string, replace: (sub: string) => string, call: (sub
   }
   if (ptr.state.detecting) {
     append(ptr.state.detecting);
-    ptr.state.detecting = '';
+    ptr.state.detecting = null;
   }
   // delete ptr.state;
   return stack;
 };
 
-export function concat(stack: Elem[][]) {
+export function concat(stack: Expand.Elem[][]) {
   let out = '';
   let changed = false;
   for (const e of stack) {
@@ -166,15 +182,11 @@ export function concat(stack: Elem[][]) {
   return { value: out, changed: changed };
 }
 
-export function interpolate(input: any, replace: (sub: string) => string, call: (sub: any) => any, getStack: () => any) {
+export function interpolate(input: any, options: Expand.Options) {
   if (!check(input, String)) {
     return { value: input, changed: false };
   }
-  // if (input[0] == '=') {
-  //   const res: string = interpolate(input.slice(1), replace, call);
-  //   return math.eval(res);
-  // }
-  const exp = expand(input, replace, call, getStack);
+  const exp = expand(input, options);
   const res = concat(exp);
   return res;
 }
