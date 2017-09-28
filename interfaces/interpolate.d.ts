@@ -28,5 +28,5 @@ declare namespace Expand {
 
 
 declare module 'interpolate' {
-  export function interpolate(input: any, replace: (sub: string) => string, call: (sub: any) => any): any;
+  export function interpolate(input: any, options: Expand.Options): any;
 }

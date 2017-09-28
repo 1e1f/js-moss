@@ -1,6 +1,6 @@
 /// <reference path="../interfaces/interpolate.d.ts" />
 
-import { check, valueForKeyPath, isEqual } from 'typed-json-transform';
+import { check, extend, valueForKeyPath, isEqual } from 'typed-json-transform';
 import * as yaml from 'js-yaml';
 import * as math from 'mathjs';
 
@@ -22,8 +22,6 @@ function join(current: any, next: any) {
 function newState() {
   return { state: {}, raw: '', subst: '' };
 }
-
-
 
 export function expand(str: string, options: Expand.Options) {
   const { replace, call, shell, getStack } = options;

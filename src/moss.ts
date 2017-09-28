@@ -278,10 +278,14 @@ function interpolate(layer: Moss.Layer, input: any, options?: Expand.Options): M
   return { data: res, state: layer.state };
 }
 
-const userOptions = {};
+const interpolationFunctions = {};
+
+export function setOptions(options: Expand.Options) {
+  extend(interpolationFunctions, options);
+}
 
 function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
-  const expandOptions = {
+  const options = {
     ...{
       replace: (str: string) => { // replace from trie
         if (!str) return '';
@@ -301,9 +305,9 @@ function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
         const merged = { ...layer.state.auto, ...layer.data, ...layer.state.stack };
         return merged;
       }
-    }, ...userOptions
+    }, ...interpolationFunctions
   }
-  const { value, changed } = __interpolate(input, expandOptions);
+  const { value, changed } = __interpolate(input, options);
   if (changed) {
     if (check(value, Object)) {
       return clone(value);
@@ -311,10 +315,6 @@ function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
     return _interpolate(layer, value, dictionary);
   }
   return clone(value);
-}
-
-export function setOptions(options: Expand.Options) {
-  extend(userOptions, options);
 }
 
 export function parse(trunk: Moss.Branch, baseParser?: Moss.Branch) {
