@@ -297,7 +297,8 @@ function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
         }
       },
       call: (res: Object) => { // call method
-        if (!Object.keys(res)) return '';
+        const keys = Object.keys(res);
+        if (!(keys && keys.length)) return '';
         return next(layer, res).data;
       },
       shell: () => 'no shell method supplied',

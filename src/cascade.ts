@@ -67,6 +67,7 @@ export const shouldRecur = (data: any, prefix: string): any => {
 }
 
 export const shouldCascade = (data: any): any => {
+    if (!check(data, Object)) return false;
     for (const key of Object.keys(data)) {
         if (key[0] == '=' || key[0] == '+' || key[0] == '-') {
             return true;
@@ -119,7 +120,7 @@ export const cascade = (ctx: any, data: any, options: cascadeOptions): any => {
             }
         }
     }
-    if (shouldRecur(res, prefix)) {
+    if (shouldCascade(res)) {
         return cascade(ctx, res, options);
     }
     return res;
