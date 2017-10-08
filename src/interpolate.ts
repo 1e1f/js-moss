@@ -150,12 +150,11 @@ export function expand(str: string, options: Expand.Options) {
           if (detecting) {
             if (ptr.raw.length == 1) {
               if (detecting == '=') open('math', '__null__');
-              else open('replace', ' ');
+              else if (detecting == '$') open('replace', ' ');
             } else {
               ptr.state.detecting = null;
             }
-          }
-          if (char == '=' || char == '$') {
+          } else if (char == '=' || char == '$') {
             ptr.state.detecting = char;
           }
           append(char);
