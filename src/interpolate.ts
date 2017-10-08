@@ -122,10 +122,10 @@ export function expand(str: string, options: Expand.Options) {
           append(char);
           break;
         case '}': case ')':
-          if (ptr.state.op) {
-            if (ptr.state.terminal == ' ') {
-              close();
-            }
+          if (ptr.state.op && ptr.state.terminal == ' ') {
+            close();
+          }
+          if (ptr.state.op && ptr.state.terminal == char) {
             close();
             break;
           }

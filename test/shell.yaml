@@ -1,5 +1,7 @@
 config:
-  a: $(echo testSuccess)
+  $<:
+    localVar: testSuccess
+  a: $(echo $localVar)
 expect:
   withoutShell:
     a: no shell method supplied
