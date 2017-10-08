@@ -42,7 +42,7 @@ config:
         $<:
           LE: 4321
           BE: 1234
-        TARGET_ENDIANNESS: ${$endianness}
+        TARGET_ENDIANNESS: ${${endianness}}
       cFlags:
         =production:
           wAll: true
@@ -79,7 +79,7 @@ config:
           b: 142
           a: 20
           rr: =r + a
-          bb: ={$b + ${a}}
+          bb: ={${b} + ${a}}
         mix: rgb(${rr}, ${g}, ${bb})
       +dark:
         blue: rgb(184, 0, 142)

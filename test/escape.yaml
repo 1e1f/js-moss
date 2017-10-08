@@ -5,6 +5,9 @@ config:
     c: \\
     d: 0$
     e: 0=
+    f: b{aa)
+    g: $a
+    h: g={g}
 expect:
   escape:
     a: $
@@ -12,3 +15,6 @@ expect:
     c: \
     d: 0$
     e: 0=
+    f: b{aa)
+    g: $
+    h: g$

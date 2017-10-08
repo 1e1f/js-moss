@@ -42,7 +42,16 @@ export function expand(str: string, options: Expand.Options) {
     }
   }
 
+  function bsp() {
+    if (ptr.state.op) {
+      ptr.subst = ptr.subst.slice(0, ptr.subst.length - 1);
+    } else {
+      ptr.raw = ptr.raw.slice(0, ptr.raw.length - 1);
+    }
+  }
+
   function open(op: Expand.Op, terminal: Expand.Terminal) {
+    bsp();
     ptr.state.detecting = null;
     const existing = ptr.state.op;
     if (existing) {
@@ -57,9 +66,6 @@ export function expand(str: string, options: Expand.Options) {
 
   function close() {
     const op = ptr.state.op;
-    if (ptr.state.terminal == ')') {
-
-    }
     ptr.state.op = null;
     ptr.state.terminal = null;
     let res;
@@ -142,19 +148,17 @@ export function expand(str: string, options: Expand.Options) {
           break;
         default:
           if (detecting) {
-            if (ptr.raw.length == 0 || ptr.raw.slice(-1) == ' ') {
+            if (ptr.raw.length == 1) {
               if (detecting == '=') open('math', '__null__');
               else open('replace', ' ');
             } else {
-              append(detecting);
               ptr.state.detecting = null;
             }
           }
           if (char == '=' || char == '$') {
             ptr.state.detecting = char;
-          } else {
-            append(char);
           }
+          append(char);
           break;
       }
     }
@@ -163,7 +167,7 @@ export function expand(str: string, options: Expand.Options) {
     close();
   }
   if (ptr.state.detecting) {
-    append(ptr.state.detecting);
+    // append(ptr.state.detecting);
     ptr.state.detecting = null;
   }
   // delete ptr.state;

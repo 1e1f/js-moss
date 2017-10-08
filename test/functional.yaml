@@ -39,7 +39,7 @@ config:
   reduceObject:
     reduce<:
       each: $weather
-      with>: =memo + $value.amount
+      with>: =memo + value.amount
       memo: 0
   mapReduceObject:
     reduce<:
