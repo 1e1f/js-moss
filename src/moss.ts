@@ -13,6 +13,15 @@ function filter(trie: any, options: any) {
 
 const functions: Moss.Functions = {}
 
+const shouldDefer = (data: any): any => {
+  for (const key of Object.keys(data)) {
+    if (key[0] == '<') {
+      return data[key];
+    }
+  }
+  return false;
+}
+
 export const next = (current: Moss.Layer, input: Moss.Branch, interpolateOptions?: Expand.Options): Moss.Layer => {
   const state = clone(current.state);
   extend(state.auto, current.data);
@@ -37,12 +46,16 @@ export const next = (current: Moss.Layer, input: Moss.Branch, interpolateOptions
 
 export function cascade(current: Moss.Layer): any {
   const { state, data } = current;
-
   const existing = base(data);
   const selected = _cascade(current, data, {
-    prefix: '=', usePrecedence: true, onMatch: (val) => {
+    prefix: '=',
+    usePrecedence: true,
+    onMatch: (val) => {
       if (check(val, String)) {
         val = interpolate(current, val).data;
+      }
+      if (shouldCascade(val)) {
+        val = cascade({ state, data: val });
       }
       return val;
     }
@@ -56,21 +69,31 @@ export function cascade(current: Moss.Layer): any {
   _cascade(current, data, {
     prefix: '+',
     usePrecedence: false,
-    onMatch: (val) => {
+    onMatch: (val, ctx) => {
       if (check(val, String)) {
         val = interpolate(current, val).data;
       }
+      if (shouldCascade(val)) {
+        val = cascade({ state, data: val });
+      }
       if (check(res, Array)) {
         res = union(res, arrayify(val))
-      } else if (check(res, Object)) {
+      } else if (check(res, Object) && check(val, Object)) {
         extend(res, val);
+      } else {
+        throw new Error(`merging non object value: ${val} into object ${res}`);
       }
     }
   });
   _cascade(current, data, {
-    prefix: '-', usePrecedence: false, onMatch: (val) => {
+    prefix: '-',
+    usePrecedence: false,
+    onMatch: (val) => {
       if (check(val, String)) {
         val = interpolate(current, val).data;
+      }
+      if (shouldCascade(val)) {
+        val = cascade({ state, data: val });
       }
       if (check(res, Array)) {
         res = difference(res, arrayify(val));

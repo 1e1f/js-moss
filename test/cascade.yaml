@@ -17,6 +17,19 @@ config:
       version: 2
   =no:
     version: 0
+  mixed:
+    =yes:
+      =:
+        a: 1
+        c: 1
+        d: 1
+      +yes:
+        b: 1
+      -yes:
+        =:
+          d: 1
+        +yes:
+          c: 1
 env:
   select<:
     also: true
@@ -31,3 +44,6 @@ expect:
     array:
     - item
     - nextItem
+  mixed:
+    a: 1
+    b: 1

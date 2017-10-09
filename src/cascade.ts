@@ -56,16 +56,6 @@ export const parseSelectors = ($select: any) => {
 
 type nextFn = (ctx: any, data: any) => any
 
-export const shouldRecur = (data: any, prefix: string): any => {
-    if (!check(data, Object)) return false;
-    for (const key of Object.keys(data)) {
-        if (key[0] == prefix) {
-            return true;
-        }
-    }
-    return false;
-}
-
 export const shouldCascade = (data: any): any => {
     if (!check(data, Object)) return false;
     for (const key of Object.keys(data)) {
@@ -86,7 +76,7 @@ export const base = (data: any): any => {
 interface cascadeOptions {
     prefix: string,
     usePrecedence?: boolean,
-    onMatch?: (match: any) => void
+    onMatch?: (match: any, ctx: any) => void
 }
 
 export const cascade = (ctx: any, data: any, options: cascadeOptions): any => {
@@ -98,11 +88,8 @@ export const cascade = (ctx: any, data: any, options: cascadeOptions): any => {
         if (key[0] == prefix) {
             const css = key.slice(1);
             if (!css) {
-                if (onMatch) {
-                    const xformed = onMatch(data[key]);
-                    if (xformed) res = xformed;
-                }
-                else res = data[key];
+                const replace = onMatch(data[key], res);
+                if (replace) res = replace;
             } else {
                 if (select(keywords, css)) {
                     const precedence = select(selectors, css);
@@ -110,18 +97,12 @@ export const cascade = (ctx: any, data: any, options: cascadeOptions): any => {
                         if (usePrecedence) {
                             highest = precedence;
                         }
-                        if (onMatch) {
-                            const xformed = onMatch(data[key]);
-                            if (xformed) res = xformed;
-                        }
-                        else res = data[key];
+                        const replace = onMatch(data[key], data);
+                        if (replace) res = replace;
                     }
                 }
             }
         }
-    }
-    if (shouldCascade(res)) {
-        return cascade(ctx, res, options);
     }
     return res;
 }
