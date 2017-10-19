@@ -1,6 +1,6 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
-import { arrayify, extend, check, combine, combineN, contains, clone, each, map, okmap, union, difference, or, hashField, sum, valueForKeyPath } from 'typed-json-transform';
+import { arrayify, extend, check, combine, combineN, contains, clone, each, map, merge, okmap, union, difference, or, hashField, sum, valueForKeyPath } from 'typed-json-transform';
 import { interpolate as __interpolate } from './interpolate';
 import { base, cascade as _cascade, shouldCascade, parseSelectors, select } from './cascade';
 import * as yaml from 'js-yaml';
@@ -184,6 +184,20 @@ addFunctions({
   function: ({ state, data }: Moss.Layer, args: any) => {
     return args;
   },
+  extend: (parent: Moss.Layer, args: any) => {
+    const layer = next(parent, args);
+    const { data } = layer;
+    if (!data.source) {
+      throw new Error(`for $extend please supply an 'source:' branch`);
+    }
+    let res = data.source;
+    delete data.source;
+    each(data, (item, key) => {
+      const ret = next(layer, item).data;
+      res = merge(res, ret);
+    });
+    return res;
+  },
   each: (parent: Moss.Layer, args: any) => {
     const layer = next(parent, args);
     const { data } = layer;
@@ -211,13 +225,12 @@ addFunctions({
       throw new Error(`for $map please supply 'to:' as `);
     }
     if (check(data.from, Array)) {
-      const a = map(data.from, (val, i) => {
+      return map(data.from, (val, i) => {
         const ret = next(parent, val);
         ret.state.stack.index = i;
         ret.state.stack.value = val;
         return next(ret, clone(data.to)).data;
       });
-      return a;
     }
     else if (check(data.from, Object)) {
       let i = 0;
