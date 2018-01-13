@@ -81,7 +81,7 @@ export function cascade(current: Moss.Layer): any {
       } else if (check(res, Object) && check(val, Object)) {
         extend(res, val);
       } else {
-        throw new Error(`merging non object value: ${val} into object ${res}`);
+        throw new Error(`merging value: ${JSON.stringify(val)} into ${res}`);
       }
     }
   });
