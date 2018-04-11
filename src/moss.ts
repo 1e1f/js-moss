@@ -240,7 +240,7 @@ addFunctions({
         ret.state.stack.key = key;
         i++;
         // console.log('mapping with layer', layer.state);
-        return { [key]: next(ret, clone(data.to)).data };
+        return { key, value: next(ret, clone(data.to)).data };
       });
     }
   },

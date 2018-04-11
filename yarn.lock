@@ -2315,9 +2315,9 @@ typed-function@0.10.5:
   version "0.10.5"
   resolved "https://registry.yarnpkg.com/typed-function/-/typed-function-0.10.5.tgz#2e0f18abd065219fab694a446a65c6d1981832c0"
 
-typed-json-transform@^0.18.2:
-  version "0.18.2"
-  resolved "https://registry.yarnpkg.com/typed-json-transform/-/typed-json-transform-0.18.2.tgz#41d45b317ae2831bb85eeb76a0d9076ff7e6d342"
+typed-json-transform@^0.20.0:
+  version "0.20.0"
+  resolved "https://registry.yarnpkg.com/typed-json-transform/-/typed-json-transform-0.20.0.tgz#c9c7f761dfafd144c15ff2f0318feb0c02d0f370"
 
 typescript@^2.1.6:
   version "2.4.0"

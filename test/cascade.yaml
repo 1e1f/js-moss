@@ -1,8 +1,13 @@
+env:
+  select<:
+    also: 1
+    yes: 1
+    no: 0
 config:
   =yes:
     =no:
       version: 7
-    =yes:
+    =yes !no:
       nested:
         setting: true
         object:
@@ -30,11 +35,6 @@ config:
           d: 1
         +yes:
           c: 1
-env:
-  select<:
-    also: true
-    yes: true
-    no: false
 expect:
   version: 2
   nested:
