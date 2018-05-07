@@ -237,10 +237,10 @@ addFunctions({
       return okmap(data.from, (item, key) => {
         const ret = next(parent, item);
         ret.state.stack.index = i;
+        ret.state.stack.value = item;
         ret.state.stack.key = key;
         i++;
-        // console.log('mapping with layer', layer.state);
-        return { [key]: next(ret, clone(data.to)).data };
+        return next(ret, clone(data.to)).data;
       });
     }
   },

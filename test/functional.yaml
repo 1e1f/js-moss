@@ -16,7 +16,7 @@ config:
   mapObject:
     map<:
       from:
-        a:
+        a: a
         b:
           select<>:
             ext: 1
