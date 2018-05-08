@@ -224,25 +224,15 @@ addFunctions({
     if (!data.to) {
       throw new Error(`for $map please supply 'to:' as `);
     }
-    if (check(data.from, Array)) {
-      return map(data.from, (val, i) => {
-        const ret = next(parent, val);
-        ret.state.stack.index = i;
-        ret.state.stack.value = val;
-        return next(ret, clone(data.to)).data;
-      });
-    }
-    else if (check(data.from, Object)) {
-      let i = 0;
-      return okmap(data.from, (item, key) => {
-        const ret = next(parent, item);
-        ret.state.stack.index = i;
-        ret.state.stack.value = item;
-        ret.state.stack.key = key;
-        i++;
-        return next(ret, clone(data.to)).data;
-      });
-    }
+    let i = 0;
+    return okmap(data.from, (item, key) => {
+      const ctx = next(parent, item);
+      ctx.state.stack.index = i;
+      ctx.state.stack.value = item;
+      ctx.state.stack.key = key;
+      i++;
+      return next(ctx, clone(data.to)).data;
+    });
   },
   reduce: (parent: Moss.Layer, args: any) => {
     const layer = next(parent, args);
