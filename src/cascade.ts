@@ -1,4 +1,4 @@
-import { check, contains, each, extend, keyPaths, map, sumIfEvery, greatestResult, valueForKeyPath, setValueForKeyPath } from 'typed-json-transform';
+import { check, contains, difference, each, extend, keyPaths, map, sumIfEvery, greatestResult, valueForKeyPath, setValueForKeyPath } from 'typed-json-transform';
 
 export function startsWith(string: string, s: string) {
     return string.slice(0, s.length) === s;
@@ -12,9 +12,10 @@ export function replaceAll(str: string, find: string, rep: string) {
 
 function match(selectors: string[], selectable: string) {
     if (startsWith(selectable, '!')) {
-        return 1 * <any>!contains(selectors, selectable.slice(1));
+        const notSelector = selectable.slice(1);
+        return contains(selectors, notSelector) ? 0 : 1;
     }
-    return 1 * <any>contains(selectors, selectable);
+    return contains(selectors, selectable) ? 1 : 0;
 }
 
 function matchEvery(selectors: string[], cssString: string): number {
@@ -38,16 +39,15 @@ function matchCssString(selectors: string[], cssString: string): number {
 }
 
 export function select(input: string[], cssString: string): number {
-    return matchCssString(input, cssString);
+    return 0 + matchCssString(input, cssString);
 }
 
-export const parseSelectors = ($select: any) => {
+export const parseSelectors = (options: any) => {
     const keywords: string[] = [];
     const selectors: string[] = [];
-    each($select, (opt: string | number, key: string) => {
-        const selector = key;
-        keywords.push(selector);
-        if (!!opt) selectors.push(selector);
+    each(options, (select: string | number, key: string) => {
+        keywords.push(key);
+        if (select) selectors.push(key);
     });
     return {
         keywords, selectors
@@ -83,23 +83,21 @@ export const cascade = (ctx: any, data: any, options: cascadeOptions): any => {
     const { keywords, selectors } = parseSelectors(ctx.state.selectors);
     const { usePrecedence, prefix, onMatch } = options;
     let highest = 0;
-    let res;
+    let res = undefined;
     for (const key of Object.keys(data)) {
-        if (key[0] == prefix) {
+        if (key[0] == prefix) { // one at a time =, -, +
             const css = key.slice(1);
             if (!css) {
                 const replace = onMatch(data[key], res);
                 if (replace) res = replace;
             } else {
-                if (select(keywords, css)) {
-                    const precedence = select(selectors, css);
-                    if (precedence > highest) {
-                        if (usePrecedence) {
-                            highest = precedence;
-                        }
-                        const replace = onMatch(data[key], data);
-                        if (replace) res = replace;
+                const precedence = select(selectors, css);
+                if (precedence > highest) {
+                    if (usePrecedence) {
+                        highest = precedence;
                     }
+                    const replace = onMatch(data[key], data);
+                    if (replace) res = replace;
                 }
             }
         }

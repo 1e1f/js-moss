@@ -1,6 +1,7 @@
 config:
   select<:
-    conditionalExtension: 1
+    conditional: 1
+    negative: 0
   a:
     b: c
     d: e
@@ -19,7 +20,8 @@ config:
   n: [1, 2]
   o:
     =: $n
-    +conditionalExtension: 3
+    +conditional, negative: 3
+    -!negative: 2
   p:
     =: $n
     -: 1
@@ -52,7 +54,7 @@ expect:
     d: e
   d: {}
   n: [1,2]
-  o: [1,2,3]
+  o: [1,3]
   p: [2]
   q: [3,4,5]
   r: [1,4,5]
