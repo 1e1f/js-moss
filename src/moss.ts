@@ -319,9 +319,8 @@ function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
         if (res || check(res, Number)) {
           return res;
         } else {
-          const error = new Error(`key path [ ${str} ] is not defined in stack}`);
-          error.stack = JSON.stringify(dictionary, null, 2);
-          throw error;
+          const stack = JSON.stringify(dictionary, null, 2);
+          throw new Error(`key path [ ${str} ] is not defined in stack:\n${stack}`);
         }
       },
       call: (res: Object) => { // call method
