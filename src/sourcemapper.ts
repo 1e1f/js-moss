@@ -1,14 +1,25 @@
 import * as yaml from 'js-yaml';
 import { keyPaths } from 'typed-json-transform';
 
+interface State {
+  values: any[]
+  results: any[]
+  registered: any
+}
+
 export class SourceMapper {
-  values: any[] = [];
-  results: any[] = [];
-  registered: any = {};
-  sourceMap: any = {};
+  state: State;
+
+  constructor() {
+    this.state = {
+      values: [],
+      results: [],
+      registered: {}
+    }
+  }
 
   listener(event: string, state: any) {
-    const { registered, values, results } = this;
+    const { state: { registered, values, results } } = this;
     if (event == 'close') {
       const { position, lineStart, lineIndent, line, result, kind } = state;
       const linePos = state.position - state.lineStart;
@@ -26,9 +37,9 @@ export class SourceMapper {
   parse(yamlString: string) {
     const sourceMap: any = {};
 
-    const { listener, values, results } = this;
+    const { listener, state: { values, results } } = this;
     yaml.load(yamlString, {
-      listener
+      listener: listener.bind(this)
     } as any);
 
     const root = results[results.length - 1];
