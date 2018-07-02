@@ -28,7 +28,7 @@ config:
       =win: directx
     build>:
       ninja:
-        # cc: $host.compiler
+        cc: $host.compiler
         <<: *compiler
         fetch: http://ninja-v${host.ninja.version}.tar.gz
       sources:
