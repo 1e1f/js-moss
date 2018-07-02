@@ -10,11 +10,10 @@ import { load, parse, next, newLayer, setOptions, SourceMapper } from '../src';
 import { clone, contains, each } from 'typed-json-transform';
 
 describe('moss', () => {
-    it('can produce keypath map', () => {
-        const sourceMapper = new SourceMapper();
-        const sourceMap = sourceMapper.parse(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8'))
-        // assert(sourceMap)
-        console.log(util.inspect(sourceMap, false, 10, true));
+    it('can produce a source map', () => {
+        const sourceMap = SourceMapper.parse(readFileSync(join(__dirname, 'sourcemap.yaml'), 'utf8'))
+        assert.deepEqual(sourceMap.timestamp.key, [4763, 4772, 170, 0]);
+        // console.log(util.inspect(sourceMap, false, 10, true));
     });
 
     it('cascade', () => {
