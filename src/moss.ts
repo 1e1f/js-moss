@@ -345,12 +345,16 @@ function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
   return clone(value);
 }
 
+export function start(trunk: Moss.Branch) {
+  return next(newLayer(), trunk);
+}
+
 export function parse(trunk: Moss.Branch, baseParser?: Moss.Branch) {
   if (baseParser) {
     const layer = next(newLayer(), baseParser);
     return next(layer, trunk).data;
   }
-  return next(newLayer(), trunk).data;
+  return start(trunk).data;
 }
 
 export function load(config: string, baseParser: string) {
