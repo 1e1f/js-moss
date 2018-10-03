@@ -83,7 +83,11 @@ export function cascade(current: Moss.Layer): any {
       } else if (check(res, Object) && check(val, Object)) {
         extend(res, val);
       } else {
-        throw new Error(`merging value: ${JSON.stringify(val)} into ${res}`);
+        jsonError({
+          message: `bad merge source->destination`,
+          source: val,
+          destination: res
+        });
       }
     }
   });
@@ -132,7 +136,9 @@ export const branch = (current: Moss.Layer): Moss.Layer => {
         if (functions[fn]) {
           res = functions[fn](current, source[key]);
         } else {
-          throw new Error(`no known function ${fn}`);
+          jsonError({
+            message: `no known function ${fn}`
+          });
         }
         delete target[key];
         if (res) {
@@ -175,6 +181,10 @@ export function addFunctions(userFunctions: Moss.Functions) {
   extend(functions, userFunctions);
 }
 
+const jsonError = (blob: any) => {
+  throw new Error(JSON.stringify(blob, null, 2));
+}
+
 addFunctions({
   select: (current: Moss.Layer, args: any) => {
     const { data } = current;
@@ -190,7 +200,10 @@ addFunctions({
     const layer = next(parent, args);
     const { data } = layer;
     if (!data.source) {
-      throw new Error(`for $extend please supply an 'source:' branch`);
+      jsonError({
+        message: `for $extend please supply an 'source:' branch`,
+        data
+      });
     }
     let res = data.source;
     delete data.source;
@@ -204,10 +217,16 @@ addFunctions({
     const layer = next(parent, args);
     const { data } = layer;
     if (!data.of) {
-      throw new Error(`for $each please supply an 'of:' branch`);
+      jsonError({
+        message: `for $each please supply an 'of:' branch`,
+        data
+      });
     }
     if (!data.do) {
-      throw new Error(`for $each please supply a 'do:' branch `);
+      jsonError({
+        message: `for $each please supply a 'do:' branch`,
+        data
+      });
     }
     let i = 0;
     each(data.of, (item, key) => {
@@ -219,12 +238,19 @@ addFunctions({
   },
   map: (parent: Moss.Layer, args: any) => {
     const layer = next(parent, args);
+    const { data } = layer;
     const { data: { from, to } } = layer;
     if (!from) {
-      throw new Error(`for $map please supply 'from:' as input`);
+      jsonError({
+        message: `for $map please supply 'from:' as input`,
+        data
+      });
     }
     if (!to) {
-      throw new Error(`for $map please supply 'to:' as `);
+      jsonError({
+        message: `for $map please supply 'to:' as input`,
+        data
+      });
     }
     let i = 0;
     return okmap(from, (item, key) => {
@@ -241,13 +267,13 @@ addFunctions({
     const layer = next(parent, args);
     const { data } = layer;
     if (!data.each) {
-      throw new Error(`for $map please supply 'each:' as input`);
+      jsonError({ message: `for $reduce please supply 'each:' as branch`, branch: data });
     }
     if (!data.with) {
-      throw new Error(`for $map please supply 'with:' as input`);
+      jsonError({ message: `for $reduce please supply 'with:' in branch`, branch: data });
     }
     if (!(data.memo || check(data.memo, Number))) {
-      throw new Error(`for $map please supply 'memo:' as input`);
+      jsonError({ message: `for $reduce please supply 'memo:' in branch`, branch: data });
     }
     if (check(data.each, Array)) {
       let res: any = data.memo;
@@ -322,8 +348,10 @@ function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
         if (res || check(res, Number)) {
           return res;
         } else {
-          const stack = JSON.stringify(dictionary, null, 2);
-          throw new Error(`key path [ ${str} ] is not defined in stack:\n${stack}`);
+          jsonError({
+            message: `key path [ ${str} ] is not defined in stack`,
+            stack: dictionary
+          });
         }
       },
       call: (res: Object) => { // call method
