@@ -1,8 +1,10 @@
 declare namespace Moss {
   interface State {
+    locked?: boolean
     auto?: any
     stack?: any
     selectors?: any
+    target?: Moss.Branch
   }
 
   interface Branch {
@@ -14,12 +16,6 @@ declare namespace Moss {
   interface Layer {
     data: Branch
     state: State
-    ctx?: Moss.Context
-  }
-
-  interface Context {
-    target?: Moss.Branch
-    lockState?: Moss.State
   }
 
   type Function = (current: Moss.Layer, args: any) => any;

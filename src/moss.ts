@@ -23,20 +23,23 @@ const shouldDefer = (data: any): any => {
 }
 
 export const next = (current: Moss.Layer, input: Moss.Branch): Moss.Layer => {
-  const { ctx, state } = current;
+  let state = current.state;
+  if (!state.locked) {
+    state = clone(current.state);
+  }
   if (check(input, Array)) {
-    return { data: map(input, i => next(current, i).data), state, ctx };
+    return { data: map(input, i => next(current, i).data), state };
   }
   else if (check(input, Object)) {
     if (shouldCascade(input)) {
-      const pruned = cascade({ data: input, state, ctx });
+      const pruned = cascade({ data: input, state });
       if (check(pruned, Object)) {
-        return branch({ data: pruned, state, ctx });
+        return branch({ data: pruned, state });
       } else {
         return next(current, pruned);
       }
     } else {
-      return branch({ data: input, state, ctx });
+      return branch({ data: input, state });
     }
   } else {
     return interpolate(current, input);
@@ -44,8 +47,7 @@ export const next = (current: Moss.Layer, input: Moss.Branch): Moss.Layer => {
 }
 
 export function cascade(current: Moss.Layer): any {
-  const state = (current.ctx && current.ctx.lockState) || current.state;
-  const { data } = current;
+  const { data, state } = current;
   const existing = base(data);
   const selected = _cascade(current, data, {
     prefix: '=',
@@ -112,12 +114,9 @@ export function cascade(current: Moss.Layer): any {
 }
 
 export const branch = (current: Moss.Layer): Moss.Layer => {
-  // const { data, ctx } = current;
-  // let target = current.data;
-  let source = current.data;
-
-  const target = (current.ctx && current.ctx.target) || current.data;
-  const state = (current.ctx && current.ctx.lockState) || current.state;
+  const { state } = current;
+  const source = current.data;
+  const target = state.target || current.data;
   for (let key of Object.keys(source)) {
     if (key[0] == '\\') {
       target[key.slice(1)] = source[key];
@@ -149,9 +148,9 @@ export const branch = (current: Moss.Layer): Moss.Layer => {
         target[res] = layer.data;
         delete target[key];
       } else {
-        const layer = next(current, source[key]);
-        state.auto[key] = layer.data;
-        target[key] = layer.data;
+        const { data } = next(current, source[key]);
+        state.auto[key] = data;
+        target[key] = data;
       }
     }
   }
@@ -178,19 +177,14 @@ export function addFunctions(userFunctions: Moss.Functions) {
 
 addFunctions({
   select: (current: Moss.Layer, args: any) => {
-    next({ ...current, ctx: current.ctx || { lockState: current.state, target: current.state.selectors } }, args);
+    const { data } = current;
+    const locked = clone(current.state);
+    const state = { ...locked, locked: true, target: locked.selectors };
+    current.state.selectors = next({ data, state }, args).state.selectors;
   },
   $: (current: Moss.Layer, args: any) => {
-    // if (!current.ctx) current.ctx = { lockState: current.state, target: current.state.stack };
-    // next(current, args);
-    // console.log('stacked: ' + JSON.stringify(current.state.stack, null, 2));
-
     const { data } = next(current, args);
-    // console.log('stacked: ' + JSON.stringify(data, null, 2));
     extend(current.state.stack, data);
-  },
-  function: ({ state, data }: Moss.Layer, args: any) => {
-    return args;
   },
   extend: (parent: Moss.Layer, args: any) => {
     const layer = next(parent, args);
@@ -225,21 +219,22 @@ addFunctions({
   },
   map: (parent: Moss.Layer, args: any) => {
     const layer = next(parent, args);
-    const { data } = layer;
-    if (!data.from) {
+    const { data: { from, to } } = layer;
+    if (!from) {
       throw new Error(`for $map please supply 'from:' as input`);
     }
-    if (!data.to) {
+    if (!to) {
       throw new Error(`for $map please supply 'to:' as `);
     }
     let i = 0;
-    return okmap(data.from, (item, key) => {
+    return okmap(from, (item, key) => {
       const l = next(parent, item);
       l.state.stack.index = i;
       l.state.stack.value = item;
       l.state.stack.key = key;
       i++;
-      return next(l, clone(data.to)).data;
+      const { data } = next(l, clone(to));
+      return data;
     });
   },
   reduce: (parent: Moss.Layer, args: any) => {
@@ -301,8 +296,7 @@ addFunctions({
 });
 
 function interpolate(layer: Moss.Layer, input: any): Moss.Layer {
-  const { data } = layer;
-  let state = (layer.ctx && layer.ctx.lockState) || layer.state;
+  const { data, state } = layer;
   let dictionary;
   if (check(data, Object)) {
     dictionary = { ...state.auto, ...data, ...state.stack };

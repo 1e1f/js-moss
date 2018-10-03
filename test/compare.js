@@ -14,8 +14,10 @@ const host = { // $
     ninja: {
         version: ''
     },
+    architecture: 'x64',
     compiler: ''
 }
+
 if (selectors['host-mac']) { // -host-mac
     host.ninja.version = '1.5.7';
     host.compiler = 'clang';
@@ -95,7 +97,7 @@ const a = 20;
 const theme = {
     colors: {
         purple: 'rgb(184, 0, 142)',
-        mix : `rgb(${r+a}, ${g}, ${b+a})`,
+        mix: `rgb(${r + a}, ${g}, ${b + a})`,
         blue: selectors.dark ? 'rgb(184, 0, 142)' : undefined
     },
     gradients: {
