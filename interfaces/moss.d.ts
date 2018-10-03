@@ -14,9 +14,15 @@ declare namespace Moss {
   interface Layer {
     data: Branch
     state: State
+    ctx?: Moss.Context
   }
 
-  type Function = (state: Moss.Layer, args: any) => any;
+  interface Context {
+    target?: Moss.Branch
+    lockState?: Moss.State
+  }
+
+  type Function = (current: Moss.Layer, args: any) => any;
 
   interface Functions {
     [index: string]: Function

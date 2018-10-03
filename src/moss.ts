@@ -22,30 +22,30 @@ const shouldDefer = (data: any): any => {
   return false;
 }
 
-export const next = (current: Moss.Layer, input: Moss.Branch, interpolateOptions?: Expand.Options): Moss.Layer => {
-  const state = clone(current.state);
-  extend(state.auto, current.data);
+export const next = (current: Moss.Layer, input: Moss.Branch): Moss.Layer => {
+  const { ctx, state } = current;
   if (check(input, Array)) {
-    return { data: map(input, i => next(current, i, interpolateOptions).data), state };
+    return { data: map(input, i => next(current, i).data), state, ctx };
   }
   else if (check(input, Object)) {
     if (shouldCascade(input)) {
-      const pruned = cascade({ data: input, state });
+      const pruned = cascade({ data: input, state, ctx });
       if (check(pruned, Object)) {
-        return branch({ data: pruned, state });
+        return branch({ data: pruned, state, ctx });
       } else {
-        return next(current, pruned, interpolateOptions);
+        return next(current, pruned);
       }
     } else {
-      return branch({ data: input, state });
+      return branch({ data: input, state, ctx });
     }
   } else {
-    return interpolate(current, input, interpolateOptions);
+    return interpolate(current, input);
   }
 }
 
 export function cascade(current: Moss.Layer): any {
-  const { state, data } = current;
+  const state = (current.ctx && current.ctx.lockState) || current.state;
+  const { data } = current;
   const existing = base(data);
   const selected = _cascade(current, data, {
     prefix: '=',
@@ -69,12 +69,12 @@ export function cascade(current: Moss.Layer): any {
   _cascade(current, data, {
     prefix: '+',
     usePrecedence: false,
-    onMatch: (val, ctx) => {
+    onMatch: (val) => {
       if (check(val, String)) {
         val = interpolate(current, val).data;
       }
       if (shouldCascade(val)) {
-        val = cascade({ state, data: val });
+        val = cascade({ ...current, data: val });
       }
       if (check(res, Array)) {
         res = union(res, arrayify(val))
@@ -93,7 +93,7 @@ export function cascade(current: Moss.Layer): any {
         val = interpolate(current, val).data;
       }
       if (shouldCascade(val)) {
-        val = cascade({ state, data: val });
+        val = cascade({ ...current, data: val });
       }
       if (check(res, Array)) {
         res = difference(res, arrayify(val));
@@ -111,42 +111,47 @@ export function cascade(current: Moss.Layer): any {
   return res;
 }
 
-export function branch(current: Moss.Layer, interpolateOptions?: Expand.Options): Moss.Layer {
-  const { state, data } = current;
-  for (let key of Object.keys(data)) {
+export const branch = (current: Moss.Layer): Moss.Layer => {
+  // const { data, ctx } = current;
+  // let target = current.data;
+  let source = current.data;
+
+  const target = (current.ctx && current.ctx.target) || current.data;
+  const state = (current.ctx && current.ctx.lockState) || current.state;
+  for (let key of Object.keys(source)) {
     if (key[0] == '\\') {
-      data[key.slice(1)] = data[key];
-      delete data[key];
+      target[key.slice(1)] = source[key];
+      delete target[key];
     } else if (key.slice(-1) === '>') {
-      data[key.slice(0, key.length - 1)] = data[key];
-      delete data[key];
+      target[key.slice(0, key.length - 1)] = source[key];
+      delete target[key];
     }
     else {
       if (key.slice(-1) === '<') {
         let res;
         const fn = key.slice(0, key.length - 1);
         if (functions[fn]) {
-          res = functions[fn](current, data[key]);
+          res = functions[fn](current, source[key]);
         } else {
           throw new Error(`no known function ${fn}`);
         }
-        delete data[key];
+        delete target[key];
         if (res) {
           if (check(res, Object)) {
-            extend(data, res);
+            extend(target, res);
           } else {
             current.data = res;
           }
         }
       } else if (key[0] == '$') {
-        const res: string = <any>interpolate(current, key, interpolateOptions).data;
-        const layer = next(current, data[key], interpolateOptions);
-        data[res] = layer.data;
-        extend(state, { selectors: layer.state.selectors, stack: layer.state.stack });
-        delete data[key];
+        const res: string = <any>interpolate(current, key).data;
+        const layer = next(current, source[key]);
+        target[res] = layer.data;
+        delete target[key];
       } else {
-        const layer = next(current, data[key], interpolateOptions);
-        data[key] = layer.data;
+        const layer = next(current, source[key]);
+        state.auto[key] = layer.data;
+        target[key] = layer.data;
       }
     }
   }
@@ -173,13 +178,16 @@ export function addFunctions(userFunctions: Moss.Functions) {
 
 addFunctions({
   select: (current: Moss.Layer, args: any) => {
-    const { state } = current;
-    const selected = next(current, args).data;
-    extend(state.selectors, selected);
+    next({ ...current, ctx: current.ctx || { lockState: current.state, target: current.state.selectors } }, args);
   },
-  $: (layer: Moss.Layer, args: any) => {
-    const selected = next(layer, args).data;
-    extend(layer.state.stack, selected);
+  $: (current: Moss.Layer, args: any) => {
+    // if (!current.ctx) current.ctx = { lockState: current.state, target: current.state.stack };
+    // next(current, args);
+    // console.log('stacked: ' + JSON.stringify(current.state.stack, null, 2));
+
+    const { data } = next(current, args);
+    // console.log('stacked: ' + JSON.stringify(data, null, 2));
+    extend(current.state.stack, data);
   },
   function: ({ state, data }: Moss.Layer, args: any) => {
     return args;
@@ -226,12 +234,12 @@ addFunctions({
     }
     let i = 0;
     return okmap(data.from, (item, key) => {
-      const ctx = next(parent, item);
-      ctx.state.stack.index = i;
-      ctx.state.stack.value = item;
-      ctx.state.stack.key = key;
+      const l = next(parent, item);
+      l.state.stack.index = i;
+      l.state.stack.value = item;
+      l.state.stack.key = key;
       i++;
-      return next(ctx, clone(data.to)).data;
+      return next(l, clone(data.to)).data;
     });
   },
   reduce: (parent: Moss.Layer, args: any) => {
@@ -292,8 +300,9 @@ addFunctions({
   }
 });
 
-function interpolate(layer: Moss.Layer, input: any, options?: Expand.Options): Moss.Layer {
-  const { data, state } = layer;
+function interpolate(layer: Moss.Layer, input: any): Moss.Layer {
+  const { data } = layer;
+  let state = (layer.ctx && layer.ctx.lockState) || layer.state;
   let dictionary;
   if (check(data, Object)) {
     dictionary = { ...state.auto, ...data, ...state.stack };

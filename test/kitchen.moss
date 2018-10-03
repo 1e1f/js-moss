@@ -13,8 +13,8 @@ config:
       =: false
       =ios: true
   $<:
-    compiler: &compiler
-      cc: $host.compiler
+    # compiler>: &compiler
+    #   cc: $host.compiler
     host:
       ninja:
           version:
@@ -29,7 +29,7 @@ config:
     build>:
       ninja:
         cc: $host.compiler
-        <<: *compiler
+        # <<: *compiler
         fetch: http://ninja-v${host.ninja.version}.tar.gz
       sources:
         =:

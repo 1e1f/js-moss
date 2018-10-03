@@ -34,7 +34,8 @@ config:
       memo: 1
   sumArray:
     $<:
-      var: 15
+      assign: var
+      $assign: 15
     sum<: [10, $var, -30]
   reduceObject:
     reduce<:
