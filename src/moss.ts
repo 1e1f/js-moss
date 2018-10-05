@@ -22,27 +22,45 @@ const shouldDefer = (data: any): any => {
   return false;
 }
 
+const currentErrorPath = (state: Moss.State) => state.errorPaths[state.errorPaths.length - 1];
+const pushErrorPath = (state: Moss.State) => state.errorPaths.push({ path: [] })
+const popErrorPath = (state: Moss.State) => state.errorPaths.pop();
+
 export const next = (current: Moss.Layer, input: Moss.Branch): Moss.Layer => {
   let state = current.state;
   if (!state.locked) {
     state = clone(current.state);
   }
+  const layer = { ...current, state };
   if (check(input, Array)) {
-    return { data: map(input, i => next(current, i).data), state };
+    return {
+      data: map(input, i => {
+        currentErrorPath(state).path.push(i);
+        const res = next(layer, i).data
+        currentErrorPath(state).path.pop();
+        return res;
+      }), state
+    };
   }
   else if (check(input, Object)) {
     if (shouldCascade(input)) {
       const pruned = cascade({ data: input, state });
       if (check(pruned, Object)) {
-        return branch({ data: pruned, state });
-      } else {
-        return next(current, pruned);
+        const res = branch({ data: pruned, state });
+        currentErrorPath(state).path.pop();
+        return res;
+      } else { // cascaded to non object
+        const res = next(layer, pruned);
+        currentErrorPath(state).path.pop();
+        return res;
       }
     } else {
       return branch({ data: input, state });
     }
   } else {
-    return interpolate(current, input);
+    currentErrorPath(state).rhs = true;
+    const res = interpolate(layer, input);
+    return res;
   }
 }
 
@@ -52,7 +70,8 @@ export function cascade(current: Moss.Layer): any {
   const selected = _cascade(current, data, {
     prefix: '=',
     usePrecedence: true,
-    onMatch: (val) => {
+    onMatch: (val, key) => {
+      currentErrorPath(state).path.push(key);
       if (check(val, String)) {
         val = interpolate(current, val).data;
       }
@@ -85,8 +104,11 @@ export function cascade(current: Moss.Layer): any {
       } else {
         jsonError({
           message: `bad merge source->destination`,
-          source: val,
-          destination: res
+          errorPaths: state.errorPaths,
+          branch: {
+            source: val,
+            destination: res
+          }
         });
       }
     }
@@ -122,11 +144,18 @@ export const branch = (current: Moss.Layer): Moss.Layer => {
   const source = current.data;
   const target = state.target || current.data;
   for (let key of Object.keys(source)) {
+    currentErrorPath(state).path.push(key);
     if (key[0] == '\\') {
-      target[key.slice(1)] = source[key];
+      let nextKey = key.slice(1);
+      target[nextKey] = source[key];
+      state.auto[nextKey] = source[key];
+      state.autoMap[nextKey] = currentErrorPath(state).path.join('.');
       delete target[key];
     } else if (key.slice(-1) === '>') {
-      target[key.slice(0, key.length - 1)] = source[key];
+      let nextKey = key.slice(0, key.length - 1);
+      target[nextKey] = source[key];
+      state.auto[nextKey] = source[key];
+      state.autoMap[nextKey] = currentErrorPath(state).path.join('.');
       delete target[key];
     }
     else {
@@ -137,7 +166,8 @@ export const branch = (current: Moss.Layer): Moss.Layer => {
           res = functions[fn](current, source[key]);
         } else {
           jsonError({
-            message: `no known function ${fn}`
+            message: `no known function ${fn}`,
+            errorPaths: state.errorPaths
           });
         }
         delete target[key];
@@ -152,21 +182,23 @@ export const branch = (current: Moss.Layer): Moss.Layer => {
         const res: string = <any>interpolate(current, key).data;
         const layer = next(current, source[key]);
         target[res] = layer.data;
+        state.auto[res] = source[key];
+        state.autoMap[res] = currentErrorPath(state).path.join('.');
         delete target[key];
       } else {
         const { data } = next(current, source[key]);
         state.auto[key] = data;
+        state.autoMap[key] = currentErrorPath(state).path.join('.');
         target[key] = data;
       }
     }
+    currentErrorPath(state).path.pop();
   }
   return current;
 }
 
-// function extendLayer = ()
-
 export const newState = (): Moss.State => {
-  return { auto: {}, stack: {}, selectors: {} };
+  return { auto: {}, autoMap: {}, stack: {}, selectors: {}, errorPaths: [{ path: [] }] };
 }
 
 export const newLayer = (): Moss.Layer => {
@@ -181,8 +213,22 @@ export function addFunctions(userFunctions: Moss.Functions) {
   extend(functions, userFunctions);
 }
 
-const jsonError = (blob: any) => {
-  throw new Error(JSON.stringify(blob, null, 2));
+interface MossError {
+  message: string
+  errorPaths: Moss.KeyPath[]
+  branch?: any
+  stack?: any
+  sourceMap?: any
+}
+
+const jsonError = (error: MossError) => {
+  const { message, branch, stack, errorPaths } = error;
+  throw new Error(JSON.stringify({
+    message,
+    branch,
+    stack,
+    errorPaths: errorPaths.map(e => ({ ...e, path: e.path.join('.') }))
+  }, null, 2));
 }
 
 addFunctions({
@@ -202,7 +248,7 @@ addFunctions({
     if (!data.source) {
       jsonError({
         message: `for $extend please supply an 'source:' branch`,
-        data
+        errorPaths: layer.state.errorPaths
       });
     }
     let res = data.source;
@@ -219,13 +265,15 @@ addFunctions({
     if (!data.of) {
       jsonError({
         message: `for $each please supply an 'of:' branch`,
-        data
+        errorPaths: layer.state.errorPaths,
+        branch: data
       });
     }
     if (!data.do) {
       jsonError({
         message: `for $each please supply a 'do:' branch`,
-        data
+        errorPaths: layer.state.errorPaths,
+        branch: data
       });
     }
     let i = 0;
@@ -237,43 +285,63 @@ addFunctions({
     });
   },
   map: (parent: Moss.Layer, args: any) => {
-    const layer = next(parent, args);
-    const { data } = layer;
-    const { data: { from, to } } = layer;
+    const base = currentErrorPath(parent.state).path.join('.');
+    const { from, to } = args;
     if (!from) {
       jsonError({
         message: `for $map please supply 'from:' as input`,
-        data
+        errorPaths: parent.state.errorPaths,
       });
     }
+    currentErrorPath(parent.state).path.push('from');
+    const fromCtx = next(parent, from);
+    currentErrorPath(fromCtx.state).path.pop();
     if (!to) {
       jsonError({
         message: `for $map please supply 'to:' as input`,
-        data
+        errorPaths: fromCtx.state.errorPaths,
+        branch: args
       });
     }
     let i = 0;
-    return okmap(from, (item, key) => {
-      const l = next(parent, item);
-      l.state.stack.index = i;
-      l.state.stack.value = item;
-      l.state.stack.key = key;
+    const res = okmap(fromCtx.data, (item, key) => {
+      if (fromCtx.state.autoMap[key]) {
+        currentErrorPath(fromCtx.state).path = fromCtx.state.autoMap[key].split('.');
+      }
+      const ctx = next(fromCtx, item);
+      currentErrorPath(ctx.state).path = (base + ('.to')).split('.');
+      ctx.state.stack.index = i;
       i++;
-      const { data } = next(l, clone(to));
+      ctx.state.stack.value = item;
+      ctx.state.stack.key = key;
+      const { data } = next(ctx, clone(to));
       return data;
     });
+    return res;
   },
   reduce: (parent: Moss.Layer, args: any) => {
     const layer = next(parent, args);
     const { data } = layer;
     if (!data.each) {
-      jsonError({ message: `for $reduce please supply 'each:' as branch`, branch: data });
+      jsonError({
+        message: `for $reduce please supply 'each:' as branch`,
+        errorPaths: layer.state.errorPaths,
+        branch: data
+      });
     }
     if (!data.with) {
-      jsonError({ message: `for $reduce please supply 'with:' in branch`, branch: data });
+      jsonError({
+        message: `for $reduce please supply 'with:' in branch`,
+        errorPaths: layer.state.errorPaths,
+        branch: data
+      });
     }
     if (!(data.memo || check(data.memo, Number))) {
-      jsonError({ message: `for $reduce please supply 'memo:' in branch`, branch: data });
+      jsonError({
+        message: `for $reduce please supply 'memo:' in branch`,
+        errorPaths: layer.state.errorPaths,
+        branch: data
+      });
     }
     if (check(data.each, Array)) {
       let res: any = data.memo;
@@ -340,8 +408,17 @@ export function setOptions(options: Expand.Options) {
 }
 
 function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
+  let popAll = 0;
   const options = {
     ...{
+      pushErrorState: () => {
+        popAll++;
+      },
+      popErrorState: (res: string) => {
+        currentErrorPath(layer.state).rhs = true;
+        pushErrorPath(layer.state);
+        currentErrorPath(layer.state).path.push(res);
+      },
       replace: (str: string) => { // replace from trie
         if (!str) return '';
         const res = valueForKeyPath(str, dictionary);
@@ -350,14 +427,29 @@ function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
         } else {
           jsonError({
             message: `key path [ ${str} ] is not defined in stack`,
+            errorPaths: layer.state.errorPaths.map((o) => {
+              let path = o.path.join('.');
+              let firstKey = o.path[0];
+              if (layer.state.autoMap[firstKey]) {
+                path = path.replace(firstKey, layer.state.autoMap[firstKey]);
+              }
+              return {
+                ...o,
+                path: path.split('.')
+              }
+            }),
+            // errorPaths: map(layer.state.errorPaths, (err) => ({ ...err, path: layer.state.autoMap[err.path[0]] })),
             stack: dictionary
           });
         }
       },
-      call: (res: Object) => { // call method
-        const keys = Object.keys(res);
+      call: (obj: Object) => { // call method
+        const keys = Object.keys(obj);
         if (!(keys && keys.length)) return '';
-        return next(layer, res).data;
+        currentErrorPath(layer.state).path.push(input);
+        const res = next(layer, obj).data;
+        currentErrorPath(layer.state).path.pop();
+        return res;
       },
       shell: () => 'no shell method supplied',
       getStack: () => {
@@ -366,14 +458,20 @@ function _interpolate(layer: Moss.Layer, input: any, dictionary: any): any {
       }
     }, ...interpolationFunctions
   }
-  const { value, changed } = __interpolate(input, options);
+  let { value, changed } = __interpolate(input, options);
   if (changed) {
     if (check(value, Object)) {
       return clone(value);
     }
-    return _interpolate(layer, value, dictionary);
+    value = _interpolate(layer, value, dictionary);
+  } else {
+    value = clone(value) // object immutability
   }
-  return clone(value);
+  while (popAll > 0) {
+    popErrorPath(layer.state);
+    popAll--;
+  }
+  return value;
 }
 
 export function start(trunk: Moss.Branch) {

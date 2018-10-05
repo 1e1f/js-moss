@@ -20,13 +20,13 @@ config:
         b:
           select<>:
             ext: 1
-      to>:
+      to:
         =: basic
         =ext: extended
   mapArray:
     map<:
       from: [1,2,3]
-      to>: =value * 2
+      to: =value * 2
   reduceArray:
     reduce<:
       each: [1,2,3,4]
@@ -55,7 +55,7 @@ config:
       each:
         map<:
           from: [1,2,3,4]
-          to>: =value * 2
+          to: =value * 2
       with>: =memo * value
       memo: 1
 expect:

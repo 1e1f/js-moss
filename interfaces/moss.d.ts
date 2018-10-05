@@ -1,10 +1,18 @@
 declare namespace Moss {
+  interface KeyPath {
+    path: string[]
+    rhs?: boolean
+  }
+
+
   interface State {
     locked?: boolean
     auto?: any
+    autoMap?: any
     stack?: any
     selectors?: any
     target?: Moss.Branch
+    errorPaths?: KeyPath[]
   }
 
   interface Branch {

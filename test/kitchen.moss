@@ -68,7 +68,7 @@ config:
             endianness: LE
             select<>:
               simulator: 1
-      to: $build
+      to: ${${build}}
   theme:
     colors:
       =:

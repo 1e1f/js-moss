@@ -24,8 +24,7 @@ function newState() {
 }
 
 export function expand(str: string, options: Expand.Options) {
-  const { replace, call, shell, getStack } = options;
-  let changed = false;
+  const { replace, call, shell, getStack, pushErrorState, popErrorState } = options;
   const template = String(str);
   let i = 0;
   let x = 0;
@@ -51,6 +50,7 @@ export function expand(str: string, options: Expand.Options) {
   }
 
   function open(op: Expand.Op, terminal: Expand.Terminal) {
+    if (pushErrorState) pushErrorState();
     bsp();
     ptr.state.detecting = null;
     const existing = ptr.state.op;
@@ -70,8 +70,10 @@ export function expand(str: string, options: Expand.Options) {
     ptr.state.terminal = null;
     let res;
     if (check(ptr.subst, Object)) {
+      if (popErrorState) popErrorState('[object]');
       res = call(ptr.subst);
     } else {
+      if (popErrorState) popErrorState(ptr.subst);
       if (op == 'replace') {
         res = replace(ptr.subst);
       } else if (op == 'shell') {

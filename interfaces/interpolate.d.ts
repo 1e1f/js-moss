@@ -23,6 +23,8 @@ declare namespace Expand {
     call?: (sub: any) => any
     shell?: (sub: string) => string
     getStack?: any
+    pushErrorState?: () => void
+    popErrorState?: (res: string) => void
   }
 }
 
