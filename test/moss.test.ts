@@ -4,10 +4,7 @@ import { join } from 'path';
 import { assert } from 'chai';
 import { exec } from 'shelljs';
 
-import * as util from 'util';
-
-import { load, parse, next, newLayer, setOptions, SourceMapper } from '../src';
-import { clone, contains, each } from 'typed-json-transform';
+import { parse, next, newLayer, setOptions, SourceMapper } from '../src';
 
 describe('moss', () => {
     it('can produce a source map', () => {
@@ -16,50 +13,50 @@ describe('moss', () => {
         // console.log(util.inspect(sourceMap, false, 10, true));
     });
 
-    it('cascade', () => {
+    it('cascade', async () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'cascade.moss'), 'utf8'));
-        assert.deepEqual(parse(config, env), expect);
+        assert.deepEqual(await parse(config, env), expect);
     });
 
-    it('inherit', () => {
+    it('inherit', async () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'inherit.moss'), 'utf8'));
-        assert.deepEqual(parse(config, env), expect);
+        assert.deepEqual(await parse(config, env), expect);
     });
 
-    it('escape', () => {
+    it('escape', async () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'escape.moss'), 'utf8'));
-        assert.deepEqual(parse(config, env), expect);
+        assert.deepEqual(await parse(config, env), expect);
     });
 
-    it('functional', () => {
+    it('functional', async () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'functional.moss'), 'utf8'));
-        assert.deepEqual(parse(config, env), expect);
+        assert.deepEqual(await parse(config, env), expect);
     });
 
-    it('environment', () => {
+    it('environment', async () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8'));
-        const result = next(newLayer(), env).state;
+        const result = (await next(newLayer(), env)).state;
         assert.isBoolean(result.selectors.production);
     });
 
-    it('kitchen sink', () => {
+    it('kitchen sink', async () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8'));
-        assert.deepEqual(parse(config, env), expect);
+        assert.deepEqual(await parse(config, env), expect);
     });
 
-    it('without shell', () => {
+    it('without shell', async () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'shell.moss'), 'utf8'));
-        assert.deepEqual(parse(config, env), expect.withoutShell);
+        assert.deepEqual(await parse(config, env), expect.withoutShell);
     });
 
-    it('shell', () => {
+    it('shell', async () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'shell.moss'), 'utf8'));
         setOptions({
             shell: (str) => {
                 return (<string>exec(str, { silent: true }).stdout).replace('\r', '').replace('\n', '');
             }
         });
-        assert.deepEqual(parse(config, env), expect.withShell);
+        assert.deepEqual(await parse(config, env), expect.withShell);
     });
 
     it('test equivalent js code', () => {

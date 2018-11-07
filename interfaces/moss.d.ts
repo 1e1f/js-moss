@@ -26,10 +26,18 @@ declare namespace Moss {
     state: State
   }
 
-  type Function = (current: Moss.Layer, args: any) => any;
+  type Function = (current: Moss.Layer, args: any) => Promise<any>;
+  type Resolver = ({ uri }: {
+    uri?: string
+  }) => Promise<any>;
 
   interface Functions {
     [index: string]: Function
+  }
+
+
+  interface Resolvers {
+    [index: string]: Resolver
   }
 }
 

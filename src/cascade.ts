@@ -76,10 +76,10 @@ export const base = (data: any): any => {
 interface cascadeOptions {
     prefix: string,
     usePrecedence?: boolean,
-    onMatch?: (match: any, key: string) => void
+    onMatch?: (match: any, key: string) => Promise<any>
 }
 
-export const cascade = (ctx: any, data: any, options: cascadeOptions): any => {
+export const cascade = async (ctx: any, data: any, options: cascadeOptions): Promise<any> => {
     const { selectors } = parseSelectors(ctx.state.selectors);
     const { usePrecedence, prefix, onMatch } = options;
     let highest = 0;
@@ -89,7 +89,7 @@ export const cascade = (ctx: any, data: any, options: cascadeOptions): any => {
         if (key[0] == prefix) { // one at a time =, -, +
             const css = key.slice(1);
             if (!css) { // this is the default?
-                const replace = onMatch(data[key], key);
+                const replace = await onMatch(data[key], key);
                 if (replace) res = replace;
             } else {
                 const precedence = select(selectors, css);
@@ -97,7 +97,7 @@ export const cascade = (ctx: any, data: any, options: cascadeOptions): any => {
                     if (usePrecedence) {
                         highest = precedence;
                     }
-                    const replace = onMatch(data[key], key);
+                    const replace = await onMatch(data[key], key);
                     if (replace) res = replace;
                 }
             }

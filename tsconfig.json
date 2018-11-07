@@ -13,6 +13,9 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "target": "es5",
+    "lib": [
+      "esnext"
+    ],
     "preserveConstEnums": true,
     "declaration": false,
     "noEmitOnError": false

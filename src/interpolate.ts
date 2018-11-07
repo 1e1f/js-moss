@@ -23,7 +23,7 @@ function newState() {
   return { state: {}, raw: '', subst: '' };
 }
 
-export function expand(str: string, options: Expand.Options) {
+export async function expand(str: string, options: Expand.Options) {
   const { replace, call, shell, getStack, pushErrorState, popErrorState } = options;
   const template = String(str);
   let i = 0;
@@ -64,14 +64,14 @@ export function expand(str: string, options: Expand.Options) {
     ptr.state.terminal = terminal;
   }
 
-  function close() {
+  async function close() {
     const op = ptr.state.op;
     ptr.state.op = null;
     ptr.state.terminal = null;
     let res;
     if (check(ptr.subst, Object)) {
       if (popErrorState) popErrorState('[object]');
-      res = call(ptr.subst);
+      res = await call(ptr.subst);
     } else {
       if (popErrorState) popErrorState(ptr.subst);
       if (op == 'replace') {
@@ -131,17 +131,17 @@ export function expand(str: string, options: Expand.Options) {
           break;
         case '}': case ')':
           if (ptr.state.op && ptr.state.terminal == ' ') {
-            close();
+            await close();
           }
           if (ptr.state.op && ptr.state.terminal == char) {
-            close();
+            await close();
             break;
           }
           append(char);
           break;
         case ' ':
           if (ptr.state.op && ptr.state.terminal == char) {
-            close();
+            await close();
           }
           append(char);
           break;
@@ -165,7 +165,7 @@ export function expand(str: string, options: Expand.Options) {
     }
   }
   while (ptr.state.op) {
-    close();
+    await close();
   }
   if (ptr.state.detecting) {
     // append(ptr.state.detecting);
@@ -185,11 +185,11 @@ export function concat(stack: Expand.Elem[][]) {
   return { value: out, changed: changed };
 }
 
-export function interpolate(input: any, options: Expand.Options) {
+export async function interpolate(input: any, options: Expand.Options) {
   if (!check(input, String)) {
     return { value: input, changed: false };
   }
-  const exp = expand(input, options);
+  const exp = await expand(input, options);
   const res = concat(exp);
   return res;
 }
