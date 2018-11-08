@@ -423,8 +423,8 @@ addFunctions({
     };
     for (const key of Object.keys(args)) {
       if (resolvers[key]) {
-        const val = await resolvers[key](args);
-        if (val) return val;
+        const val = await resolvers[key](args[key]);
+        if (val) return (await next(parent, val)).data;
       }
     }
     jsonError({
