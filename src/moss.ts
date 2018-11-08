@@ -278,13 +278,14 @@ addFunctions({
       });
     }
     let i = 0;
-    for (const key of data.of) {
+    for (const key in data.of) {
       const item = data.of[key];
       const ret = await next(layer, item);
       ret.state.stack.index = i;
       i++;
       await next(ret, clone(data.do));
     };
+    return Promise.resolve();
   },
   map: async (parent: Moss.Layer, args: any) => {
     const base = currentErrorPath(parent.state).path.join('.');
