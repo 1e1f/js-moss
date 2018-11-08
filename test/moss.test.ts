@@ -13,6 +13,11 @@ describe('moss', () => {
         // console.log(util.inspect(sourceMap, false, 10, true));
     });
 
+    it('state', async () => {
+        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'state.moss'), 'utf8'));
+        assert.deepEqual(await parse(config, env), expect);
+    });
+
     it('cascade', async () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'cascade.moss'), 'utf8'));
         assert.deepEqual(await parse(config, env), expect);
@@ -37,6 +42,11 @@ describe('moss', () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8'));
         const result = (await next(newLayer(), env)).state;
         assert.isBoolean(result.selectors.production);
+    });
+
+    it('import', async () => {
+        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'import.moss'), 'utf8'));
+        assert.deepEqual(await parse(config, env), expect);
     });
 
     it('kitchen sink', async () => {

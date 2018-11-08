@@ -179,6 +179,11 @@ export const branch = async (current: Moss.Layer): Promise<Moss.Layer> => {
     }
     currentErrorPath(state).path.pop();
   }
+  if (current.data['<=']) {
+    const src = current.data['<='];
+    delete current.data['<='];
+    current.data = merge(src, current.data);
+  };
   return current;
 }
 
@@ -240,8 +245,10 @@ addFunctions({
     current.state.selectors = (await next({ data, state }, args)).state.selectors;
   },
   $: async (current: Moss.Layer, args: any) => {
-    const { data } = await next(current, args);
-    extend(current.state.stack, data);
+    const { data } = current;
+    const locked = clone(current.state);
+    const state = { ...locked, locked: true };
+    extend(current.state.stack, (await next({ data, state }, args)).data);
   },
   extend: async (parent: Moss.Layer, args: any) => {
     const layer = await next(parent, args);
@@ -259,6 +266,21 @@ addFunctions({
       res = merge(res, ir.data);
     };
     return res;
+  },
+  log: async (current: Moss.Layer, args: any) => {
+    each(arrayify(args), (i) => {
+      let kp = i;
+      let format = 'json';
+      if (check(i, Object)) {
+        kp = i.keyPath;
+        format = i.format;
+      }
+      const val = kp ? valueForKeyPath(kp, current) : current;
+      switch (format) {
+        case 'json': console.log(JSON.stringify(val, null, 2)); break;
+        case 'yaml': console.log(yaml.dump(val)); break;
+      }
+    });
   },
   each: async (parent: Moss.Layer, args: any) => {
     const layer = await next(parent, args);
@@ -393,31 +415,32 @@ addFunctions({
     return sum(data, (v) => v);
   },
   import: async (parent: Moss.Layer, args: any) => {
-    let found = false;
+    if (check(args, String)) {
+      const parts = args.split('://');
+      args = {
+        [parts[0]]: parts[1]
+      };
+    };
     for (const key of Object.keys(args)) {
       if (resolvers[key]) {
-        const res = await resolvers[key](args);
-        console.log('resolved', res);
-        return res;
+        const val = await resolvers[key](args);
+        if (val) return val;
       }
     }
-    if (!found) {
-      jsonError({
-        message: `none of the suggested resolvers [${Object.keys(args).join(', ')}] are valid in this context`,
-        errorPaths: parent.state.errorPaths.map((o) => {
-          let path = o.path.join('.');
-          let firstKey = o.path[0];
-          if (parent.state.autoMap[firstKey]) {
-            path = path.replace(firstKey, parent.state.autoMap[firstKey]);
-          }
-          return {
-            ...o,
-            path: path.split('.')
-          }
-        })
-      });
-    }
-
+    jsonError({
+      message: `none of the available import resolvers [${Object.keys(args).join(', ')}] successfully resolved to a value`,
+      errorPaths: parent.state.errorPaths.map((o) => {
+        let path = o.path.join('.');
+        let firstKey = o.path[0];
+        if (parent.state.autoMap[firstKey]) {
+          path = path.replace(firstKey, parent.state.autoMap[firstKey]);
+        }
+        return {
+          ...o,
+          path: path.split('.')
+        }
+      })
+    });
   }
 });
 

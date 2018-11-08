@@ -1,0 +1,7 @@
+config: 
+  import<: testObject
+  a:
+    import<: testString
+expect:
+  a: hello world!
+  hello: world!

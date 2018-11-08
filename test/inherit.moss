@@ -31,17 +31,13 @@ config:
     +: $q
     -: [2, 3]
   s:
-    extend<:
-      source: $a
-      parseA:
-        <&:
-          d: e
-      add:
-        array:
-          extend<:
-            source: $q
-            less:
-              <-: 4
+    <=: $a
+    <&:
+      d: e
+    <+:
+      array:
+        <=: $q
+        <-: 4
 expect:
   a:
     b: c
