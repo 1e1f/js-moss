@@ -518,13 +518,24 @@ export async function parse(trunk: Moss.Branch, baseParser?: Moss.Branch) {
   return (await start(trunk)).data;
 }
 
-export async function load(config: string, baseParser: string) {
+export { parse as fromJS }
+
+export async function fromJSON(config: string, baseParser?: string) {
+  if (baseParser) {
+    return await parse(JSON.parse(config), JSON.parse(baseParser));
+  }
+  return await parse(JSON.parse(config));
+}
+
+export async function load(config: string, baseParser?: string) {
   if (baseParser) {
     return await parse(yaml.load(config), yaml.load(baseParser));
   }
   return await parse(yaml.load(config));
 }
 
-export async function transform(config: string, baseParser: string) {
-  return yaml.dump(await load(config, baseParser));;
+export { load as fromYAML }
+
+export async function transform(config: string, baseParser?: string) {
+  return yaml.dump(await load(config, baseParser));
 }
