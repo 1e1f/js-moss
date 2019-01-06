@@ -41,11 +41,11 @@ export const next = async (current: Moss.Layer, input: Moss.Branch): Promise<Mos
         return res;
       }
     } else {
-      return branch({ data: input, state });
+      return await branch({ data: input, state });
     }
   } else {
     currentErrorPath(state).rhs = true;
-    return interpolate(layer, input);
+    return await interpolate(layer, input);
   }
 }
 
@@ -61,7 +61,7 @@ export async function cascade(current: Moss.Layer): Promise<any> {
         val = (await interpolate(current, val)).data;
       }
       if (shouldCascade(val)) {
-        val = cascade({ state, data: val });
+        val = await cascade({ state, data: val });
       }
       return val;
     }
@@ -87,7 +87,8 @@ export async function cascade(current: Moss.Layer): Promise<any> {
       } else if (check(res, Object) && check(val, Object)) {
         extend(res, val);
       } else {
-        jsonError({
+        throw ({
+          name: 'MossError',
           message: `bad merge source->destination`,
           errorPaths: state.errorPaths,
           branch: {
@@ -150,7 +151,8 @@ export const branch = async (current: Moss.Layer): Promise<Moss.Layer> => {
         if (functions[fn]) {
           res = await functions[fn](current, source[key]);
         } else {
-          jsonError({
+          throw ({
+            name: 'MossError',
             message: `no known function ${fn}`,
             errorPaths: state.errorPaths
           });
@@ -180,6 +182,10 @@ export const branch = async (current: Moss.Layer): Promise<Moss.Layer> => {
     currentErrorPath(state).path.pop();
   }
   if (current.data['<=']) {
+    // throw ({
+    //   name: 'MossError',
+    //   ...state, message: '<='
+    // })
     const src = current.data['<='];
     delete current.data['<='];
     current.data = merge(src, current.data);
@@ -220,15 +226,15 @@ interface MossError {
   sourceMap?: any
 }
 
-const jsonError = (error: MossError) => {
+function MossError(error: MossError) {
   const { message, branch, stack, errorPaths } = error;
-  throw new Error(JSON.stringify({
-    message,
-    branch,
-    stack,
-    errorPaths: errorPaths.map(e => ({ ...e, path: e.path.join('.') }))
-  }, null, 2));
+  this.name = "MossError";
+  this.message = (message || "");
+  this.stack = stack;
+  this.branch = branch;
+  this.errorPaths = errorPaths.map(e => ({ ...e, path: e.path.join('.') }))
 }
+MossError.prototype = Error.prototype;
 
 addResolvers({
   testString: async () => 'hello world!',
@@ -254,7 +260,8 @@ addFunctions({
     const layer = await next(parent, args);
     const { data } = layer;
     if (!data.source) {
-      jsonError({
+      throw ({
+        name: 'MossError',
         message: `for $extend please supply an 'source:' branch`,
         errorPaths: layer.state.errorPaths
       });
@@ -286,14 +293,16 @@ addFunctions({
     const layer = await next(parent, args);
     const { data } = layer;
     if (!data.of) {
-      jsonError({
+      throw ({
+        name: 'MossError',
         message: `for $each please supply an 'of:' branch`,
         errorPaths: layer.state.errorPaths,
         branch: data
       });
     }
     if (!data.do) {
-      jsonError({
+      throw ({
+        name: 'MossError',
         message: `for $each please supply a 'do:' branch`,
         errorPaths: layer.state.errorPaths,
         branch: data
@@ -313,7 +322,8 @@ addFunctions({
     const base = currentErrorPath(parent.state).path.join('.');
     const { from, to } = args;
     if (!from) {
-      jsonError({
+      throw ({
+        name: 'MossError',
         message: `for $map please supply 'from:' as input`,
         errorPaths: parent.state.errorPaths,
       });
@@ -322,14 +332,15 @@ addFunctions({
     const fromCtx = await next(parent, from);
     currentErrorPath(fromCtx.state).path.pop();
     if (!to) {
-      jsonError({
+      throw ({
+        name: 'MossError',
         message: `for $map please supply 'to:' as input`,
         errorPaths: fromCtx.state.errorPaths,
         branch: args
       });
     }
     let i = 0;
-    const res = aokmap(fromCtx.data, async (item, key) => {
+    return await aokmap(fromCtx.data, async (item, key) => {
       if (fromCtx.state.autoMap[key]) {
         currentErrorPath(fromCtx.state).path = fromCtx.state.autoMap[key].split('.');
       }
@@ -342,27 +353,29 @@ addFunctions({
       const { data } = await next(ctx, clone(to));
       return data;
     });
-    return res;
   },
   reduce: async (parent: Moss.Layer, args: any) => {
     const layer = await next(parent, args);
     const { data } = layer;
     if (!data.each) {
-      jsonError({
+      throw ({
+        name: 'MossError',
         message: `for $reduce please supply 'each:' as branch`,
         errorPaths: layer.state.errorPaths,
         branch: data
       });
     }
     if (!data.with) {
-      jsonError({
+      throw ({
+        name: 'MossError',
         message: `for $reduce please supply 'with:' in branch`,
         errorPaths: layer.state.errorPaths,
         branch: data
       });
     }
     if (!(data.memo || check(data.memo, Number))) {
-      jsonError({
+      throw ({
+        name: 'MossError',
         message: `for $reduce please supply 'memo:' in branch`,
         errorPaths: layer.state.errorPaths,
         branch: data
@@ -427,7 +440,8 @@ addFunctions({
         if (val) return (await next(parent, val)).data;
       }
     }
-    jsonError({
+    throw ({
+      name: 'MossError',
       message: `none of the available import resolvers [${Object.keys(args).join(', ')}] successfully resolved to a value`,
       errorPaths: parent.state.errorPaths.map((o) => {
         let path = o.path.join('.');
@@ -476,26 +490,34 @@ async function _interpolate(layer: Moss.Layer, input: any, dictionary: any): Pro
       },
       replace: (str: string) => { // replace from trie
         if (!str) return '';
+        let required = true;
+        if (str[str.length - 1] == '?') {
+          required = false;
+          str = str.slice(0, str.length - 1);
+        }
         const res = valueForKeyPath(str, dictionary);
         if (res || check(res, Number)) {
           return res;
         } else {
-          jsonError({
-            message: `key path [ ${str} ] is not defined in stack`,
-            errorPaths: layer.state.errorPaths.map((o) => {
-              let path = o.path.join('.');
-              let firstKey = o.path[0];
-              if (layer.state.autoMap[firstKey]) {
-                path = path.replace(firstKey, layer.state.autoMap[firstKey]);
-              }
-              return {
-                ...o,
-                path: path.split('.')
-              }
-            }),
-            // errorPaths: map(layer.state.errorPaths, (err) => ({ ...err, path: layer.state.autoMap[err.path[0]] })),
-            stack: dictionary
-          });
+          if (required) {
+            throw ({
+              name: 'MossError',
+              message: `key path [ ${str} ] is not defined in stack`,
+              errorPaths: layer.state.errorPaths.map((o) => {
+                let path = o.path.join('.');
+                let firstKey = o.path[0];
+                if (layer.state.autoMap[firstKey]) {
+                  path = path.replace(firstKey, layer.state.autoMap[firstKey]);
+                }
+                return {
+                  ...o,
+                  path: path.split('.')
+                }
+              }),
+              // errorPaths: map(layer.state.errorPaths, (err) => ({ ...err, path: layer.state.autoMap[err.path[0]] })),
+              stack: dictionary
+            });
+          }
         }
       },
       call: async (obj: Object) => { // call method

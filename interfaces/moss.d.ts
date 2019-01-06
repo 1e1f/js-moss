@@ -12,7 +12,7 @@ declare namespace Moss {
     stack?: any
     selectors?: any
     target?: Moss.Branch
-    errorPaths?: KeyPath[]
+    errorPaths: KeyPath[]
   }
 
   interface Branch {
