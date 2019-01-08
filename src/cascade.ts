@@ -73,13 +73,20 @@ export const base = (data: any): any => {
     return Object.keys(res).length ? res : undefined;
 }
 
-interface cascadeOptions {
+interface cascadeAsyncOptions {
     prefix: string,
     usePrecedence?: boolean,
     onMatch?: (match: any, key: string) => Promise<any>
 }
 
-export const cascade = async (ctx: any, data: any, options: cascadeOptions): Promise<any> => {
+interface cascadeOptions {
+    prefix: string,
+    usePrecedence?: boolean,
+    onMatch?: (match: any, key: string) => any
+}
+
+
+export const cascadeAsync = async (ctx: any, data: any, options: cascadeAsyncOptions): Promise<any> => {
     const { selectors } = parseSelectors(ctx.state.selectors);
     const { usePrecedence, prefix, onMatch } = options;
     let highest = 0;
@@ -98,6 +105,33 @@ export const cascade = async (ctx: any, data: any, options: cascadeOptions): Pro
                         highest = precedence;
                     }
                     const replace = await onMatch(data[key], key);
+                    if (replace) res = replace;
+                }
+            }
+        }
+    }
+    return res;
+}
+
+export const cascade = (ctx: any, data: any, options: cascadeOptions) => {
+    const { selectors } = parseSelectors(ctx.state.selectors);
+    const { usePrecedence, prefix, onMatch } = options;
+    let highest = 0;
+    // let matchedKey = '';
+    let res = undefined;
+    for (const key of Object.keys(data)) {
+        if (key[0] == prefix) { // one at a time =, -, +
+            const css = key.slice(1);
+            if (!css) { // this is the default?
+                const replace = onMatch(data[key], key);
+                if (replace) res = replace;
+            } else {
+                const precedence = select(selectors, css);
+                if (precedence > highest) {
+                    if (usePrecedence) {
+                        highest = precedence;
+                    }
+                    const replace = onMatch(data[key], key);
                     if (replace) res = replace;
                 }
             }

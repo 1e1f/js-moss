@@ -4,9 +4,10 @@ import { join } from 'path';
 import { assert } from 'chai';
 import { exec } from 'shelljs';
 
-import { parse, next, newLayer, setOptions, SourceMapper } from '../src';
+import { Async, newLayer, SourceMapper } from '../src';
 
-describe('moss', () => {
+const { parse, next, setOptions } = Async;
+describe('Async API', () => {
     it('can produce a source map', () => {
         const sourceMap = SourceMapper.parse(readFileSync(join(__dirname, 'sourcemap.yaml'), 'utf8'))
         assert.deepEqual(sourceMap.timestamp.key, [4763, 4772, 170, 0]);

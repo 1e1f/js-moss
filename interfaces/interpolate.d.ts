@@ -30,5 +30,6 @@ declare namespace Expand {
 
 
 declare module 'interpolate' {
+  export function interpolateAsync(input: any, options: Expand.Options): Promise<any>;
   export function interpolate(input: any, options: Expand.Options): any;
 }
