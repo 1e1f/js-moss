@@ -2,9 +2,9 @@
 
 import { arrayify, extend, check, combine, clone, each, merge, amap, union, difference, sum, valueForKeyPath, aokmap } from 'typed-json-transform';
 import { interpolateAsync as __interpolate } from './interpolate';
-import { base, cascadeAsync as _cascade, shouldCascade } from './cascade';
+import { cascadeAsync as _cascade, shouldCascade } from './cascade';
 import * as yaml from 'js-yaml';
-import { newLayer } from './util';
+import { newLayer, pushState } from './util';
 
 export namespace Async {
   const functions: Moss.Async.Functions = {}
@@ -16,11 +16,8 @@ export namespace Async {
 
   export const next = async (current: Moss.Layer, input: Moss.Branch): Promise<Moss.Layer> => {
     try {
-      let state = current.state;
-      if (!state.locked) {
-        state = clone(current.state);
-      }
-      const layer = { ...current, state };
+      const layer = pushState(current);
+      const { state } = layer;
       if (check(input, Array)) {
         return {
           data: await amap(input, async (i) => {
@@ -34,15 +31,11 @@ export namespace Async {
       else if (check(input, Object)) {
         if (shouldCascade(input)) {
           const pruned = await cascade({ data: input, state });
-          if (check(pruned, Object)) {
-            const res = await branch({ data: pruned, state });
-            currentErrorPath(state).path.pop();
-            return res;
-          } else { // cascaded to non object
-            const res = await next(layer, pruned);
-            currentErrorPath(state).path.pop();
-            return res;
-          }
+          // console.log('pruned', pruned)
+          return { state, data: pruned };
+          // const continued = await next(layer, pruned);
+          // console.log('continued', continued)
+          // return continued;
         } else {
           return await branch({ data: input, state });
         }
@@ -66,65 +59,89 @@ export namespace Async {
   }
 
   export const cascade = async (current: Moss.Layer): Promise<any> => {
-    const { data, state } = current;
-    const existing = base(data);
-    const selected = await _cascade(current, data, {
+    const { data } = current;
+    // const existing = base(data);
+    let res = await _cascade(current, data, {
       prefix: '=',
       usePrecedence: true,
       onMatch: async (val, key) => {
-        currentErrorPath(state).path.push(key);
-        if (check(val, String)) {
-          val = (await interpolate(current, val)).data;
-        }
-        if (shouldCascade(val)) {
-          val = await cascade({ state, data: val });
-        }
-        return val;
+
+        currentErrorPath(current.state).path.push(key);
+        const continued = (await next(current, val)).data;
+        currentErrorPath(current.state).path.pop();
+        // console.log({continued});
+        return continued;
+        // if (check(val, String)) {
+        //   val = (await interpolate(current, val)).data;
+        // }
+        // if (shouldCascade(val)) {
+        //   val = await cascade({ state: current.state, data: val });
+        // }
+        // return val;
       }
     });
-    let res: any;
-    if (existing) {
-      res = combine(existing, selected);
-    } else {
-      res = selected;
-    }
+    // let res: any;
+    // if (existing) {
+    //   if (selected) {
+    //     console.log({selected});
+    //     res = merge(existing, selected);
+    //   } else {
+    //     res = existing;
+    //   }
+    // } else {
+      // res = selected;
+    // }
     await _cascade(current, data, {
       prefix: '+',
       usePrecedence: false,
-      onMatch: async (val) => {
-        if (check(val, String)) {
-          val = (await interpolate(current, val)).data;
-        }
-        if (shouldCascade(val)) {
-          val = await cascade({ ...current, data: val });
-        }
+      onMatch: async (val, key) => {
+        const layer = current //pushState(current);
+        currentErrorPath(current.state).path.push(key);
+        val = (await next(current, val)).data;
+        currentErrorPath(current.state).path.pop();
+        
+        // if (check(val, String)) {
+        //   val = (await interpolate(layer, val)).data;
+        // }
+        // if (shouldCascade(val)) {
+        //   val = await cascade({ ...layer, data: val });
+        // }
         if (check(res, Array)) {
           res = union(res, arrayify(val))
         } else if (check(res, Object) && check(val, Object)) {
-          extend(res, val);
+          res = merge(res, val);
         } else {
+          // if (!res) {
+          //   res = val;
+          // } else {
           throw ({
             name: 'MossError',
-            message: `bad merge source->destination`,
-            errorPaths: state.errorPaths,
+            message: `selected branch type is not compatible with previous branch type`,
+            errorPaths: layer.state.errorPaths,
             branch: {
               source: val,
               destination: res
             }
           });
+          // }
         }
       }
     });
     await _cascade(current, data, {
       prefix: '-',
       usePrecedence: false,
-      onMatch: async (val) => {
-        if (check(val, String)) {
-          val = (await interpolate(current, val)).data;
-        }
-        if (shouldCascade(val)) {
-          val = await cascade({ ...current, data: val });
-        }
+      onMatch: async (val, key) => {
+        const layer = current //pushState(current);
+        currentErrorPath(current.state).path.push(key);
+        val = (await next(current, val)).data;
+        currentErrorPath(current.state).path.pop();
+        // currentErrorPath(layer.state).path.push(key);
+        // if (check(val, String)) {
+        //   val = (await interpolate(current, val)).data;
+        // }
+        // if (shouldCascade(val)) {
+        //   val = await cascade({ ...current, data: val });
+        // }
         if (check(res, Array)) {
           res = difference(res, arrayify(val));
         } else if (check(res, Object)) {
@@ -198,10 +215,6 @@ export namespace Async {
       currentErrorPath(state).path.pop();
     }
     if (current.data['<=']) {
-      // throw ({
-      //   name: 'MossError',
-      //   ...state, message: '<='
-      // })
       const src = current.data['<='];
       delete current.data['<='];
       current.data = merge(src, current.data);
@@ -295,6 +308,14 @@ export namespace Async {
           case 'json': console.log(JSON.stringify(val, null, 2)); break;
           case 'yaml': console.log(yaml.dump(val)); break;
         }
+      });
+    },
+    assert: async (parent: Moss.Layer, args: any) => {
+      throw ({
+        name: 'MossError',
+        message: args,
+        errorPaths: parent.state.errorPaths,
+        branch: args
       });
     },
     each: async (parent: Moss.Layer, args: any) => {

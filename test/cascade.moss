@@ -7,7 +7,21 @@ env:
       =yes:
         nested: 1
 config:
-  =yes:
+  =:
+    mixed:
+      =yes:
+        =:
+          a: 1
+          c: 1
+          d: 1
+        +yes:
+          b: 1
+        -yes:
+          =:
+            d: 1
+          +yes:
+            c: 1
+  +yes:
     =no:
       version: 7
     =yes !no:
@@ -25,21 +39,8 @@ config:
           - item
           - nextItem
       version: 2
-  =no:
+  +no:
     version: 0
-  mixed:
-    =yes:
-      =:
-        a: 1
-        c: 1
-        d: 1
-      +yes:
-        b: 1
-      -yes:
-        =:
-          d: 1
-        +yes:
-          c: 1
 expect:
   version: 2
   nested:

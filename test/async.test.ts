@@ -47,12 +47,25 @@ describe('Async API', () => {
 
     it('import', async () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'import.moss'), 'utf8'));
-        assert.deepEqual(await parse(config, env), expect);
+        let res;
+        try {
+            res = await parse(config, env)
+        } catch (e) {
+            res = e;
+        }
+        assert.deepEqual(res, expect);
     });
 
     it('kitchen sink', async () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8'));
-        assert.deepEqual(await parse(config, env), expect);
+        let res;
+        try {
+            res = await parse(config, env)
+        } catch (e) {
+            console.log(e)
+        }
+        assert.deepEqual(res, expect);
+
     });
 
     it('without shell', async () => {

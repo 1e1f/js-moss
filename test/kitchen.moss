@@ -86,7 +86,8 @@ config:
     gradients:
       rainbow: linear-gradient(to right, ${colors.purple}, ${colors.blue})
   require:
-    requiredLibrary: tmake/requiredLibrary
+    =:
+      requiredLibrary: tmake/requiredLibrary
     +useCustomLibrary:
       customLibrary: tmake/customLibrary
 expect:
