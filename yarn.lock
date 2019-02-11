@@ -2698,10 +2698,10 @@ typed-function@0.10.5:
   resolved "https://registry.yarnpkg.com/typed-function/-/typed-function-0.10.5.tgz#2e0f18abd065219fab694a446a65c6d1981832c0"
   integrity sha1-Lg8Yq9BlIZ+raUpEamXG0ZgYMsA=
 
-typed-json-transform@^0.22.3:
-  version "0.22.3"
-  resolved "https://registry.yarnpkg.com/typed-json-transform/-/typed-json-transform-0.22.3.tgz#dbfc56f553ba3423e3c4b93a5e7689480af83478"
-  integrity sha512-+4NtmGlvQdp+gFm3oCDzCGEGBIy2dq+jiDxJhtHv/kLwjkKuP85r9piNnQFl0n6CF4XdaQ3dPvJ2nS8dqs/VUg==
+typed-json-transform@^0.22.5:
+  version "0.22.5"
+  resolved "https://registry.yarnpkg.com/typed-json-transform/-/typed-json-transform-0.22.5.tgz#c051dc8193321412f9e4bdfb3ab6576cd27414d9"
+  integrity sha512-jTN45NVYEWrtEvC4g+53iAMZXZGsqxIWMBV84eQvlsrBLPOFN+u7v9K0EIv0lInS1ZfJD0QSlOy32WZAjrSqog==
 
 typescript@^3.1.6:
   version "3.1.6"

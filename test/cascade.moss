@@ -37,7 +37,8 @@ config:
           - no
           =yes also:
           - item
-          - nextItem
+          +yes also:
+            - nextItem
       version: 2
   +no:
     version: 0
