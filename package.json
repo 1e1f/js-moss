@@ -1,7 +1,7 @@
 {
     "name": "js-moss",
     "description": "moss is a set of parsing rules for yaml and json",
-    "version": "0.14.2",
+    "version": "0.14.3",
     "homepage": "https://github.com/1e1f/js-moss",
     "author": {
         "name": "Leif Shackelford",
@@ -30,25 +30,24 @@
     },
     "Keywords": [],
     "devDependencies": {
-        "@types/chai": "^3.4.34",
-        "@types/js-yaml": "^3.5.29",
-        "@types/mathjs": "^0.0.34",
-        "@types/mocha": "^2.2.32",
-        "@types/node": "^6.0.46",
-        "@types/shelljs": "^0.6.0",
-        "chai": "^3.5.0",
-        "coveralls": "^2.11.9",
-        "gulp": "^3.9.1",
-        "gulp-typescript": "^3.1.1",
-        "mocha": "^3.2.0",
-        "nyc": "^8.4.0",
-        "shelljs": "^0.8.2",
-        "ts-node": "^7.0.1",
-        "typescript": "^3.1.6"
+        "@types/js-yaml": "^3.12",
+        "@types/mathjs": "^5",
+        "@types/mocha": "^5",
+        "@types/node": "^10",
+        "@types/shelljs": "^0.8",
+        "chai": "^4.2",
+        "coveralls": "^3.0",
+        "gulp": "^4.0",
+        "gulp-typescript": "^5.0",
+        "mocha": "^5.2",
+        "nyc": "^13.2",
+        "shelljs": "^0.8",
+        "ts-node": "^8.0",
+        "typescript": "3.2.2"
     },
     "dependencies": {
-        "js-yaml": "^3.12.0",
-        "mathjs": "^3.14.2",
+        "js-yaml": "^3.12",
+        "mathjs": "^5.4",
         "typed-json-transform": "^0.22.5"
     }
 }

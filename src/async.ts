@@ -4,7 +4,7 @@ import { arrayify, extend, check, clone, each, merge, amap, union, difference, s
 import { interpolateAsync as __interpolate } from './interpolate';
 import { cascadeAsync as _cascade, shouldCascade } from './cascade';
 import * as yaml from 'js-yaml';
-import { newLayer, pushState } from './util';
+import { newLayer, pushState, MossError } from './util';
 
 export namespace Async {
   const functions: Moss.Async.Functions = {}
@@ -13,6 +13,11 @@ export namespace Async {
   const currentErrorPath = (state: Moss.State) => state.errorPaths[state.errorPaths.length - 1];
   const pushErrorPath = (state: Moss.State) => state.errorPaths.push({ path: [] })
   const popErrorPath = (state: Moss.State) => state.errorPaths.pop();
+
+  var errorReporter: Moss.ErrorReporter;
+  export function setErrorReporter(reporter: Moss.ErrorReporter) {
+    errorReporter = reporter;
+  }
 
   export const next = async (current: Moss.Layer, input: Moss.Branch): Promise<Moss.Layer> => {
     const layer = pushState(current);
@@ -48,16 +53,29 @@ export namespace Async {
         return await interpolate(layer, input);
       }
     } catch (e) {
-      if (e.name && e.name == 'MossError') {
-        throw (e);
-      }
-      else {
-        throw ({
+      let error: MossError;
+      if (e.name && (e.name == 'MossError')) {
+        error = e;
+      } else {
+        error = {
           name: 'MossError',
-          message: `${e.message || 'unexpected error'} @ ${state.errorPaths[0].path.join('.')}`,
+          message: `${e.message || 'unexpected error'}`,
           errorPaths: state.errorPaths,
           branch: input
-        });
+        };
+      }
+      try {
+        const nestedError = JSON.parse(error.message);
+        if (nestedError.name && (nestedError.name == 'MossError')) {
+          error = nestedError;
+        }
+      } catch { }
+      if (errorReporter) {
+        throw (errorReporter(error));
+      }
+      throw {
+        name: 'MossError',
+        message: JSON.stringify({ at: error.errorPaths[0].path.join('.'), ...error }, null, 2)
       }
     }
 
@@ -241,25 +259,6 @@ export namespace Async {
   export function addResolvers(userResolvers: Moss.Async.Resolvers) {
     extend(resolvers, userResolvers);
   }
-
-
-  interface MossError {
-    message: string
-    errorPaths: Moss.KeyPath[]
-    branch?: any
-    stack?: any
-    sourceMap?: any
-  }
-
-  function MossError(error: MossError) {
-    const { message, branch, stack, errorPaths } = error;
-    this.name = "MossError";
-    this.message = (message || "");
-    this.stack = stack;
-    this.branch = branch;
-    this.errorPaths = errorPaths.map(e => ({ ...e, path: e.path.join('.') }))
-  }
-  MossError.prototype = Error.prototype;
 
   addResolvers({
     hello: {

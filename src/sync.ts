@@ -4,7 +4,7 @@ import { arrayify, extend, check, clone, each, merge, map, union, difference, su
 import { interpolate as __interpolate } from './interpolate';
 import { cascade as _cascade, shouldCascade } from './cascade';
 import * as yaml from 'js-yaml';
-import { newLayer, pushState } from './util';
+import { newLayer, pushState, MossError } from './util';
 
 export namespace Sync {
     const functions: Moss.Sync.Functions = {}
@@ -48,19 +48,31 @@ export namespace Sync {
                 return interpolate(layer, input);
             }
         } catch (e) {
-            if (e.name && e.name == 'MossError') {
-                throw (e);
-            }
-            else {
-                throw ({
+            let error: MossError;
+            if (e.name && (e.name == 'MossError')) {
+                error = e;
+            } else {
+                error = {
                     name: 'MossError',
-                    message: `${e.message || 'unexpected error'} @ ${state.errorPaths[0].path.join('.')}`,
+                    message: `${e.message || 'unexpected error'}`,
                     errorPaths: state.errorPaths,
                     branch: input
-                });
+                };
+            }
+            try {
+                const nestedError = JSON.parse(error.message);
+                if (nestedError.name && (nestedError.name == 'MossError')) {
+                    error = nestedError;
+                }
+            } catch { }
+            if (errorReporter) {
+                throw (errorReporter(error));
+            }
+            throw {
+                name: 'MossError',
+                message: JSON.stringify({ at: error.errorPaths[0].path.join('.'), ...error }, null, 2)
             }
         }
-
     }
 
     export const cascade = (current: Moss.Layer): any => {
@@ -115,19 +127,15 @@ export namespace Sync {
                 } else if (check(res, Object) && check(val, Object)) {
                     res = merge(res, val);
                 } else {
-                    // if (!res) {
-                    //   res = val;
-                    // } else {
                     throw ({
                         name: 'MossError',
-                        message: `selected branch type is not compatible with previous branch type`,
+                        message: `interpolated type [${typeof val}] is not compatible with previous branch type [${typeof res}]`,
                         errorPaths: layer.state.errorPaths,
                         branch: {
                             source: val,
                             destination: res
                         }
                     });
-                    // }
                 }
             }
         });
@@ -243,23 +251,10 @@ export namespace Sync {
     }
 
 
-    interface MossError {
-        message: string
-        errorPaths: Moss.KeyPath[]
-        branch?: any
-        stack?: any
-        sourceMap?: any
+    var errorReporter: Moss.ErrorReporter;
+    export function setErrorReporter(reporter: Moss.ErrorReporter) {
+        errorReporter = reporter;
     }
-
-    function MossError(error: MossError) {
-        const { message, branch, stack, errorPaths } = error;
-        this.name = "MossError";
-        this.message = (message || "");
-        this.stack = stack;
-        this.branch = branch;
-        this.errorPaths = errorPaths.map(e => ({ ...e, path: e.path.join('.') }))
-    }
-    MossError.prototype = Error.prototype;
 
     addResolvers({
         hello: {

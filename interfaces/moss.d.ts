@@ -1,3 +1,11 @@
+interface MossError {
+  message: string
+  errorPaths: Moss.KeyPath[]
+  branch?: any
+  stack?: any
+  sourceMap?: any
+}
+
 declare namespace Moss {
   interface KeyPath {
     path: string[]
@@ -11,6 +19,7 @@ declare namespace Moss {
     autoMap?: any
     stack?: any
     selectors?: any
+    resolverCache?: any
     target?: Moss.Branch
     errorPaths: KeyPath[]
   }
@@ -25,6 +34,9 @@ declare namespace Moss {
     data: Branch
     state: State
   }
+
+  type Error = MossError
+  type ErrorReporter = (error: MossError) => Error
 
   namespace Async {
     type Function = (current: Moss.Layer, args: any) => Promise<any>;

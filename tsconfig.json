@@ -14,7 +14,8 @@
     "moduleResolution": "node",
     "target": "es5",
     "lib": [
-      "esnext"
+      "esnext",
+      "dom"
     ],
     "preserveConstEnums": true,
     "declaration": false,

@@ -58,10 +58,17 @@ type nextFn = (ctx: any, data: any) => any
 
 export const shouldCascade = (data: any): any => {
     if (!check(data, Object)) return false;
+    let implicit = false;
     for (const key of Object.keys(data)) {
-        if (key[0] == '=' || key[0] == '+' || key[0] == '-') {
+        if (key[0] == '=') {
             return true;
         }
+        if (key[0] == '+' || key[0] == '-') {
+            implicit = true;
+        }
+    }
+    if (implicit) {
+        throw new Error('using selectors [+: or -:] without base definition [ =: ]')
     }
 }
 
