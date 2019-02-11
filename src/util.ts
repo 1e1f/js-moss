@@ -1,3 +1,5 @@
+/// <reference path="../interfaces/moss.d.ts" />
+
 import { clone } from "typed-json-transform";
 
 export const newState = (): Moss.State => {
@@ -11,7 +13,7 @@ export const newLayer = (): Moss.Layer => {
 export const pushState = (layer: Moss.Layer) => {
     let state = layer.state;
     if (!state.locked) {
-      state = clone(layer.state);
+        state = clone(layer.state);
     }
-    return  { ...layer, state };
-  }
+    return { ...layer, state };
+}

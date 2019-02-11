@@ -28,9 +28,10 @@ declare namespace Moss {
 
   namespace Async {
     type Function = (current: Moss.Layer, args: any) => Promise<any>;
-    type Resolver = ({ uri }: {
-      uri?: string
-    }) => Promise<any>;
+    type Resolver = {
+      match: (uri: string) => boolean;
+      resolve: (uri: string) => Promise<any>;
+    }
 
     interface Functions {
       [index: string]: Function
@@ -42,9 +43,10 @@ declare namespace Moss {
 
   namespace Sync {
     type Function = (current: Moss.Layer, args: any) => any;
-    type Resolver = ({ uri }: {
-      uri?: string
-    }) => any;
+    type Resolver = {
+      match: (uri: string) => boolean;
+      resolve: (uri: string) => any;
+    }
 
     interface Functions {
       [index: string]: Function

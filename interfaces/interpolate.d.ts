@@ -1,8 +1,8 @@
 declare namespace Expand {
-  type Key = '$' | '=';
+  type Key = '$' | '=' | '^';
   type Open = '{' | '(';
   type Terminal = '}' | ')' | ' ' | '__null__';
-  type Op = 'replace' | 'shell' | 'math';
+  type Op = 'replace' | 'shell' | 'math' | 'fetch';
 
   interface State {
     detecting?: Key
@@ -21,13 +21,13 @@ declare namespace Expand {
   export interface Options {
     replace?: (sub: string) => string
     call?: (sub: any) => any
+    fetch?: (sub: any) => any
     shell?: (sub: string) => string
     getStack?: any
     pushErrorState?: () => void
     popErrorState?: (res: string) => void
   }
 }
-
 
 declare module 'interpolate' {
   export function interpolateAsync(input: any, options: Expand.Options): Promise<any>;

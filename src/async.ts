@@ -1,6 +1,6 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
-import { arrayify, extend, check, combine, clone, each, merge, amap, union, difference, sum, valueForKeyPath, aokmap } from 'typed-json-transform';
+import { arrayify, extend, check, clone, each, merge, amap, union, difference, sum, replaceAll, valueForKeyPath, aokmap } from 'typed-json-transform';
 import { interpolateAsync as __interpolate } from './interpolate';
 import { cascadeAsync as _cascade, shouldCascade } from './cascade';
 import * as yaml from 'js-yaml';
@@ -15,9 +15,13 @@ export namespace Async {
   const popErrorPath = (state: Moss.State) => state.errorPaths.pop();
 
   export const next = async (current: Moss.Layer, input: Moss.Branch): Promise<Moss.Layer> => {
+    const layer = pushState(current);
+    return mutate(layer, input);
+  }
+
+  export const mutate = async (layer: Moss.Layer, input: Moss.Branch): Promise<Moss.Layer> => {
+    const { state } = layer;
     try {
-      const layer = pushState(current);
-      const { state } = layer;
       if (check(input, Array)) {
         return {
           data: await amap(input, async (i) => {
@@ -50,12 +54,13 @@ export namespace Async {
       else {
         throw ({
           name: 'MossError',
-          message: `${e.message || 'unexpected error'} @ ${current.state.errorPaths[0].path.join('.')}`,
-          errorPaths: current.state.errorPaths,
+          message: `${e.message || 'unexpected error'} @ ${state.errorPaths[0].path.join('.')}`,
+          errorPaths: state.errorPaths,
           branch: input
         });
       }
     }
+
   }
 
   export const cascade = async (current: Moss.Layer): Promise<any> => {
@@ -65,7 +70,6 @@ export namespace Async {
       prefix: '=',
       usePrecedence: true,
       onMatch: async (val, key) => {
-
         currentErrorPath(current.state).path.push(key);
         const continued = (await next(current, val)).data;
         currentErrorPath(current.state).path.pop();
@@ -89,7 +93,7 @@ export namespace Async {
     //     res = existing;
     //   }
     // } else {
-      // res = selected;
+    // res = selected;
     // }
     await _cascade(current, data, {
       prefix: '+',
@@ -99,7 +103,7 @@ export namespace Async {
         currentErrorPath(current.state).path.push(key);
         val = (await next(current, val)).data;
         currentErrorPath(current.state).path.pop();
-        
+
         // if (check(val, String)) {
         //   val = (await interpolate(layer, val)).data;
         // }
@@ -258,10 +262,10 @@ export namespace Async {
   MossError.prototype = Error.prototype;
 
   addResolvers({
-    testString: async () => 'hello world!',
-    testObject: async () => ({
-      hello: 'world!'
-    })
+    hello: {
+      match: (uri: string) => uri == 'hello',
+      resolve: async (uri: string) => 'world!'
+    }
   });
 
   addFunctions({
@@ -269,13 +273,12 @@ export namespace Async {
       const { data } = current;
       const locked = clone(current.state);
       const state = { ...locked, locked: true, target: locked.selectors };
-      current.state.selectors = (await next({ data, state }, args)).state.selectors;
+      const res = await next({ data, state }, args);
+      current.state.selectors = res.state.selectors;
     },
     $: async (current: Moss.Layer, args: any) => {
-      const { data } = current;
-      const locked = clone(current.state);
-      const state = { ...locked, locked: true };
-      extend(current.state.stack, (await next({ data, state }, args)).data);
+      const res = await mutate(current, args);
+      merge(current.state, res.state);
     },
     extend: async (parent: Moss.Layer, args: any) => {
       const layer = await next(parent, args);
@@ -369,19 +372,22 @@ export namespace Async {
         });
       }
       let i = 0;
-      return await aokmap(fromCtx.data, async (item: any, key: string) => {
-        if (fromCtx.state.autoMap[key]) {
-          currentErrorPath(fromCtx.state).path = fromCtx.state.autoMap[key].split('.');
-        }
-        const ctx = await next(fromCtx, item);
-        currentErrorPath(ctx.state).path = (base + ('.to')).split('.');
-        ctx.state.stack.index = i;
-        i++;
-        ctx.state.stack.value = item;
-        ctx.state.stack.key = key;
-        const { data } = await next(ctx, clone(to));
-        return data;
-      });
+      try {
+        return await aokmap(fromCtx.data, async (item: any, key: string) => {
+          if (fromCtx.state.autoMap[key]) {
+            currentErrorPath(fromCtx.state).path = fromCtx.state.autoMap[key].split('.');
+          }
+          const ctx = await next(fromCtx, item);
+          currentErrorPath(ctx.state).path = (base + ('.to')).split('.');
+          ctx.state.stack.index = i;
+          i++;
+          ctx.state.stack.value = item;
+          ctx.state.stack.key = key;
+          return (await next(ctx, clone(to))).data
+        });
+      } catch (e) {
+        throw (e);
+      }
     },
     reduce: async (parent: Moss.Layer, args: any) => {
       const layer = await next(parent, args);
@@ -455,35 +461,6 @@ export namespace Async {
       const layer = await next(parent, args);
       const { data } = layer;
       return sum(data, (v) => v);
-    },
-    import: async (parent: Moss.Layer, args: any) => {
-      if (check(args, String)) {
-        const parts = args.split('://');
-        args = {
-          [parts[0]]: parts[1]
-        };
-      };
-      for (const key of Object.keys(args)) {
-        if (resolvers[key]) {
-          const val = await resolvers[key](args[key]);
-          if (val) return (await next(parent, val)).data;
-        }
-      }
-      throw ({
-        name: 'MossError',
-        message: `none of the available import resolvers [${Object.keys(args).join(', ')}] successfully resolved to a value`,
-        errorPaths: parent.state.errorPaths.map((o) => {
-          let path = o.path.join('.');
-          let firstKey = o.path[0];
-          if (parent.state.autoMap[firstKey]) {
-            path = path.replace(firstKey, parent.state.autoMap[firstKey]);
-          }
-          return {
-            ...o,
-            path: path.split('.')
-          }
-        })
-      });
     }
   });
 
@@ -553,9 +530,50 @@ export namespace Async {
           const keys = Object.keys(obj);
           if (!(keys && keys.length)) return '';
           currentErrorPath(layer.state).path.push(input);
-          const res = (await next(layer, obj)).data;
+          const res = (await mutate(layer, obj)).data;
           currentErrorPath(layer.state).path.pop();
           return res;
+        },
+        fetch: async (fetchUri: string) => {
+          const uris = replaceAll(fetchUri, ', ', ',').split(',');
+          let res;
+          for (const uri of uris) {
+            for (const resolverKey of Object.keys(resolvers).reverse()) {
+              const { match, resolve } = resolvers[resolverKey];
+              if (match(uri)) {
+                try {
+                  const branch = await resolve(uri);
+                  const res = await mutate(layer, branch);
+                  return res.data;
+                }
+                catch (e) {
+                  throw ({
+                    name: 'MossError',
+                    message: `error parsing import ` + uri,
+                    stack: res,
+                    errorPaths: layer.state.errorPaths
+                  });
+                }
+              }
+            }
+          }
+          if (!res) {
+            throw ({
+              name: 'MossError',
+              message: `none of the available import resolvers [${Object.keys(resolvers).join(', ')}] successfully resolved any of [${uris.join(', ')}]`,
+              errorPaths: layer.state.errorPaths.map((o) => {
+                let path = o.path.join('.');
+                let firstKey = o.path[0];
+                if (layer.state.autoMap[firstKey]) {
+                  path = path.replace(firstKey, layer.state.autoMap[firstKey]);
+                }
+                return {
+                  ...o,
+                  path: path.split('.')
+                }
+              })
+            })
+          }
         },
         shell: () => 'no shell method supplied',
         getStack: () => {

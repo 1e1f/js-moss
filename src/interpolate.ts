@@ -1,7 +1,6 @@
 /// <reference path="../interfaces/interpolate.d.ts" />
 
-import { check, extend, valueForKeyPath, isEqual } from 'typed-json-transform';
-import * as yaml from 'js-yaml';
+import { check } from 'typed-json-transform';
 import * as math from 'mathjs';
 
 function join(current: any, next: any) {
@@ -24,7 +23,7 @@ function newState() {
 }
 
 export async function expandAsync(str: string, options: Expand.Options) {
-  const { replace, call, shell, getStack, pushErrorState, popErrorState } = options;
+  const { replace, call, shell, fetch, getStack, pushErrorState, popErrorState } = options;
   const template = String(str);
   let i = 0;
   let x = 0;
@@ -33,7 +32,7 @@ export async function expandAsync(str: string, options: Expand.Options) {
   const stack: Expand.Elem[][] = [[{ state: {}, raw: '', subst: '' }]];
   let ptr = stack[x][y];
 
-  function append(char: string) {
+  const append = (char: string) => {
     if (ptr.state.op) {
       ptr.subst += char;
     } else {
@@ -41,7 +40,7 @@ export async function expandAsync(str: string, options: Expand.Options) {
     }
   }
 
-  function bsp() {
+  const bsp = () => {
     if (ptr.state.op) {
       ptr.subst = ptr.subst.slice(0, ptr.subst.length - 1);
     } else {
@@ -49,7 +48,7 @@ export async function expandAsync(str: string, options: Expand.Options) {
     }
   }
 
-  function open(op: Expand.Op, terminal: Expand.Terminal) {
+  const open = (op: Expand.Op, terminal: Expand.Terminal) => {
     if (pushErrorState) pushErrorState();
     bsp();
     ptr.state.detecting = null;
@@ -64,7 +63,7 @@ export async function expandAsync(str: string, options: Expand.Options) {
     ptr.state.terminal = terminal;
   }
 
-  async function close() {
+  const close = async () => {
     const op = ptr.state.op;
     ptr.state.op = null;
     ptr.state.terminal = null;
@@ -78,6 +77,8 @@ export async function expandAsync(str: string, options: Expand.Options) {
         res = replace(ptr.subst);
       } else if (op == 'shell') {
         res = shell(ptr.subst);
+      } else if (op == 'fetch') {
+        res = await fetch(ptr.subst);
       } else if (op == 'math') {
         const vars = getStack();
         if (Object.keys(vars).length) {
@@ -124,7 +125,7 @@ export async function expandAsync(str: string, options: Expand.Options) {
           break;
         case '{':
           if (detecting) {
-            open(detecting == '$' ? 'replace' : 'math', '}');
+            open(detecting == '$' ? 'replace' : detecting == '^' ? 'fetch' : 'math', '}');
             break;
           }
           append(char);
@@ -152,11 +153,12 @@ export async function expandAsync(str: string, options: Expand.Options) {
           if (detecting) {
             if (ptr.raw.length == 1) {
               if (detecting == '=') open('math', '__null__');
+              else if (detecting == '^') open('fetch', '__null__');
               else if (detecting == '$') open('replace', ' ');
             } else {
               ptr.state.detecting = null;
             }
-          } else if (char == '=' || char == '$') {
+          } else if (char == '=' || char == '$' || char == '^') {
             ptr.state.detecting = char;
           }
           append(char);
@@ -176,7 +178,7 @@ export async function expandAsync(str: string, options: Expand.Options) {
 };
 
 export function expand(str: string, options: Expand.Options) {
-  const { replace, call, shell, getStack, pushErrorState, popErrorState } = options;
+  const { replace, call, shell, fetch, getStack, pushErrorState, popErrorState } = options;
   const template = String(str);
   let i = 0;
   let x = 0;
@@ -230,6 +232,8 @@ export function expand(str: string, options: Expand.Options) {
         res = replace(ptr.subst);
       } else if (op == 'shell') {
         res = shell(ptr.subst);
+      } else if (op == 'fetch') {
+        res = fetch(ptr.subst);
       } else if (op == 'math') {
         const vars = getStack();
         if (Object.keys(vars).length) {
@@ -276,7 +280,7 @@ export function expand(str: string, options: Expand.Options) {
           break;
         case '{':
           if (detecting) {
-            open(detecting == '$' ? 'replace' : 'math', '}');
+            open(detecting == '$' ? 'replace' : detecting == '^' ? 'fetch' : 'math', '}');
             break;
           }
           append(char);
@@ -304,11 +308,12 @@ export function expand(str: string, options: Expand.Options) {
           if (detecting) {
             if (ptr.raw.length == 1) {
               if (detecting == '=') open('math', '__null__');
+              else if (detecting == '^') open('fetch', '__null__');
               else if (detecting == '$') open('replace', ' ');
             } else {
               ptr.state.detecting = null;
             }
-          } else if (char == '=' || char == '$') {
+          } else if (char == '=' || char == '$' || char == '^') {
             ptr.state.detecting = char;
           }
           append(char);

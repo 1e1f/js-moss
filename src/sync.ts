@@ -1,10 +1,10 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
-import { arrayify, extend, check, combine, clone, each, map, merge, union, difference, sum, valueForKeyPath, okmap } from 'typed-json-transform';
+import { arrayify, extend, check, clone, each, merge, map, union, difference, sum, replaceAll, valueForKeyPath, okmap } from 'typed-json-transform';
 import { interpolate as __interpolate } from './interpolate';
-import { base, cascade as _cascade, shouldCascade } from './cascade';
+import { cascade as _cascade, shouldCascade } from './cascade';
 import * as yaml from 'js-yaml';
-import { newLayer } from './util';
+import { newLayer, pushState } from './util';
 
 export namespace Sync {
     const functions: Moss.Sync.Functions = {}
@@ -15,12 +15,13 @@ export namespace Sync {
     const popErrorPath = (state: Moss.State) => state.errorPaths.pop();
 
     export const next = (current: Moss.Layer, input: Moss.Branch): Moss.Layer => {
+        const layer = pushState(current);
+        return mutate(layer, input);
+    }
+
+    export const mutate = (layer: Moss.Layer, input: Moss.Branch): Moss.Layer => {
+        const { state } = layer;
         try {
-            let state = current.state;
-            if (!state.locked) {
-                state = clone(current.state);
-            }
-            const layer = { ...current, state };
             if (check(input, Array)) {
                 return {
                     data: map(input, (i) => {
@@ -34,15 +35,11 @@ export namespace Sync {
             else if (check(input, Object)) {
                 if (shouldCascade(input)) {
                     const pruned = cascade({ data: input, state });
-                    if (check(pruned, Object)) {
-                        const res = branch({ data: pruned, state });
-                        currentErrorPath(state).path.pop();
-                        return res;
-                    } else { // cascaded to non object
-                        const res = next(layer, pruned);
-                        currentErrorPath(state).path.pop();
-                        return res;
-                    }
+                    // console.log('pruned', pruned)
+                    return { state, data: pruned };
+                    // const continued = next(layer, pruned);
+                    // console.log('continued', continued)
+                    // return continued;
                 } else {
                     return branch({ data: input, state });
                 }
@@ -57,74 +54,98 @@ export namespace Sync {
             else {
                 throw ({
                     name: 'MossError',
-                    message: `${e.message || 'unexpected error'} @ ${current.state.errorPaths[0].path.join('.')}`,
-                    errorPaths: current.state.errorPaths,
+                    message: `${e.message || 'unexpected error'} @ ${state.errorPaths[0].path.join('.')}`,
+                    errorPaths: state.errorPaths,
                     branch: input
                 });
             }
         }
+
     }
 
     export const cascade = (current: Moss.Layer): any => {
-        const { data, state } = current;
-        const existing = base(data);
-        const selected = _cascade(current, data, {
+        const { data } = current;
+        // const existing = base(data);
+        let res = _cascade(current, data, {
             prefix: '=',
             usePrecedence: true,
             onMatch: (val, key) => {
-                currentErrorPath(state).path.push(key);
-                if (check(val, String)) {
-                    val = (interpolate(current, val)).data;
-                }
-                if (shouldCascade(val)) {
-                    val = cascade({ state, data: val });
-                }
-                return val;
+                currentErrorPath(current.state).path.push(key);
+                const continued = (next(current, val)).data;
+                currentErrorPath(current.state).path.pop();
+                // console.log({continued});
+                return continued;
+                // if (check(val, String)) {
+                //   val = (interpolate(current, val)).data;
+                // }
+                // if (shouldCascade(val)) {
+                //   val = cascade({ state: current.state, data: val });
+                // }
+                // return val;
             }
         });
-        let res: any;
-        if (existing) {
-            res = combine(existing, selected);
-        } else {
-            res = selected;
-        }
+        // let res: any;
+        // if (existing) {
+        //   if (selected) {
+        //     console.log({selected});
+        //     res = merge(existing, selected);
+        //   } else {
+        //     res = existing;
+        //   }
+        // } else {
+        // res = selected;
+        // }
         _cascade(current, data, {
             prefix: '+',
             usePrecedence: false,
-            onMatch: (val) => {
-                if (check(val, String)) {
-                    val = (interpolate(current, val)).data;
-                }
-                if (shouldCascade(val)) {
-                    val = cascade({ ...current, data: val });
-                }
+            onMatch: (val, key) => {
+                const layer = current //pushState(current);
+                currentErrorPath(current.state).path.push(key);
+                val = (next(current, val)).data;
+                currentErrorPath(current.state).path.pop();
+
+                // if (check(val, String)) {
+                //   val = (interpolate(layer, val)).data;
+                // }
+                // if (shouldCascade(val)) {
+                //   val = cascade({ ...layer, data: val });
+                // }
                 if (check(res, Array)) {
                     res = union(res, arrayify(val))
                 } else if (check(res, Object) && check(val, Object)) {
-                    extend(res, val);
+                    res = merge(res, val);
                 } else {
+                    // if (!res) {
+                    //   res = val;
+                    // } else {
                     throw ({
                         name: 'MossError',
-                        message: `bad merge source->destination`,
-                        errorPaths: state.errorPaths,
+                        message: `selected branch type is not compatible with previous branch type`,
+                        errorPaths: layer.state.errorPaths,
                         branch: {
                             source: val,
                             destination: res
                         }
                     });
+                    // }
                 }
             }
         });
         _cascade(current, data, {
             prefix: '-',
             usePrecedence: false,
-            onMatch: (val) => {
-                if (check(val, String)) {
-                    val = (interpolate(current, val)).data;
-                }
-                if (shouldCascade(val)) {
-                    val = cascade({ ...current, data: val });
-                }
+            onMatch: (val, key) => {
+                const layer = current //pushState(current);
+                currentErrorPath(current.state).path.push(key);
+                val = (next(current, val)).data;
+                currentErrorPath(current.state).path.pop();
+                // currentErrorPath(layer.state).path.push(key);
+                // if (check(val, String)) {
+                //   val = (interpolate(current, val)).data;
+                // }
+                // if (shouldCascade(val)) {
+                //   val = cascade({ ...current, data: val });
+                // }
                 if (check(res, Array)) {
                     res = difference(res, arrayify(val));
                 } else if (check(res, Object)) {
@@ -198,10 +219,6 @@ export namespace Sync {
             currentErrorPath(state).path.pop();
         }
         if (current.data['<=']) {
-            // throw ({
-            //   name: 'MossError',
-            //   ...state, message: '<='
-            // })
             const src = current.data['<='];
             delete current.data['<='];
             current.data = merge(src, current.data);
@@ -245,10 +262,10 @@ export namespace Sync {
     MossError.prototype = Error.prototype;
 
     addResolvers({
-        testString: () => 'hello world!',
-        testObject: () => ({
-            hello: 'world!'
-        })
+        hello: {
+            match: (uri: string) => uri == 'hello',
+            resolve: (uri: string) => 'world!'
+        }
     });
 
     addFunctions({
@@ -256,13 +273,12 @@ export namespace Sync {
             const { data } = current;
             const locked = clone(current.state);
             const state = { ...locked, locked: true, target: locked.selectors };
-            current.state.selectors = (next({ data, state }, args)).state.selectors;
+            const res = next({ data, state }, args);
+            current.state.selectors = res.state.selectors;
         },
         $: (current: Moss.Layer, args: any) => {
-            const { data } = current;
-            const locked = clone(current.state);
-            const state = { ...locked, locked: true };
-            extend(current.state.stack, (next({ data, state }, args)).data);
+            const res = mutate(current, args);
+            merge(current.state, res.state);
         },
         extend: (parent: Moss.Layer, args: any) => {
             const layer = next(parent, args);
@@ -295,6 +311,14 @@ export namespace Sync {
                     case 'json': console.log(JSON.stringify(val, null, 2)); break;
                     case 'yaml': console.log(yaml.dump(val)); break;
                 }
+            });
+        },
+        assert: (parent: Moss.Layer, args: any) => {
+            throw ({
+                name: 'MossError',
+                message: args,
+                errorPaths: parent.state.errorPaths,
+                branch: args
             });
         },
         each: (parent: Moss.Layer, args: any) => {
@@ -347,19 +371,22 @@ export namespace Sync {
                 });
             }
             let i = 0;
-            return okmap(fromCtx.data, (item, key) => {
-                if (fromCtx.state.autoMap[key]) {
-                    currentErrorPath(fromCtx.state).path = fromCtx.state.autoMap[key].split('.');
-                }
-                const ctx = next(fromCtx, item);
-                currentErrorPath(ctx.state).path = (base + ('.to')).split('.');
-                ctx.state.stack.index = i;
-                i++;
-                ctx.state.stack.value = item;
-                ctx.state.stack.key = key;
-                const { data } = next(ctx, clone(to));
-                return data;
-            });
+            try {
+                return okmap(fromCtx.data, (item: any, key: string) => {
+                    if (fromCtx.state.autoMap[key]) {
+                        currentErrorPath(fromCtx.state).path = fromCtx.state.autoMap[key].split('.');
+                    }
+                    const ctx = next(fromCtx, item);
+                    currentErrorPath(ctx.state).path = (base + ('.to')).split('.');
+                    ctx.state.stack.index = i;
+                    i++;
+                    ctx.state.stack.value = item;
+                    ctx.state.stack.key = key;
+                    return (next(ctx, clone(to))).data
+                });
+            } catch (e) {
+                throw (e);
+            }
         },
         reduce: (parent: Moss.Layer, args: any) => {
             const layer = next(parent, args);
@@ -433,35 +460,6 @@ export namespace Sync {
             const layer = next(parent, args);
             const { data } = layer;
             return sum(data, (v) => v);
-        },
-        import: (parent: Moss.Layer, args: any) => {
-            if (check(args, String)) {
-                const parts = args.split('://');
-                args = {
-                    [parts[0]]: parts[1]
-                };
-            };
-            for (const key of Object.keys(args)) {
-                if (resolvers[key]) {
-                    const val = resolvers[key](args[key]);
-                    if (val) return (next(parent, val)).data;
-                }
-            }
-            throw ({
-                name: 'MossError',
-                message: `none of the available import resolvers [${Object.keys(args).join(', ')}] successfully resolved to a value`,
-                errorPaths: parent.state.errorPaths.map((o) => {
-                    let path = o.path.join('.');
-                    let firstKey = o.path[0];
-                    if (parent.state.autoMap[firstKey]) {
-                        path = path.replace(firstKey, parent.state.autoMap[firstKey]);
-                    }
-                    return {
-                        ...o,
-                        path: path.split('.')
-                    }
-                })
-            });
         }
     });
 
@@ -531,9 +529,50 @@ export namespace Sync {
                     const keys = Object.keys(obj);
                     if (!(keys && keys.length)) return '';
                     currentErrorPath(layer.state).path.push(input);
-                    const res = (next(layer, obj)).data;
+                    const res = (mutate(layer, obj)).data;
                     currentErrorPath(layer.state).path.pop();
                     return res;
+                },
+                fetch: (fetchUri: string) => {
+                    const uris = replaceAll(fetchUri, ', ', ',').split(',');
+                    let res;
+                    for (const uri of uris) {
+                        for (const resolverKey of Object.keys(resolvers).reverse()) {
+                            const { match, resolve } = resolvers[resolverKey];
+                            if (match(uri)) {
+                                try {
+                                    const branch = resolve(uri);
+                                    const res = mutate(layer, branch);
+                                    return res.data;
+                                }
+                                catch (e) {
+                                    throw ({
+                                        name: 'MossError',
+                                        message: `error parsing import ` + uri,
+                                        stack: res,
+                                        errorPaths: layer.state.errorPaths
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    if (!res) {
+                        throw ({
+                            name: 'MossError',
+                            message: `none of the available import resolvers [${Object.keys(resolvers).join(', ')}] successfully resolved any of [${uris.join(', ')}]`,
+                            errorPaths: layer.state.errorPaths.map((o) => {
+                                let path = o.path.join('.');
+                                let firstKey = o.path[0];
+                                if (layer.state.autoMap[firstKey]) {
+                                    path = path.replace(firstKey, layer.state.autoMap[firstKey]);
+                                }
+                                return {
+                                    ...o,
+                                    path: path.split('.')
+                                }
+                            })
+                        })
+                    }
                 },
                 shell: () => 'no shell method supplied',
                 getStack: () => {
