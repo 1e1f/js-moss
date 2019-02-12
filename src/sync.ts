@@ -275,6 +275,13 @@ export namespace Sync {
             const res = next({ data, state }, args);
             current.state.selectors = res.state.selectors;
         },
+        stack: (current: Moss.Layer, args: any) => {
+            const { data } = current;
+            const locked = clone(current.state);
+            const state = { ...locked, locked: true, target: locked.stack };
+            const res = next({ data, state }, args);
+            current.state.stack = res.state.stack;
+        },
         $: (current: Moss.Layer, args: any) => {
             const res = mutate(current, args);
             merge(current.state, res.state);

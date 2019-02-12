@@ -275,6 +275,13 @@ export namespace Async {
       const res = await next({ data, state }, args);
       current.state.selectors = res.state.selectors;
     },
+    stack: async (current: Moss.Layer, args: any) => {
+      const { data } = current;
+      const locked = clone(current.state);
+      const state = { ...locked, locked: true, target: locked.stack };
+      const res = await next({ data, state }, args);
+      current.state.stack = res.state.stack;
+    },
     $: async (current: Moss.Layer, args: any) => {
       const res = await mutate(current, args);
       merge(current.state, res.state);
