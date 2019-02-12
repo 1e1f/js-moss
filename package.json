@@ -1,7 +1,7 @@
 {
     "name": "js-moss",
     "description": "moss is a set of parsing rules for yaml and json",
-    "version": "0.15.1",
+    "version": "0.15.2",
     "homepage": "https://github.com/1e1f/js-moss",
     "author": {
         "name": "Leif Shackelford",
@@ -20,10 +20,10 @@
             "url": "https://github.com/1e1f/js-moss/blob/master/LICENSE-MIT"
         }
     ],
-    "main": "dist/index.js",
+    "main": "lib/index.js",
     "types": "interfaces/index.d.ts",
     "scripts": {
-        "build": "gulp scripts",
+        "build": "tsc",
         "test": "NODE_ENV=test mocha --recursive --compilers ts:ts-node/register --bail",
         "cover": "NODE_ENV=test nyc --report-dir coverage npm t",
         "travis": "npm run build && npm run cover"
@@ -38,8 +38,6 @@
         "@types/chai": "^4.1.7",
         "chai": "^4.2",
         "coveralls": "^3.0",
-        "gulp": "^4.0",
-        "gulp-typescript": "^5.0",
         "mocha": "^5.2",
         "nyc": "^13.2",
         "shelljs": "^0.8",

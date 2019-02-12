@@ -1,6 +1,6 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
-import { arrayify, extend, check, clone, each, merge, map, union, difference, sum, replaceAll, valueForKeyPath, okmap } from 'typed-json-transform';
+import { arrayify, extend, check, clone, each, merge, map, union, difference, sum, replaceAll, valueForKeyPath, okmap, all, isEqual } from 'typed-json-transform';
 import { interpolate as __interpolate } from './interpolate';
 import { cascade as _cascade, shouldCascade } from './cascade';
 import * as yaml from 'js-yaml';
@@ -29,7 +29,7 @@ export namespace Sync {
         try {
             if (check(input, Array)) {
                 return {
-                    data: map(input, (i) => {
+                    data: map(input, (i: any) => {
                         currentErrorPath(state).path.push(i);
                         const res = (next(layer, i)).data
                         currentErrorPath(state).path.pop();
@@ -460,6 +460,13 @@ export namespace Sync {
                 const res = state.auto.memo;
                 return res;
             }
+        },
+        compare: (parent: Moss.Layer, args: any) => {
+            let first: any;
+            return all(args, (arg) => {
+                if (!first) first = arg;
+                return isEqual(arg, first);
+            });
         },
         group: (parent: Moss.Layer, args: any) => {
             const layer = next(parent, args);

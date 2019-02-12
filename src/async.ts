@@ -1,6 +1,6 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
-import { arrayify, extend, check, clone, each, merge, amap, union, difference, sum, replaceAll, valueForKeyPath, aokmap } from 'typed-json-transform';
+import { arrayify, extend, check, clone, each, merge, amap, union, difference, sum, replaceAll, valueForKeyPath, aokmap, all, isEqual } from 'typed-json-transform';
 import { interpolateAsync as __interpolate } from './interpolate';
 import { cascadeAsync as _cascade, shouldCascade } from './cascade';
 import * as yaml from 'js-yaml';
@@ -462,6 +462,13 @@ export namespace Async {
         return res;
       }
     },
+    compare: async (parent: Moss.Layer, args: any) => {
+      let first: any;
+      return all(args, (arg) => {
+        if (!first) first = arg;
+        return isEqual(arg, first);
+      });
+    },
     group: async (parent: Moss.Layer, args: any) => {
       const layer = await next(parent, args);
       const { data } = layer;
@@ -550,18 +557,20 @@ export namespace Async {
             for (const resolverKey of Object.keys(resolvers).reverse()) {
               const { match, resolve } = resolvers[resolverKey];
               if (match(uri)) {
+                let branch: any;
                 try {
-                  const branch = await resolve(uri);
-                  const res = await mutate(layer, branch);
-                  return res.data;
-                }
-                catch (e) {
+                  branch = await resolve(uri);
+                } catch (e) {
                   throw ({
                     name: 'MossError',
-                    message: `error parsing import ` + uri,
+                    message: `error importing ` + uri,
                     stack: res,
                     errorPaths: layer.state.errorPaths
                   });
+                }
+                if (branch) {
+                  const res = await mutate(layer, branch);
+                  return res.data;
                 }
               }
             }

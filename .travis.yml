@@ -7,6 +7,7 @@ node_js:
 - '4'
 - '6'
 - '8'
+- '10'
 before_install:
 - npm config set progress=false
 script: npm run travis
