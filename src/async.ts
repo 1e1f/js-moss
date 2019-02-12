@@ -343,7 +343,7 @@ export namespace Async {
       for (const key in data.of) {
         const item = data.of[key];
         const ret = await next(layer, item);
-        ret.state.stack.index = i;
+        ret.state.auto.index = i;
         i++;
         await next(ret, clone(data.do));
       };
@@ -378,11 +378,12 @@ export namespace Async {
           }
           const ctx = await next(fromCtx, item);
           currentErrorPath(ctx.state).path = (base + ('.to')).split('.');
-          ctx.state.stack.index = i;
+          const nextLayer = pushState(ctx);
+          nextLayer.state.auto.index = i;
+          nextLayer.state.auto.value = item;
+          nextLayer.state.auto.memo = key;
           i++;
-          ctx.state.stack.value = item;
-          ctx.state.stack.key = key;
-          return (await next(ctx, clone(to))).data
+          return (await mutate(nextLayer, clone(to))).data
         });
       } catch (e) {
         throw (e);
@@ -419,36 +420,39 @@ export namespace Async {
         let res: any = data.memo;
         for (const i in data.each) {
           const val = data.each[i];
-          const ret = await next(parent, val);
+          const layer = await next(parent, val);
           if (functions[data.with]) {
-            res = functions[data.with](ret, { value: val, memo: res, index: i });
+            res = functions[data.with](layer, { value: val, memo: res, index: i });
           }
           else {
-            ret.state.stack.index = i;
-            ret.state.stack.value = val;
-            ret.state.stack.memo = res;
-            res = (await next(ret, data.with)).data;
+            const nextLayer = pushState(layer);
+            nextLayer.state.auto.index = i;
+            nextLayer.state.auto.value = val;
+            nextLayer.state.auto.memo = res;
+            res = (await mutate(nextLayer, data.with)).data;
           }
         };
         return res;
       }
       if (check(data.each, Object)) {
         let i = 0;
-        const { state } = layer;
-        state.stack.memo = data.memo;
+        const nextLayer = pushState(layer);
+        const { state } = nextLayer;
+        state.auto.memo = data.memo || 0;
         for (const key in data.each) {
           const val = data.each[key];
-          state.stack.index = i;
+          state.auto.index = i;
           i++;
-          state.stack.key = key;
-          state.stack.value = val;
-          const res = (await next(layer, clone(data.with))).data;
+          state.auto.key = key;
+          state.auto.value = val;
+          const res = (await mutate(nextLayer, clone(data.with))).data;
           if (check(res, Object)) {
-            extend(state.stack.memo, res);
+            extend(nextLayer.state.auto.memo, res);
           }
-          else state.stack.memo = res;
+          else state.auto.memo = state.auto.memo + res;
         };
-        return state.stack.memo;
+        const res = state.auto.memo;
+        return res;
       }
     },
     group: async (parent: Moss.Layer, args: any) => {
@@ -467,9 +471,9 @@ export namespace Async {
     const { data, state } = layer;
     let dictionary;
     if (check(data, Object)) {
-      dictionary = { ...state.auto, ...data, ...state.stack };
+      dictionary = { ...state.auto, ...data, stack: state.stack };
     } else {
-      dictionary = { ...state.auto, ...state.stack }
+      dictionary = { ...state.auto, stack: state.stack }
     }
     const res = await _interpolate(layer, input, dictionary);
     return { data: res, state: layer.state };
@@ -519,7 +523,6 @@ export namespace Async {
                     path: path.split('.')
                   }
                 }),
-                // errorPaths: map(layer.state.errorPaths, (err) => ({ ...err, path: layer.state.autoMap[err.path[0]] })),
                 stack: dictionary
               });
             }
@@ -576,7 +579,7 @@ export namespace Async {
         },
         shell: () => 'no shell method supplied',
         getStack: () => {
-          const merged = { ...layer.state.auto, ...layer.data, ...layer.state.stack };
+          const merged = { ...layer.state.auto, ...layer.data, stack: layer.state.stack };
           return merged;
         }
       }, ...interpolationFunctions
