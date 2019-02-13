@@ -5,6 +5,7 @@ import { interpolateAsync as __interpolate } from './interpolate';
 import { cascadeAsync as _cascade, shouldCascade } from './cascade';
 import * as yaml from 'js-yaml';
 import { newLayer, pushState, MossError } from './util';
+import { fetchAsync } from './resolvers';
 
 export namespace Async {
   const functions: Moss.Async.Functions = {}
@@ -263,7 +264,10 @@ export namespace Async {
   addResolvers({
     hello: {
       match: (uri: string) => uri == 'hello',
-      resolve: async (uri: string) => 'world!'
+      resolve: async (uri: string) => ({
+        path: uri,
+        data: 'world!'
+      })
     }
   });
 
@@ -550,48 +554,27 @@ export namespace Async {
           currentErrorPath(layer.state).path.pop();
           return res;
         },
-        fetch: async (fetchUri: string) => {
-          const uris = replaceAll(fetchUri, ', ', ',').split(',');
-          let res;
-          for (const uri of uris) {
-            for (const resolverKey of Object.keys(resolvers).reverse()) {
-              const { match, resolve } = resolvers[resolverKey];
-              if (match(uri)) {
-                let branch: any;
-                try {
-                  branch = await resolve(uri);
-                } catch (e) {
-                  throw ({
-                    name: 'MossError',
-                    message: `error importing ` + uri,
-                    stack: res,
-                    errorPaths: layer.state.errorPaths
-                  });
-                }
-                if (branch) {
-                  const res = await mutate(layer, branch);
-                  return res.data;
-                }
-              }
-            }
-          }
-          if (!res) {
+        fetch: async (uris: string) => {
+          const { data } = await fetchAsync(uris, resolvers, layer);
+          if (!data) {
             throw ({
               name: 'MossError',
-              message: `none of the available import resolvers [${Object.keys(resolvers).join(', ')}] successfully resolved any of [${uris.join(', ')}]`,
-              errorPaths: layer.state.errorPaths.map((o) => {
-                let path = o.path.join('.');
-                let firstKey = o.path[0];
-                if (layer.state.autoMap[firstKey]) {
-                  path = path.replace(firstKey, layer.state.autoMap[firstKey]);
-                }
-                return {
-                  ...o,
-                  path: path.split('.')
-                }
-              })
+              message: `none of the available import resolvers [${Object.keys(resolvers).join(', ')}] successfully resolved any of ${uris}`,
+              // errorPaths: layer.state.errorPaths.map((o) => {
+              //   let path = o.path.join('.');
+              //   let firstKey = o.path[0];
+              //   if (layer.state.autoMap[firstKey]) {
+              //     path = path.replace(firstKey, layer.state.autoMap[firstKey]);
+              //   }
+              //   return {
+              //     ...o,
+              //     path: path.split('.')
+              //   }
+              // })
             })
           }
+          const res = await mutate(layer, data);
+          return res.data;
         },
         shell: () => 'no shell method supplied',
         getStack: () => {

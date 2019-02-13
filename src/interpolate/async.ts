@@ -77,9 +77,11 @@ export async function expand(str: string, options: Expand.Options) {
             delete stack[x][y];
             y--;
             ptr = stack[x][y];
+            // console.log('close nested', ptr.subst, '<<', res);
             ptr.subst = join(ptr.subst, res);
         }
         else {
+            // console.log('close base', ptr.raw, '<<', res);
             if (res) { ptr.state.dirty = true };
             ptr.raw = join(ptr.raw, res);
             x++;
@@ -160,8 +162,11 @@ export async function expand(str: string, options: Expand.Options) {
 
 export async function interpolate(input: any, options: Expand.Options) {
     if (!check(input, String)) {
+        // console.log('finish inperolation', input)
         return { value: input, changed: false };
     }
-    return concat((await expand(input, options)));
+    const res = await expand(input, options);
+    // console.log({ stack })
+    return concat(res);
 }
 

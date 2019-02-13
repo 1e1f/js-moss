@@ -5,6 +5,7 @@ import { interpolate as __interpolate } from './interpolate';
 import { cascade as _cascade, shouldCascade } from './cascade';
 import * as yaml from 'js-yaml';
 import { newLayer, pushState, MossError } from './util';
+import { fetchSync } from './resolvers';
 
 export namespace Sync {
     const functions: Moss.Sync.Functions = {}
@@ -263,7 +264,10 @@ export namespace Sync {
     addResolvers({
         hello: {
             match: (uri: string) => uri == 'hello',
-            resolve: (uri: string) => 'world!'
+            resolve: (uri: string) => ({
+                path: uri,
+                data: 'world!'
+            })
         }
     });
 
@@ -549,46 +553,27 @@ export namespace Sync {
                     currentErrorPath(layer.state).path.pop();
                     return res;
                 },
-                fetch: (fetchUri: string) => {
-                    const uris = replaceAll(fetchUri, ', ', ',').split(',');
-                    let res;
-                    for (const uri of uris) {
-                        for (const resolverKey of Object.keys(resolvers).reverse()) {
-                            const { match, resolve } = resolvers[resolverKey];
-                            if (match(uri)) {
-                                try {
-                                    const branch = resolve(uri);
-                                    const res = mutate(layer, branch);
-                                    return res.data;
-                                }
-                                catch (e) {
-                                    throw ({
-                                        name: 'MossError',
-                                        message: `error parsing import ` + uri,
-                                        stack: res,
-                                        errorPaths: layer.state.errorPaths
-                                    });
-                                }
-                            }
-                        }
-                    }
-                    if (!res) {
+                fetch: (uris: string) => {
+                    const { data } = fetchSync(uris, resolvers, layer);
+                    if (!data) {
                         throw ({
                             name: 'MossError',
-                            message: `none of the available import resolvers [${Object.keys(resolvers).join(', ')}] successfully resolved any of [${uris.join(', ')}]`,
-                            errorPaths: layer.state.errorPaths.map((o) => {
-                                let path = o.path.join('.');
-                                let firstKey = o.path[0];
-                                if (layer.state.autoMap[firstKey]) {
-                                    path = path.replace(firstKey, layer.state.autoMap[firstKey]);
-                                }
-                                return {
-                                    ...o,
-                                    path: path.split('.')
-                                }
-                            })
+                            message: `none of the available import resolvers [${Object.keys(resolvers).join(', ')}] successfully resolved any of [${uris}]`,
+                            // errorPaths: layer.state.errorPaths.map((o) => {
+                            //     let path = o.path.join('.');
+                            //     let firstKey = o.path[0];
+                            //     if (layer.state.autoMap[firstKey]) {
+                            //         path = path.replace(firstKey, layer.state.autoMap[firstKey]);
+                            //     }
+                            //     return {
+                            //         ...o,
+                            //         path: path.split('.')
+                            //     }
+                            // })
                         })
                     }
+                    const res = mutate(layer, data);
+                    return res.data;
                 },
                 shell: () => 'no shell method supplied',
                 getStack: () => {
