@@ -17,57 +17,65 @@ declare namespace Moss {
 
   interface State {
     locked?: boolean
+    strict: boolean
     auto?: any
     autoMap?: any
     stack?: any
     selectors?: any
     resolverCache?: any
-    target?: Moss.Branch
+    target?: Moss.BranchData
     errorPaths: KeyPath[]
   }
 
+  //   match: (uri: string) => uri == 'hello',
+  // resolve: async (uri: string) => ({
+  //   path: uri,
+  //   data: 'world!'
+  // })
+
   interface Branch {
-    [index: string]: any;
-    'select<'?: any
-    '$<'?: any
+    path?: string
+    text?: string
+    data?: BranchData
   }
 
+  type BranchData = any;
+
   interface Layer {
-    data: Branch
+    data: BranchData
     state: State
   }
 
   type Error = MossError
   type ErrorReporter = (error: MossError) => Error
 
-  namespace Async {
-    type Function = (current: Moss.Layer, args: any) => Promise<any>;
-    type Resolver = {
-      match: (uri: string) => boolean;
-      resolve: (uri: string) => Promise<any>;
-    }
+  type Function<T> = (current: Moss.Layer, args: any) => T;
+  type Resolver<T> = {
+    match: (uri: string) => boolean;
+    resolve: (uri: string) => T;
+  }
 
-    interface Functions {
-      [index: string]: Function
-    }
-    interface Resolvers {
-      [index: string]: Resolver
-    }
+  type FunctionsMap<T> = {
+    [index: string]: Function<T>
+  }
+
+  type ResolversMap<T> = {
+    [index: string]: Resolver<T>
+  }
+
+  class Parser<T> {
+    functions: FunctionsMap<T>
+    resolvers: ResolversMap<T>
+  }
+
+  namespace Async {
+    type Functions = FunctionsMap<Promise<any>>
+    type Resolvers = ResolversMap<Promise<Moss.Branch>>
   }
 
   namespace Sync {
-    type Function = (current: Moss.Layer, args: any) => any;
-    type Resolver = {
-      match: (uri: string) => boolean;
-      resolve: (uri: string) => any;
-    }
-
-    interface Functions {
-      [index: string]: Function
-    }
-    interface Resolvers {
-      [index: string]: Resolver
-    }
+    type Functions = FunctionsMap<any>
+    type Resolvers = ResolversMap<Moss.Branch>
   }
 }
 
@@ -82,11 +90,11 @@ declare module 'moss' {
     export function next(current: Moss.Layer, input: any): Promise<Moss.Layer>;
     export function start(input: any): Promise<Moss.Layer>;
 
-    export function parse(trunk: Moss.Branch, baseParser?: Moss.Branch): Promise<ParsedObject>;
+    export function parse(trunk: Moss.BranchData, baseParser?: Moss.BranchData): Promise<ParsedObject>;
     export function load(config: string, baseParser?: string): Promise<ParsedObject>;
 
     export function fromJSON(config: string, baseParser?: string): Promise<ParsedObject>;
-    export function fromJS(trunk: Moss.Branch, baseParser?: Moss.Branch): Promise<ParsedObject>;  // named alias for parse
+    export function fromJS(trunk: Moss.BranchData, baseParser?: Moss.BranchData): Promise<ParsedObject>;  // named alias for parse
     export function fromYAML(config: string, baseParser?: string): Promise<ParsedObject>; // named alias for load
 
     export function transform(config: string, baseParser: string): Promise<string>;
@@ -102,11 +110,11 @@ declare module 'moss' {
     export function next(current: Moss.Layer, input: any): Moss.Layer;
     export function start(input: any): Moss.Layer;
 
-    export function parse(trunk: Moss.Branch, baseParser?: Moss.Branch): ParsedObject;
+    export function parse(trunk: Moss.BranchData, baseParser?: Moss.BranchData): ParsedObject;
     export function load(config: string, baseParser?: string): ParsedObject;
 
     export function fromJSON(config: string, baseParser?: string): ParsedObject;
-    export function fromJS(trunk: Moss.Branch, baseParser?: Moss.Branch): ParsedObject;  // named alias for parse
+    export function fromJS(trunk: Moss.BranchData, baseParser?: Moss.BranchData): ParsedObject;  // named alias for parse
     export function fromYAML(config: string, baseParser?: string): ParsedObject; // named alias for load
 
     export function transform(config: string, baseParser: string): string;

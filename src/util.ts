@@ -1,21 +1,12 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
-import { clone } from "typed-json-transform";
-
-export const newState = (): Moss.State => {
-    return { auto: {}, autoMap: {}, stack: {}, resolverCache: {}, selectors: {}, errorPaths: [{ path: [] }] };
+var errorReporter: Moss.ErrorReporter;
+export function getErrorReporter() {
+    return errorReporter;
 }
 
-export const newLayer = (): Moss.Layer => {
-    return { data: {}, state: newState() }
-}
-
-export const pushState = (layer: Moss.Layer) => {
-    let state = layer.state;
-    if (!state.locked) {
-        state = clone(layer.state);
-    }
-    return { ...layer, state };
+export function setErrorReporter(reporter: Moss.ErrorReporter) {
+    errorReporter = reporter;
 }
 
 export function MossError(error: Moss.Error) {

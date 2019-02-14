@@ -4,7 +4,7 @@ import { replaceAll } from 'typed-json-transform';
 import { interpolateAsync as __interpolate } from './interpolate';
 import { cascadeAsync as _cascade } from './cascade';
 
-export const fetchAsync = async (urisString: string, resolvers: Moss.Async.Resolvers, layer: Moss.Layer) => {
+export const getBranchAsync = async (urisString: string, resolvers: Moss.Async.Resolvers, layer: Moss.Layer) => {
     const uris = replaceAll(urisString, ', ', ',').split(',');
     let res;
     for (const uri of uris) {
@@ -26,7 +26,7 @@ export const fetchAsync = async (urisString: string, resolvers: Moss.Async.Resol
     return res;
 }
 
-export const fetchSync = (urisString: string, resolvers: Moss.Async.Resolvers, layer: Moss.Layer) => {
+export const getBranchSync = (urisString: string, resolvers: Moss.Sync.Resolvers, layer: Moss.Layer) => {
     const uris = replaceAll(urisString, ', ', ',').split(',');
     let res;
     for (const uri of uris) {
