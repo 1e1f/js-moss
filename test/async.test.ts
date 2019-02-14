@@ -76,7 +76,7 @@ describe('Async API', () => {
     it('shell', async () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'shell.moss'), 'utf8'));
         setOptions({
-            shell: (str) => {
+            shell: (str: string) => {
                 return (<string>exec(str, { silent: true }).stdout).replace('\r', '').replace('\n', '');
             }
         });

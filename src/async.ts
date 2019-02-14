@@ -61,8 +61,9 @@ export namespace Async {
         error = {
           name: 'MossError',
           message: `${e.message || 'unexpected error'}`,
+          options: e.options,
           errorPaths: state.errorPaths,
-          branch: input
+          at: input
         };
       }
       try {
@@ -361,6 +362,46 @@ export namespace Async {
       return Promise.resolve();
     },
     map: async (parent: Moss.Layer, args: any) => {
+      const base = currentErrorPath(parent.state).path.join('.');
+      const { from, to } = args;
+      if (!from) {
+        throw ({
+          name: 'MossError',
+          message: `for $map please supply 'from:' as input`,
+          errorPaths: parent.state.errorPaths,
+        });
+      }
+      currentErrorPath(parent.state).path.push('from');
+      const fromCtx = await next(parent, from);
+      currentErrorPath(fromCtx.state).path.pop();
+      if (!to) {
+        throw ({
+          name: 'MossError',
+          message: `for $map please supply 'to:' as input`,
+          errorPaths: fromCtx.state.errorPaths,
+          branch: args
+        });
+      }
+      let i = 0;
+      try {
+        return await aokmap(fromCtx.data, async (item: any, key: string) => {
+          if (fromCtx.state.autoMap[key]) {
+            currentErrorPath(fromCtx.state).path = fromCtx.state.autoMap[key].split('.');
+          }
+          const ctx = await next(fromCtx, item);
+          currentErrorPath(ctx.state).path = (base + ('.to')).split('.');
+          const nextLayer = pushState(ctx);
+          nextLayer.state.auto.index = i;
+          nextLayer.state.auto.value = item;
+          nextLayer.state.auto.memo = key;
+          i++;
+          return (await mutate(nextLayer, clone(to))).data
+        });
+      } catch (e) {
+        throw (e);
+      }
+    },
+    remap: async (parent: Moss.Layer, args: any) => {
       const base = currentErrorPath(parent.state).path.join('.');
       const { from, to } = args;
       if (!from) {

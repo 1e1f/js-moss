@@ -14,8 +14,9 @@ declare namespace Expand {
 
   interface Elem {
     state: State
-    raw: string
-    subst: string
+    raw: any[]
+    source: any[]
+    subst: any[]
   }
 
   export interface Options {

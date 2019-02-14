@@ -1,7 +1,7 @@
 import { check } from 'typed-json-transform';
 import * as math from 'mathjs';
 
-import { newState, concat, join } from './shared';
+import { newState, concat, reduce, append as _append, pop } from './shared';
 
 export async function expand(str: string, options: Expand.Options) {
     const { replace, call, shell, fetch, getStack, pushErrorState, popErrorState } = options;
@@ -10,35 +10,38 @@ export async function expand(str: string, options: Expand.Options) {
     let x = 0;
     let y = 0;
 
-    const stack: Expand.Elem[][] = [[{ state: {}, raw: '', subst: '' }]];
+    const stack: Expand.Elem[][] = [[{ state: {}, raw: [], subst: [], source: [] }]];
     let ptr = stack[x][y];
 
-    const append = (char: string) => {
-        if (ptr.state.op) {
-            ptr.subst += char;
-        } else {
-            ptr.raw += char;
-        }
-    }
 
-    const bsp = () => {
+    const append = (char: string) => {
+        let nextChunk = false;
         if (ptr.state.op) {
-            ptr.subst = ptr.subst.slice(0, ptr.subst.length - 1);
+            nextChunk = _append(ptr.subst, char)
         } else {
-            ptr.raw = ptr.raw.slice(0, ptr.raw.length - 1);
+            nextChunk = _append(ptr.raw, char)
+        }
+        if (nextChunk) {
+            ptr.source.push(char);
+        } else {
+            ptr.source[(ptr.source.length - 1) || 0] += char;
         }
     }
 
     const open = (op: Expand.Op, terminal: Expand.Terminal) => {
         if (pushErrorState) pushErrorState();
-        bsp();
+        if (ptr.state.op) {
+            pop(ptr.subst);
+        } else {
+            pop(ptr.raw);
+        }
         ptr.state.detecting = null;
         const existing = ptr.state.op;
         if (existing) {
             y++;
             stack[x][y] = newState();
             ptr = stack[x][y];
-            ptr.raw = '';
+            ptr.raw = [];
         }
         ptr.state.op = op;
         ptr.state.terminal = terminal;
@@ -49,41 +52,39 @@ export async function expand(str: string, options: Expand.Options) {
         ptr.state.op = null;
         ptr.state.terminal = null;
         let res;
-        if (check(ptr.subst, Object)) {
+        const swap = reduce(ptr.subst, ptr.source);
+        if (check(swap, Object)) {
             if (popErrorState) popErrorState('[object]');
-            res = await call(ptr.subst);
+            res = await call(swap);
         } else {
-            if (popErrorState) popErrorState(ptr.subst);
+            if (popErrorState) popErrorState(swap)
             if (op == 'replace') {
-                res = replace(ptr.subst);
+                res = replace(swap);
             } else if (op == 'shell') {
-                res = shell(ptr.subst);
+                res = shell(swap);
             } else if (op == 'fetch') {
-                res = await fetch(ptr.subst);
+                res = await fetch(swap);
             } else if (op == 'math') {
                 const vars = getStack();
                 if (Object.keys(vars).length) {
-                    res = math.eval(ptr.subst, vars);
+                    res = math.eval(swap, vars);
                 } else {
-                    res = math.eval(ptr.subst);
+                    res = math.eval(swap);
                 }
             }
             if (!res) {
                 if (!check(res, Number)) res = '';
             }
         }
-        // console.log(op, ':', ptr.subst, '=', res);
         if (y > 0) {
             delete stack[x][y];
             y--;
             ptr = stack[x][y];
-            // console.log('close nested', ptr.subst, '<<', res);
-            ptr.subst = join(ptr.subst, res);
+            ptr.subst.push(res);
         }
         else {
-            // console.log('close base', ptr.raw, '<<', res);
             if (res) { ptr.state.dirty = true };
-            ptr.raw = join(ptr.raw, res);
+            ptr.raw.push(res);
             x++;
             y = 0;
             stack[x] = [newState()];
@@ -153,20 +154,16 @@ export async function expand(str: string, options: Expand.Options) {
         await close();
     }
     if (ptr.state.detecting) {
-        // append(ptr.state.detecting);
         ptr.state.detecting = null;
     }
-    // delete ptr.state;
     return stack;
 };
 
 export async function interpolate(input: any, options: Expand.Options) {
     if (!check(input, String)) {
-        // console.log('finish inperolation', input)
         return { value: input, changed: false };
     }
     const res = await expand(input, options);
-    // console.log({ stack })
     return concat(res);
 }
 
