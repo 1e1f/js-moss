@@ -4,43 +4,43 @@ env:
     yes: 1
     no: 0
     select<:
-      =yes:
+      <=yes:
         nested: 1
 config:
-  =:
+  <=:
     mixed:
-      =yes:
-        =:
+      <=yes:
+        <=:
           a: 1
           c: 1
           d: 1
-        +yes:
+        <+yes:
           b: 1
-        -yes:
-          =:
+        <-yes:
+          <=:
             d: 1
-          +yes:
+          <+yes:
             c: 1
-  +yes:
-    =no:
+  <+yes:
+    <=no:
       version: 7
-    =yes !no:
+    <=yes !no:
       nested:
         setting:
-          =: false
-          =nested: true
+          <=: false
+          <=nested: true
         object:
-          =yes:
+          <=yes:
             key: value
         array:
-          =yes:
+          <=yes:
           - no
-          =yes also:
+          <=yes also:
           - item
-          +yes also:
+          <+yes also:
             - nextItem
       version: 2
-  +no:
+  <+no:
     version: 0
 expect:
   version: 2

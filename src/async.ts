@@ -30,8 +30,6 @@ export namespace Async {
 
   export const parseObject = async (current: Moss.ReturnValue) => {
     const { state } = current;
-
-
     const source: any = clone(current.data);
     const target = state.target || current.data;
 
@@ -270,7 +268,8 @@ export namespace Async {
       current.state.stack = res.state.stack;
     },
     $: async (current: Moss.ReturnValue, args: any) => {
-      const res = await parseAny(current, args);
+      const res = await continueWithNewFrame(current, args);
+      // const res = await parseAny(current, args);
       extend(current.state, res.state);
     },
     extend: async (parent: Moss.ReturnValue, args: any) => {

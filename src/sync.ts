@@ -17,19 +17,11 @@ import {
 
 import { MossError, getErrorReporter } from './util';
 
-
 export namespace Sync {
     type Functions = Moss.Sync.Functions;
     type Resolvers = Moss.Sync.Resolvers;
-
-    export const continueWithNewFrame = (current: Moss.ReturnValue, input: Moss.BranchData, ref?: any, merging?: any) => {
+    export const continueWithNewFrame = (current: Moss.ReturnValue, input: Moss.BranchData) => {
         const layer = pushState(current);
-        if (ref) {
-            layer.state.refs.push(input);
-        }
-        if (merging) {
-            layer.state.isMerging = true;
-        }
         return parseAny(layer, input);
     }
 
@@ -37,82 +29,80 @@ export namespace Sync {
 
     export const parseObject = (current: Moss.ReturnValue) => {
         const { state } = current;
-        const source = clone(current.data);
-        if (shouldCascade(source)) {
-            const pruned = cascade({ data: source, state });
-            return { state, data: pruned } as Moss.ReturnValue;
-        } else {
-            const target = state.target || current.data;
-            for (let key of Object.keys(source)) {
-                currentErrorPath(state).path.push(key);
-                if (key[0] == '\\') {
-                    let nextKey = key.slice(1);
-                    target[nextKey] = source[key];
-                    state.auto[nextKey] = source[key];
-                    state.autoMap[nextKey] = currentErrorPath(state).path.join('.');
-                    delete target[key];
-                } else if (key.slice(-1) === '>') {
-                    let nextKey = key.slice(0, key.length - 1);
-                    target[nextKey] = source[key];
-                    state.auto[nextKey] = source[key];
-                    state.autoMap[nextKey] = currentErrorPath(state).path.join('.');
-                    delete target[key];
-                }
-                else {
-                    if (key.slice(-1) === '<') {
-                        let res;
-                        const fn = key.slice(0, key.length - 1);
-                        if (functions[fn]) {
-                            res = functions[fn](current, source[key]);
-                        } else {
-                            throw ({
-                                name: 'MossError',
-                                message: `no known function ${fn}`,
-                                errorPaths: state.errorPaths
-                            });
-                        }
-                        delete target[key];
-                        if (res) {
-                            if (check(res, Object)) {
-                                extend(target, res);
-                            } else {
-                                current.data = res;
-                            }
-                        }
-                    } else if (key[0] == '$') {
-                        const newKey: string = <any>(interpolate(current, key)).data;
-                        const layer = continueWithNewFrame(current, source[key]);
-                        target[newKey] = layer.data;
-                        state.auto[newKey] = source[key];
-                        state.autoMap[newKey] = currentErrorPath(state).path.join('.');
-                        delete target[key];
 
-                    } else if (!state.isMerging && (key[0] == '<')) {
-                        const { data } = continueWithNewFrame(current, source[key], source, true);
-                        delete target[key];
-                        merge(target, { [key]: data });
+
+        const source: any = clone(current.data);
+        const target = state.target || current.data;
+
+        for (let key of Object.keys(source)) {
+            currentErrorPath(state).path.push(key);
+
+            if (key[0] == '\\') {
+                let nextKey = key.slice(1);
+                target[nextKey] = source[key];
+                state.auto[nextKey] = source[key];
+                state.autoMap[nextKey] = currentErrorPath(state).path.join('.');
+                delete target[key];
+            } else if (key.slice(-1) === '>') {
+                let nextKey = key.slice(0, key.length - 1);
+                target[nextKey] = source[key];
+                state.auto[nextKey] = source[key];
+                state.autoMap[nextKey] = currentErrorPath(state).path.join('.');
+                delete target[key];
+            }
+            else {
+                if (key.slice(-1) === '<') {
+                    let res;
+                    const fn = key.slice(0, key.length - 1);
+                    if (functions[fn]) {
+                        res = functions[fn](current, source[key]);
                     } else {
-                        // hot path
-                        const { data } = (continueWithNewFrame(current, source[key], source));
+                        throw ({
+                            name: 'MossError',
+                            message: `no known function ${fn}`,
+                            errorPaths: state.errorPaths
+                        });
+                    }
+                    delete target[key];
+                    if (res) {
+                        if (check(res, Object)) {
+                            extend(target, res);
+                        } else {
+                            current.data = res;
+                        }
+                    }
+                } else if (key[0] == '$') {
+                    const newKey: string = <any>(interpolate(current, key)).data;
+                    const layer = continueWithNewFrame(current, source[key]);
+                    target[newKey] = layer.data;
+                    state.auto[newKey] = source[key];
+                    state.autoMap[newKey] = currentErrorPath(state).path.join('.');
+                    delete target[key];
+
+                } else {
+                    const { data } = (continueWithNewFrame(current, source[key]));
+                    const doAssign = () => {
                         state.auto[key] = data;
                         state.autoMap[key] = currentErrorPath(state).path.join('.');
                         target[key] = data;
                     }
+                    const lhs = target[key];
+                    switch (state.merge.operator) {
+                        case '|': case '+': case '=': default: doAssign(); break;
+                        case '-':
+                            if (!check(data, [Object])) {
+                                delete target[key];
+                            }
+                            break;
+                        case '^': if (!lhs) target[key] = data; else state.auto[key] = data; break;
+                        case '!': if (!lhs) doAssign(); break;
+                        case '?': case '&': case '*': if (lhs) doAssign(); break;
+                    }
                 }
-                currentErrorPath(state).path.pop();
             }
-            // if (Object.keys(target).length) {
-            //   const copy = clone(target);
-            //   clean(target)
-            //   merge(copy, copy);
-            // }
-            // if (current.data['<=']) {
-            //   const src = current.data['<='];
-            //   delete current.data['<='];
-            //   current.data = merge(src, current.data);
-            // }
-            return current;
+            currentErrorPath(state).path.pop();
         }
+        return current;
     }
 
     export const handleError = (e: MossError, layer: Moss.ReturnValue, input?: Moss.BranchData) => {
@@ -162,6 +152,9 @@ export namespace Sync {
                 } as Moss.ReturnValue;
             }
             else if (check(input, Object)) {
+                if (shouldCascade(input)) {
+                    return cascade({ data: input, state });
+                }
                 return parseObject({ data: input, state });
             } else {
                 return interpolate(layer, input);
@@ -171,64 +164,64 @@ export namespace Sync {
         }
     }
 
-    export const cascade = (current: Moss.ReturnValue) => {
-        const { data } = current;
-        let res = _cascade(current, data, {
-            prefix: '=',
-            usePrecedence: true,
-            onMatch: (val, key) => {
-                currentErrorPath(current.state).path.push(key);
-                const nextLayer: Moss.ReturnValue = continueWithNewFrame(current, val);
-                const continued = nextLayer.data;
-                currentErrorPath(current.state).path.pop();
-                return continued;
-            }
-        });
-        _cascade(current, data, {
-            prefix: '+',
-            usePrecedence: false,
-            onMatch: (val, key) => {
-                const layer = current //pushState(current);
-                currentErrorPath(current.state).path.push(key);
-                val = (continueWithNewFrame(current, val)).data;
-                currentErrorPath(current.state).path.pop();
-                if (check(res, Array)) {
-                    res = union(res, arrayify(val))
-                } else if (check(res, Object) && check(val, Object)) {
-                    res = merge(res, val);
-                } else {
-                    throw ({
-                        name: 'MossError',
-                        message: `selected branch type is not compatible with previous branch type`,
-                        errorPaths: layer.state.errorPaths,
-                        branch: {
-                            source: val,
-                            destination: res
+    export const onMatch = (rv: Moss.ReturnValue, setter: any, operator: Merge.Operator, key: string) => {
+        let { state, data: lhs } = rv;
+        currentErrorPath(state).path.push(key);
+        const nextLayer = pushState(rv);
+        nextLayer.state.merge.operator = <any>operator;
+        const rhs = (parseAny(nextLayer, setter)).data;
+        if (rhs) {
+            switch (operator) {
+                case '=':
+                    rv.data = rhs;
+                    break;
+                case '+':
+                    if (check(lhs, Array)) {
+                        rv.data = union(lhs, arrayify(rhs))
+                    } else if (check(lhs, Object) && check(rhs, Object)) {
+                        extend(lhs, rhs);
+                    } else {
+                        throw ({
+                            name: 'MossError',
+                            message: `can't join ${rhs || typeof rhs} to ${lhs || typeof lhs}`,
+                            at: key,
+                            errorPaths: nextLayer.state.errorPaths,
+                            branch: {
+                                source: rhs,
+                                destination: lhs
+                            }
+                        });
+                    }
+                    break;
+                case '-':
+                    if (check(lhs, Array)) {
+                        rv.data = difference(lhs, arrayify(rhs));
+                    } else if (check(lhs, Object)) {
+                        if (check(rhs, String)) {
+                            delete lhs[rhs];
                         }
-                    });
-                }
-            }
-        });
-        _cascade(current, data, {
-            prefix: '-',
-            usePrecedence: false,
-            onMatch: (val, key) => {
-                currentErrorPath(current.state).path.push(key);
-                val = (continueWithNewFrame(current, val)).data;
-                currentErrorPath(current.state).path.pop();
-                if (check(res, Array)) {
-                    res = difference(res, arrayify(val));
-                } else if (check(res, Object)) {
-                    if (check(val, String)) {
-                        delete res[val];
+                        for (const key of Object.keys(rhs)) {
+                            delete lhs[key];
+                        }
                     }
-                    for (const key of Object.keys(val)) {
-                        delete res[key];
-                    }
-                }
+                    break;
             }
-        });
-        return res;
+        }
+        currentErrorPath(state).path.pop();
+    }
+
+    const operators: Merge.Operator[] = ['=', '+', '-'];
+    export const cascade = (rv: Moss.ReturnValue) => {
+        const input = clone(rv.data);
+        rv.data = null;
+        for (const operator of operators) {
+            _cascade(rv, input, {
+                operator,
+                usePrecedence: (operator == '='),
+                onMatch
+            });
+        };
+        return rv;
     }
 
     const functions: Functions = {}
@@ -277,7 +270,7 @@ export namespace Sync {
         },
         $: (current: Moss.ReturnValue, args: any) => {
             const res = parseAny(current, args);
-            merge(current.state, res.state);
+            extend(current.state, res.state);
         },
         extend: (parent: Moss.ReturnValue, args: any) => {
             const layer = continueWithNewFrame(parent, args);
@@ -293,7 +286,7 @@ export namespace Sync {
             delete data.source;
             for (const i in data) {
                 const ir = continueWithNewFrame(layer, data[i]);
-                res = merge(res, ir.data);
+                res = extend(res, ir.data);
             };
             return res;
         },

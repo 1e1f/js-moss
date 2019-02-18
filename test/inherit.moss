@@ -6,38 +6,30 @@ config:
     b: c
     d: e
   b:
-    =: $a
-    +:
+    <=: $a
+    <+:
       e: f
   c:
-    =: $a
-    -: b
+    <=: $a
+    <-: b
   d:
-    =: $a
-    +:
+    <=: $a
+    <+:
       e: f
-    -: $b
+    <-: $b
   n: [1, 2]
   o:
-    =: $n
-    +conditional, negative: 3
-    -!negative: 2
+    <=: $n
+    <+conditional, negative: 3
+    <-!negative: 2
   p:
-    =: $n
-    -: 1
+    <=: $n
+    <-: 1
   q: [3,4,5]
   r:
-    =: $n
-    +: $q
-    -: [2, 3]
-  s:
-    <=: $a
-    <&:
-      d: e
-    <+:
-      array:
-        <=: $q
-        <-: 4
+    <=: $n
+    <+: $q
+    <-: [2, 3]
 expect:
   a:
     b: c
@@ -54,6 +46,3 @@ expect:
   p: [2]
   q: [3,4,5]
   r: [1,4,5]
-  s:
-    d: e
-    array: [3,5]

@@ -41,8 +41,8 @@ describe('Async API', () => {
 
     it('environment', async () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8'));
-        const result = (await next(newLayer(), env)).state;
-        assert.isBoolean(result.selectors.production);
+        const result = (await next(newLayer(), env));
+        assert.isBoolean(result.state.selectors.production);
     });
 
     it('import', async () => {

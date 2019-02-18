@@ -100,7 +100,7 @@ interface cascadeOptions {
     onMatch?: (layer: Moss.ReturnValue, setter: any, operator: Merge.Operator, key: string) => any
 }
 
-export const cascadeAsync = async (rv: Moss.ReturnValue, input: any, options: cascadeAsyncOptions): Moss.ReturnValue => {
+export const cascadeAsync = async (rv: Moss.ReturnValue, input: any, options: cascadeAsyncOptions): Promise<Moss.ReturnValue> => {
     const { selectors } = parseSelectors(rv.state.selectors);
     const { usePrecedence, operator, onMatch } = options;
 
@@ -108,7 +108,7 @@ export const cascadeAsync = async (rv: Moss.ReturnValue, input: any, options: ca
         let matches = 0;
         let selectedKey;
         for (const key of Object.keys(input)) {
-            if (key[1] == operator) { // one at a time =, -, +
+            if ((key[0] == '<') && (key[1] == operator)) { // one at a time =, -, +
                 const css = key.slice(2);
                 const precedence = select(selectors, css);
                 if (precedence >= matches) {
@@ -122,7 +122,7 @@ export const cascadeAsync = async (rv: Moss.ReturnValue, input: any, options: ca
         }
     } else {
         for (const key of Object.keys(input)) {
-            if (key[1] == operator) { // one at a time =, -, +
+            if ((key[0] == '<') && (key[1] == operator)) { // one at a time =, -, +
                 const css = key.slice(2);
                 if (select(selectors, css)) {
                     await onMatch(rv, input[key], operator, key);
@@ -134,7 +134,7 @@ export const cascadeAsync = async (rv: Moss.ReturnValue, input: any, options: ca
     return rv
 }
 
-export const cascade = (rv: Moss.ReturnValue, input: any, options: cascadeAsyncOptions): Moss.ReturnValue => {
+export const cascade = (rv: Moss.ReturnValue, input: any, options: cascadeOptions): Moss.ReturnValue => {
     const { selectors } = parseSelectors(rv.state.selectors);
     const { usePrecedence, operator, onMatch } = options;
 
@@ -142,22 +142,21 @@ export const cascade = (rv: Moss.ReturnValue, input: any, options: cascadeAsyncO
         let matches = 0;
         let selectedKey;
         for (const key of Object.keys(input)) {
-            if (key[1] == operator) { // one at a time =, -, +
+            if ((key[0] == '<') && (key[1] == operator)) { // one at a time =, -, +
                 const css = key.slice(2);
                 const precedence = select(selectors, css);
-                if (precedence > matches) {
+                if (precedence >= matches) {
                     matches = precedence;
                     selectedKey = key;
                 }
             }
         }
         if (selectedKey) {
-            console.log('usePrecedence', selectedKey);
             onMatch(rv, input[selectedKey], operator, selectedKey);
         }
     } else {
         for (const key of Object.keys(input)) {
-            if (key[1] == operator) { // one at a time =, -, +
+            if ((key[0] == '<') && (key[1] == operator)) { // one at a time =, -, +
                 const css = key.slice(2);
                 if (select(selectors, css)) {
                     onMatch(rv, input[key], operator, key);

@@ -21,8 +21,8 @@ config:
           select<>:
             ext: 1
       to:
-        =: basic
-        =ext: extended
+        <=: basic
+        <=ext: extended
   mapArray:
     map<:
       from: [1,2,3]

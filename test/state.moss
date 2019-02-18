@@ -6,8 +6,8 @@ config:
         levelTwoVar: 1
       $a: $levelTwoVar
     pass:
-      =: fail
-      =pass: pass
+      <=: fail
+      <=pass: pass
   result: $pass
 expect:
   result: pass
