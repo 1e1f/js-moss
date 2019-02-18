@@ -7,17 +7,31 @@ export const pushErrorPath = (state: Moss.State) => state.errorPaths.push({ path
 export const popErrorPath = (state: Moss.State) => state.errorPaths.pop();
 
 export const newState = (): Moss.State => {
-    return { auto: {}, autoMap: {}, stack: {}, strict: false, resolverCache: {}, selectors: {}, errorPaths: [{ path: [] }] };
+    return {
+        auto: {},
+        autoMap: {},
+        stack: {},
+        strict: false,
+        resolverCache: {},
+        selectors: {},
+        merge: { operator: <any>'=' },
+        errorPaths: [{ path: [] }]
+    };
 }
 
-export const newLayer = (): Moss.Layer => {
+export const newLayer = (): Moss.ReturnValue => {
     return { data: {}, state: newState() }
 }
 
-export const pushState = (layer: Moss.Layer) => {
-    let state = layer.state;
+export const pushState = ({ data, state }: Moss.ReturnValue) => {
     if (!state.locked) {
-        state = clone(layer.state);
+        const { resolverCache, ...downstream } = state;
+        return {
+            data, state: {
+                ...clone(downstream),
+                resolverCache
+            }
+        };
     }
-    return { ...layer, state };
+    return { data, state };
 }

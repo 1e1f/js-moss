@@ -50,6 +50,6 @@
     "dependencies": {
         "js-yaml": "^3.12",
         "mathjs": "^5.4",
-        "typed-json-transform": "^0.22.5"
+        "typed-json-transform": "^0.23.1"
     }
 }

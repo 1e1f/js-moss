@@ -17,7 +17,17 @@ export const chunk = (txt: string, brackets: string | string[]) => {
 
 export function join(current: any, next: any, curSource: string, nextSource: string): any {
   if (check(current, [Array, Object])) {
-    if (next && check(next, String)) {
+    if (check(next, Array)){
+      if (check(current, Array)){
+        return current.concat(next);
+      } else {
+        throw {
+          message: `Can't append the array @ ${nextSource}\n to current nonArray`,
+          function: 'join'
+        }
+      }
+    }
+    else if (next && check(next, String)) {
       const op = next[0];
       const arg = next.slice(1);
       if (op == '.') {
@@ -35,6 +45,7 @@ export function join(current: any, next: any, curSource: string, nextSource: str
           if (!chunkRes) {
             throw {
               message: `${next} doesn't exist on ${curSource}, try ${Object.keys(current)}`,
+              function: 'join',
               options: Object.keys(current)
             }
           }
@@ -42,25 +53,35 @@ export function join(current: any, next: any, curSource: string, nextSource: str
         }
         if (remainder) return join(current, remainder, curSource, nextSource)
         return current;
+      } else if (check(current, Array)){
+        return [...current, next];
       }
       throw {
         message: `${next} is a bad property accessor, maybe you meant .${next} or [${next}] ?`,
+        function: 'join',
         options: Object.keys(current)
       }
     }
   }
   else if (current && check(current, String)) {
-    if (check(next, Object)) {
-      throw new Error(`Can't append Object to ${current}, maybe you meant ${nextSource} to return a string?`)
+    if (check(next, [Object, Array])) {
+      throw {
+        message: `Can't append the value @ ${nextSource}\nIt is an Object or Array`,
+        function: 'join'
+      }
     }
     else if (next || check(next, Number)) {
       return current + next;
     }
   } else if (check(current, Number)) {
-    if (check(next, Number)) {
-      return parseInt('' + current + '' + next);
-    } else if (next) {
-      return '' + current + next;
+    if (check(next, [Object, Array])) {
+      throw {
+        message: `Can't append the value @ ${nextSource}\nIt is an Object or Array`,
+        function: 'join'
+      }
+    }
+    if (next) {
+      return current + next;
     }
   } else if (next || check(next, Number)) {
     return next;
@@ -107,7 +128,7 @@ export const reduce = (raw: any[], source: any[]) => {
 }
 
 export function newState(): Expand.Elem {
-  return { state: {}, raw: [], subst: [], source: [] };
+  return { state: { sourceMap: [] }, raw: [], subst: [], source: [] };
 }
 
 export function concat(stack: Expand.Elem[][]) {

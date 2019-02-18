@@ -22,19 +22,25 @@ export namespace Sync {
     type Functions = Moss.Sync.Functions;
     type Resolvers = Moss.Sync.Resolvers;
 
-    export const continueWithNewFrame = (current: Moss.Layer, input: Moss.BranchData) => {
+    export const continueWithNewFrame = (current: Moss.ReturnValue, input: Moss.BranchData, ref?: any, merging?: any) => {
         const layer = pushState(current);
+        if (ref) {
+            layer.state.refs.push(input);
+        }
+        if (merging) {
+            layer.state.isMerging = true;
+        }
         return parseAny(layer, input);
     }
 
     export const next = continueWithNewFrame;
 
-    export const parseObject = (current: Moss.Layer) => {
+    export const parseObject = (current: Moss.ReturnValue) => {
         const { state } = current;
-        const source = current.data;
+        const source = clone(current.data);
         if (shouldCascade(source)) {
             const pruned = cascade({ data: source, state });
-            return { state, data: pruned } as Moss.Layer;
+            return { state, data: pruned } as Moss.ReturnValue;
         } else {
             const target = state.target || current.data;
             for (let key of Object.keys(source)) {
@@ -74,14 +80,20 @@ export namespace Sync {
                             }
                         }
                     } else if (key[0] == '$') {
-                        const res: string = <any>(interpolate(current, key)).data;
+                        const newKey: string = <any>(interpolate(current, key)).data;
                         const layer = continueWithNewFrame(current, source[key]);
-                        target[res] = layer.data;
-                        state.auto[res] = source[key];
-                        state.autoMap[res] = currentErrorPath(state).path.join('.');
+                        target[newKey] = layer.data;
+                        state.auto[newKey] = source[key];
+                        state.autoMap[newKey] = currentErrorPath(state).path.join('.');
                         delete target[key];
+
+                    } else if (!state.isMerging && (key[0] == '<')) {
+                        const { data } = continueWithNewFrame(current, source[key], source, true);
+                        delete target[key];
+                        merge(target, { [key]: data });
                     } else {
-                        const { data } = (continueWithNewFrame(current, source[key]));
+                        // hot path
+                        const { data } = (continueWithNewFrame(current, source[key], source));
                         state.auto[key] = data;
                         state.autoMap[key] = currentErrorPath(state).path.join('.');
                         target[key] = data;
@@ -89,26 +101,33 @@ export namespace Sync {
                 }
                 currentErrorPath(state).path.pop();
             }
-            if (current.data['<=']) {
-                const src = current.data['<='];
-                delete current.data['<='];
-                current.data = merge(src, current.data);
-            };
+            // if (Object.keys(target).length) {
+            //   const copy = clone(target);
+            //   clean(target)
+            //   merge(copy, copy);
+            // }
+            // if (current.data['<=']) {
+            //   const src = current.data['<='];
+            //   delete current.data['<='];
+            //   current.data = merge(src, current.data);
+            // }
             return current;
         }
     }
 
-    export const handleError = (e: MossError, layer: Moss.Layer, input?: Moss.BranchData) => {
+    export const handleError = (e: MossError, layer: Moss.ReturnValue, input?: Moss.BranchData) => {
         let error: MossError;
         if (e.name && (e.name == 'MossError')) {
             error = e;
         } else {
+            let at: any;
+            layer.state.errorPaths.forEach(p => { if (!p.rhs) at = p.path });
             error = {
                 name: 'MossError',
                 message: `${e.message || 'unexpected error'}`,
                 options: e.options,
                 errorPaths: layer.state.errorPaths,
-                at: input || layer.data
+                at: at.join('.')
             };
         }
         try {
@@ -122,29 +141,29 @@ export namespace Sync {
         } else {
             throw {
                 name: 'MossError',
-                message: JSON.stringify({ at: error.errorPaths[0].path.join('.'), ...error }, null, 2)
+                message: JSON.stringify(error, null, 2),
+                data: error
             }
         }
     }
 
-    export const parseAny = (layer: Moss.Layer, input: Moss.BranchData) => {
+    export const parseAny = (layer: Moss.ReturnValue, input: Moss.BranchData) => {
         const { state } = layer;
         try {
             if (check(input, Array)) {
                 return {
                     data: map(input, (data: any) => {
                         currentErrorPath(state).path.push(data);
-                        const nextLayer: Moss.Layer = continueWithNewFrame(layer, data);
+                        const nextLayer: Moss.ReturnValue = continueWithNewFrame(layer, data);
                         const res = nextLayer.data
                         currentErrorPath(state).path.pop();
                         return res;
                     }), state
-                } as Moss.Layer;
+                } as Moss.ReturnValue;
             }
             else if (check(input, Object)) {
                 return parseObject({ data: input, state });
             } else {
-                currentErrorPath(state).rhs = true;
                 return interpolate(layer, input);
             }
         } catch (e) {
@@ -152,14 +171,14 @@ export namespace Sync {
         }
     }
 
-    export const cascade = (current: Moss.Layer) => {
+    export const cascade = (current: Moss.ReturnValue) => {
         const { data } = current;
         let res = _cascade(current, data, {
             prefix: '=',
             usePrecedence: true,
             onMatch: (val, key) => {
                 currentErrorPath(current.state).path.push(key);
-                const nextLayer: Moss.Layer = continueWithNewFrame(current, val);
+                const nextLayer: Moss.ReturnValue = continueWithNewFrame(current, val);
                 const continued = nextLayer.data;
                 currentErrorPath(current.state).path.pop();
                 return continued;
@@ -242,25 +261,25 @@ export namespace Sync {
     });
 
     addFunctions({
-        select: (current: Moss.Layer, args: any) => {
+        select: (current: Moss.ReturnValue, args: any) => {
             const { data } = current;
             const locked = clone(current.state);
             const state = { ...locked, locked: true, target: locked.selectors };
             const res = continueWithNewFrame({ data, state }, args);
             current.state.selectors = res.state.selectors;
         },
-        stack: (current: Moss.Layer, args: any) => {
+        stack: (current: Moss.ReturnValue, args: any) => {
             const { data } = current;
             const locked = clone(current.state);
             const state = { ...locked, locked: true, target: locked.stack };
             const res = continueWithNewFrame({ data, state }, args);
             current.state.stack = res.state.stack;
         },
-        $: (current: Moss.Layer, args: any) => {
+        $: (current: Moss.ReturnValue, args: any) => {
             const res = parseAny(current, args);
             merge(current.state, res.state);
         },
-        extend: (parent: Moss.Layer, args: any) => {
+        extend: (parent: Moss.ReturnValue, args: any) => {
             const layer = continueWithNewFrame(parent, args);
             const { data } = layer;
             if (!data.source) {
@@ -278,7 +297,7 @@ export namespace Sync {
             };
             return res;
         },
-        log: (current: Moss.Layer, args: any) => {
+        log: (current: Moss.ReturnValue, args: any) => {
             each(arrayify(args), (i) => {
                 let kp = i;
                 let format = 'json';
@@ -293,7 +312,7 @@ export namespace Sync {
                 }
             });
         },
-        assert: (parent: Moss.Layer, args: any) => {
+        assert: (parent: Moss.ReturnValue, args: any) => {
             throw ({
                 name: 'MossError',
                 message: args,
@@ -301,7 +320,7 @@ export namespace Sync {
                 branch: args
             });
         },
-        each: (parent: Moss.Layer, args: any) => {
+        each: (parent: Moss.ReturnValue, args: any) => {
             const layer = continueWithNewFrame(parent, args);
             const { data } = layer;
             if (!data.of) {
@@ -328,8 +347,9 @@ export namespace Sync {
                 i++;
                 continueWithNewFrame(ret, clone(data.do));
             };
+            return Promise.resolve();
         },
-        map: (parent: Moss.Layer, args: any) => {
+        map: (parent: Moss.ReturnValue, args: any) => {
             const base = currentErrorPath(parent.state).path.join('.');
             const { from, to } = args;
             if (!from) {
@@ -369,7 +389,7 @@ export namespace Sync {
                 throw (e);
             }
         },
-        remap: (parent: Moss.Layer, args: any) => {
+        remap: (parent: Moss.ReturnValue, args: any) => {
             const base = currentErrorPath(parent.state).path.join('.');
             const { from, to } = args;
             if (!from) {
@@ -409,7 +429,7 @@ export namespace Sync {
                 throw (e);
             }
         },
-        reduce: (parent: Moss.Layer, args: any) => {
+        reduce: (parent: Moss.ReturnValue, args: any) => {
             const layer = continueWithNewFrame(parent, args);
             const { data } = layer;
             if (!data.each) {
@@ -475,35 +495,44 @@ export namespace Sync {
                 return res;
             }
         },
-        compare: (parent: Moss.Layer, args: any) => {
+        compare: (parent: Moss.ReturnValue, args: any) => {
             let first: any;
             return all(args, (arg) => {
                 if (!first) first = arg;
                 return isEqual(arg, first);
             });
         },
-        group: (parent: Moss.Layer, args: any) => {
+        group: (parent: Moss.ReturnValue, args: any) => {
             const layer = continueWithNewFrame(parent, args);
             const { data } = layer;
             return sum(data, (v: any) => v);
         },
-        sum: (parent: Moss.Layer, args: any) => {
+        sum: (parent: Moss.ReturnValue, args: any) => {
             const layer = continueWithNewFrame(parent, args);
             const { data } = layer;
             return sum(data, (v: any) => v);
         }
     });
 
-    function interpolate(layer: Moss.Layer, input: any) {
+    function interpolate(layer: Moss.ReturnValue, input: any) {
         const { data, state } = layer;
-        let dictionary;
-        if (check(data, Object)) {
-            dictionary = { ...state.auto, ...data, stack: state.stack };
-        } else {
-            dictionary = { ...state.auto, stack: state.stack }
+        const dictionary = { ...state.auto, stack: state.stack }
+        try {
+            const res = _interpolate(layer, input, dictionary);
+            return { data: res, state: layer.state } as Moss.ReturnValue;
+        } catch (e) {
+            if (e.function) {
+                throw {
+                    message: e.message
+                }
+            }
+            pushErrorPath(layer.state);
+            currentErrorPath(layer.state).rhs = input || true;
+            currentErrorPath(layer.state).path = e.sourceMap;
+            throw {
+                message: e.message
+            }
         }
-        const res = _interpolate(layer, input, dictionary);
-        return { data: res, state: layer.state } as Moss.Layer;
     }
 
     const interpolationFunctions = {};
@@ -512,68 +541,49 @@ export namespace Sync {
         extend(interpolationFunctions, options);
     }
 
-    function _interpolate(layer: Moss.Layer, input: any, dictionary: any) {
+    function _interpolate(layer: Moss.ReturnValue, input: any, dictionary: any) {
         let popAll = 0;
         const options = {
             ...{
-                pushErrorState: () => {
-                    popAll++;
-                },
-                popErrorState: (res: string) => {
-                    currentErrorPath(layer.state).rhs = true;
-                    pushErrorPath(layer.state);
-                    currentErrorPath(layer.state).path.push(res);
-                },
                 replace: (str: string) => { // replace from trie
-                    if (!str) return '';
-                    let required = true;
-                    if (str[str.length - 1] == '?') {
-                        required = false;
-                        str = str.slice(0, str.length - 1);
-                    }
+                    if (!str) return;
                     const res = valueForKeyPath(str, dictionary);
-                    if (res || check(res, Number)) {
-                        return res;
-                    } else {
-                        if (required) {
-                            throw ({
-                                name: 'MossError',
-                                message: `key path [ ${str} ] is not defined in stack`,
-                                errorPaths: layer.state.errorPaths.map((o) => {
-                                    let path = o.path.join('.');
-                                    let firstKey = o.path[0];
-                                    if (layer.state.autoMap[firstKey]) {
-                                        path = path.replace(firstKey, layer.state.autoMap[firstKey]);
-                                    }
-                                    return {
-                                        ...o,
-                                        path: path.split('.')
-                                    }
-                                }),
-                                stack: dictionary
-                            });
+                    if (res) {
+                        let errorPath = [];
+                        const [firstKey, ...remainder] = str.split('.');
+                        if (layer.state.autoMap[firstKey]) {
+                            const kpLocation = layer.state.autoMap[firstKey];
+                            errorPath = kpLocation.split('.').concat(remainder);
                         }
+                        pushErrorPath(layer.state);
+                        currentErrorPath(layer.state).path = errorPath;
                     }
+                    return res;
                 },
                 call: (obj: Object) => { // call method
                     const keys = Object.keys(obj);
                     if (!(keys && keys.length)) return '';
-                    currentErrorPath(layer.state).path.push(input);
-                    const nextLayer: Moss.Layer = parseAny(layer, obj);
+                    const nextLayer: Moss.ReturnValue = parseAny(layer, obj);
                     const res = nextLayer.data;
-                    currentErrorPath(layer.state).path.pop();
                     return res;
                 },
                 fetch: (uris: string) => {
-                    const { data } = getBranch(uris, resolvers, layer);
-                    if (!data) {
+                    const b = getBranch(uris, resolvers, layer);
+                    if (!b) {
                         throw ({
                             name: 'MossError',
-                            message: `none of the available import resolvers [${Object.keys(resolvers).join(', ')}] successfully resolved any of ${uris}`,
+                            message: `Can't resolve ${uris}.\nNone of the available resolvers found a match.\n[${(map(resolvers, (r) => r.name)).filter(e => e).join(', ')}] `,
+                            sourceMap: [0, uris.length]
                         })
                     }
-                    const res: Moss.Layer = parseAny(layer, data);
-                    return res.data;
+                    if (b.data) {
+                        const res: Moss.ReturnValue = parseAny(layer, b.data);
+                        const sourceMap = '^' + b.path;
+                        pushErrorPath(layer.state);
+                        currentErrorPath(layer.state).rhs = sourceMap;
+                        currentErrorPath(layer.state).path.push(sourceMap);
+                        return res.data;
+                    }
                 },
                 shell: () => 'no shell method supplied',
                 getStack: () => {

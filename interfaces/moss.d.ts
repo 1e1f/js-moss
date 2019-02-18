@@ -11,9 +11,8 @@ interface MossError {
 declare namespace Moss {
   interface KeyPath {
     path: string[]
-    rhs?: boolean
+    rhs?: string
   }
-
 
   interface State {
     locked?: boolean
@@ -25,13 +24,10 @@ declare namespace Moss {
     resolverCache?: any
     target?: Moss.BranchData
     errorPaths: KeyPath[]
+    merge: {
+      operator: Merge.Operator
+    }
   }
-
-  //   match: (uri: string) => uri == 'hello',
-  // resolve: async (uri: string) => ({
-  //   path: uri,
-  //   data: 'world!'
-  // })
 
   interface Branch {
     path?: string
@@ -41,16 +37,14 @@ declare namespace Moss {
 
   type BranchData = any;
 
-  interface Layer {
-    data: BranchData
-    state: State
-  }
-
+  type ReturnValue = Merge.ReturnValue<State>
+  
   type Error = MossError
   type ErrorReporter = (error: MossError) => Error
 
-  type Function<T> = (current: Moss.Layer, args: any) => T;
+  type Function<T> = (current: Moss.ReturnValue, args: any) => T;
   type Resolver<T> = {
+    name?: string,
     match: (uri: string) => boolean;
     resolve: (uri: string) => T;
   }
@@ -82,13 +76,15 @@ declare namespace Moss {
 type ParsedObject = { [index: string]: any };
 
 declare module 'moss' {
+  export function setErrorReporter(reporter: Moss.ErrorReporter): void
+
   export namespace Async {
     export function getFunctions(): Moss.Async.Functions;
     export function addFunctions(userFunctions: Moss.Async.Functions): null;
     export function addResolvers(userResolvers: Moss.Async.Resolvers): null;
 
-    export function next(current: Moss.Layer, input: any): Promise<Moss.Layer>;
-    export function start(input: any): Promise<Moss.Layer>;
+    export function next(current: Moss.ReturnValue, input: any): Promise<Moss.ReturnValue>;
+    export function start(input: any): Promise<Moss.ReturnValue>;
 
     export function parse(trunk: Moss.BranchData, baseParser?: Moss.BranchData): Promise<ParsedObject>;
     export function load(config: string, baseParser?: string): Promise<ParsedObject>;
@@ -107,8 +103,8 @@ declare module 'moss' {
     export function addFunctions(userFunctions: Moss.Sync.Functions): null;
     export function addResolvers(userResolvers: Moss.Sync.Resolvers): null;
 
-    export function next(current: Moss.Layer, input: any): Moss.Layer;
-    export function start(input: any): Moss.Layer;
+    export function next(current: Moss.ReturnValue, input: any): Moss.ReturnValue;
+    export function start(input: any): Moss.ReturnValue;
 
     export function parse(trunk: Moss.BranchData, baseParser?: Moss.BranchData): ParsedObject;
     export function load(config: string, baseParser?: string): ParsedObject;

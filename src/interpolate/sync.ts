@@ -4,13 +4,14 @@ import * as math from 'mathjs';
 import { newState, concat, reduce, append as _append, pop } from './shared';
 
 export function expand(str: string, options: Expand.Options) {
-    const { replace, call, shell, fetch, getStack, pushErrorState, popErrorState } = options;
+    const { replace, call, shell, fetch, getStack } = options;
     const template = String(str);
     let i = 0;
+    let offset = i;
     let x = 0;
     let y = 0;
 
-    const stack: Expand.Elem[][] = [[{ state: {}, raw: [], subst: [], source: [] }]];
+    const stack: Expand.Elem[][] = [[{ state: { sourceMap: [0, str.length] }, raw: [], subst: [], source: [] }]];
     let ptr = stack[x][y];
 
 
@@ -29,7 +30,7 @@ export function expand(str: string, options: Expand.Options) {
     }
 
     const open = (op: Expand.Op, terminal: Expand.Terminal) => {
-        if (pushErrorState) pushErrorState();
+        offset = i - (terminal ? 1 : 0);
         if (ptr.state.op) {
             pop(ptr.subst);
         } else {
@@ -47,33 +48,46 @@ export function expand(str: string, options: Expand.Options) {
         ptr.state.terminal = terminal;
     }
 
+    const sub = (fn: (s: string) => any, str: string, sourceMap?: number[]) => {
+        let required = true;
+        if (str && str[str.length - 1] == '?') {
+            required = false;
+            str = str.slice(0, str.length - 1);
+        }
+        const res = str && fn(str);
+        if (required && !(res || check(res, Number))) {
+            throw {
+                message: `${str} doesn't exist, and is required.\nignore (non-strict) with: ${str}?`,
+                failed: str,
+                sourceMap
+            }
+        }
+        return res;
+    }
+
     const close = () => {
         const op = ptr.state.op;
+        ptr.state.sourceMap = [offset, i + (ptr.state.terminal && ptr.state.terminal.length) - offset];
         ptr.state.op = null;
         ptr.state.terminal = null;
         let res;
         const swap = reduce(ptr.subst, ptr.source);
-        if (check(swap, Object)) {
-            if (popErrorState) popErrorState('[object]');
+        if (check(swap, [Object, Array])) {
             res = call(swap);
         } else {
-            if (popErrorState) popErrorState(swap)
             if (op == 'replace') {
-                res = replace(swap);
+                res = sub(replace, swap, ptr.state.sourceMap);
             } else if (op == 'shell') {
-                res = shell(swap);
+                res = sub(shell, swap, ptr.state.sourceMap);
             } else if (op == 'fetch') {
-                res = fetch(swap);
+                res = sub(fetch, swap, ptr.state.sourceMap);
             } else if (op == 'math') {
                 const vars = getStack();
                 if (Object.keys(vars).length) {
-                    res = math.eval(swap, vars);
+                    res = sub((s) => math.eval(s, vars), swap, ptr.state.sourceMap)
                 } else {
-                    res = math.eval(swap);
+                    res = sub((s) => math.eval(s), swap, ptr.state.sourceMap)
                 }
-            }
-            if (!res) {
-                if (!check(res, Number)) res = '';
             }
         }
         if (y > 0) {

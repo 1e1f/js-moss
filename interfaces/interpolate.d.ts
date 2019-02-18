@@ -10,6 +10,7 @@ declare namespace Expand {
     terminal?: Terminal;
     dirty?: boolean
     escape?: boolean
+    sourceMap: number[]
   }
 
   interface Elem {
@@ -20,13 +21,14 @@ declare namespace Expand {
   }
 
   export interface Options {
-    replace?: (sub: string) => string
+    replace?: (sub: string) => any
     call?: (sub: any) => any
     fetch?: (sub: any) => any
     shell?: (sub: string) => string
     getStack?: any
     pushErrorState?: () => void
-    popErrorState?: (res: string) => void
+    pushErrorPath?: (s: string) => void
+    popErrorState?: () => void
   }
 }
 
