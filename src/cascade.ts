@@ -23,6 +23,7 @@ function matchEvery(selectors: string[], cssString: string): number {
         let sum = 0;
         for (const selectable of selectables) {
             if (match(selectors, selectable)) sum += 1;
+            else return 0;
         }
         return sum;
     }
@@ -41,7 +42,7 @@ function matchCssString(selectors: string[], cssString: string): number {
 
 export function select(input: string[], cssString: string): number {
     if (!cssString) {
-        return 1;
+        return .5;
     }
     return 0 + matchCssString(input, cssString);
 }
@@ -60,7 +61,7 @@ export const parseSelectors = (options: any) => {
 
 type nextFn = (ctx: any, data: any) => any
 
-export const shouldCascade = (data: any): any => {
+export const shouldConstruct = (data: any): any => {
     if (!check(data, Object)) return false;
     let implicit = false;
     for (const key of Object.keys(data)) {
@@ -111,7 +112,7 @@ export const cascadeAsync = async (rv: Moss.ReturnValue, input: any, options: ca
             if ((key[0] == '<') && (key[1] == operator)) { // one at a time =, -, +
                 const css = key.slice(2);
                 const precedence = select(selectors, css);
-                if (precedence >= matches) {
+                if (precedence > matches) {
                     matches = precedence;
                     selectedKey = key;
                 }
@@ -145,7 +146,7 @@ export const cascade = (rv: Moss.ReturnValue, input: any, options: cascadeOption
             if ((key[0] == '<') && (key[1] == operator)) { // one at a time =, -, +
                 const css = key.slice(2);
                 const precedence = select(selectors, css);
-                if (precedence >= matches) {
+                if (precedence > matches) {
                     matches = precedence;
                     selectedKey = key;
                 }
@@ -158,7 +159,7 @@ export const cascade = (rv: Moss.ReturnValue, input: any, options: cascadeOption
         for (const key of Object.keys(input)) {
             if ((key[0] == '<') && (key[1] == operator)) { // one at a time =, -, +
                 const css = key.slice(2);
-                if (select(selectors, css)) {
+                if (select(selectors, css) > 0) {
                     onMatch(rv, input[key], operator, key);
                 }
             }

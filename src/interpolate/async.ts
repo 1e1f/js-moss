@@ -149,7 +149,7 @@ export async function expand(str: string, options: Expand.Options) {
                     break;
                 default:
                     if (detecting) {
-                        if (ptr.raw.length == 1) {
+                        if (ptr.raw[ptr.raw.length - 1].length == 1) {
                             if (detecting == '=') open('math', '__null__');
                             else if (detecting == '^') open('fetch', '__null__');
                             else if (detecting == '$') open('replace', ' ');

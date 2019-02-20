@@ -14,7 +14,6 @@ export const newState = (): Moss.State => {
         strict: false,
         resolverCache: {},
         selectors: {},
-        merge: { operator: <any>'=' },
         errorPaths: [{ path: [] }]
     };
 }
@@ -23,15 +22,16 @@ export const newLayer = (): Moss.ReturnValue => {
     return { data: {}, state: newState() }
 }
 
-export const pushState = ({ data, state }: Moss.ReturnValue) => {
-    if (!state.locked) {
-        const { resolverCache, ...downstream } = state;
+export const pushState = (layer: Moss.ReturnValue) => {
+    if (!layer.state.locked) {
+        const { resolverCache, ..._state } = layer.state;
         return {
-            data, state: {
-                ...clone(downstream),
+            data: layer.data,
+            state: {
+                ...clone(_state),
                 resolverCache
             }
         };
     }
-    return { data, state };
+    return layer;
 }

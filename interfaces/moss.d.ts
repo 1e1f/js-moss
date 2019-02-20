@@ -24,8 +24,9 @@ declare namespace Moss {
     resolverCache?: any
     target?: Moss.BranchData
     errorPaths: KeyPath[]
-    merge: {
-      operator: Merge.Operator
+    merge?: {
+      operator: Merge.Operator,
+      precedence: { [x: string]: number }
     }
   }
 
@@ -38,7 +39,7 @@ declare namespace Moss {
   type BranchData = any;
 
   type ReturnValue = Merge.ReturnValue<State>
-  
+
   type Error = MossError
   type ErrorReporter = (error: MossError) => Error
 

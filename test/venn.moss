@@ -1,0 +1,11 @@
+$<:
+    outdoor: [goat, horse, tortise]
+    indoor: [hamster, fish, parrot]
+    either: [cat, rabbit]
+select<:
+    indoor: 0
+    outdoor: 1
+pets:
+    <= : $either $outdoor $indoor
+    <- indoor: $outdoor
+    <- outdoor: $indoor
