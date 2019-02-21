@@ -16,15 +16,13 @@ config:
           d: 1
         <+yes:
           b: 1
-        <-yes:
-          <=:
-            d: 1
-          <+yes:
-            c: 1
+        <-yes also:
+          d: 1
+          c: 1
   <+yes:
     <=no:
       version: 7
-    <=yes !no:
+    <+yes !no:
       nested:
         setting:
           <=: false

@@ -25,6 +25,9 @@ export const newLayer = (): Moss.ReturnValue => {
 export const pushState = (layer: Moss.ReturnValue) => {
     if (!layer.state.locked) {
         const { resolverCache, ..._state } = layer.state;
+        if (_state.merge) {
+            _state.merge.precedence = {};
+        }
         return {
             data: layer.data,
             state: {

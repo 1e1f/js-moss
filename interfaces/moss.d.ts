@@ -3,7 +3,7 @@ interface MossError {
   at?: string
   message: string
   errorPaths: Moss.KeyPath[]
-  branch?: any
+  source?: any
   stack?: any
   sourceMap?: any
 }

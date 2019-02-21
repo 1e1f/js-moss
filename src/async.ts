@@ -1,6 +1,6 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
-import { merge, mergeArray, mergeObject, amap as map, aokmap as okmap, arrayify, extend, check, clone, each, union, difference, sum, valueForKeyPath, all, isEqual, unflatten, flatObject, unsetKeyPath, setValueForKeyPath } from 'typed-json-transform';
+import { merge, mergeArray, mergeObject, amap as map, aokmap as okmap, arrayify, extend, check, clone, each, union, difference, sum, valueForKeyPath, all, isEqual, unflatten, flatObject, unsetKeyPath, setValueForKeyPath, mergeOrReturnAssignment } from 'typed-json-transform';
 import { interpolateAsync as __interpolate } from './interpolate';
 import { cascadeAsync as _cascade, shouldConstruct, select, parseSelectors } from './cascade';
 import * as yaml from 'js-yaml';
@@ -35,17 +35,19 @@ export namespace Async {
 
     let res;
     for (const _key of Object.keys(source)) {
-      let key = _key;
+      if (!_key) {
+        continue;
+      }
       delete target[_key];
-      currentErrorPath(state).path.push(key);
-      if (_key.slice(-1) === '>') {
-        key = key.slice(0, key.length - 1);
+      let key = '';
+      currentErrorPath(state).path.push(_key);
+      if (_key[_key.length - 1] === '>') {
+        key = _key.slice(0, _key.length - 1);
         res = source[_key];
       }
       else {
-        if (_key.slice(-1) === '<') {
+        if (_key[_key.length - 1] === '<') {
           const fn = _key.slice(0, key.length - 1);
-          key = '';
           if (functions[fn]) {
             await functions[fn](current, source[_key]);
           } else {
@@ -55,10 +57,11 @@ export namespace Async {
               errorPaths: state.errorPaths
             });
           }
-        } else if (_key[0] == '<') {
+        } else if (_key[0] === '<') {
           const operator = _key[1];
           const { selectors } = parseSelectors(state.selectors);
           const precedence = select(selectors, _key.slice(2));
+          if (target != current.data) throw ('not targeting current object...');
           if (precedence > (state.merge.precedence[operator] || 0)) {
             state.merge.precedence[operator] = precedence;
             key = _key[0] + _key[1];
@@ -66,7 +69,7 @@ export namespace Async {
           }
         } else {
           let val = source[_key];
-          if (_key[0] == '$') {
+          if (_key[0] === '$') {
             key = <any>(await interpolate(current, _key)).data;
           } else if (_key[0] == '\\') {
             key = key.slice(1);
@@ -75,6 +78,8 @@ export namespace Async {
             key = first;
             val = {};
             setValueForKeyPath(source[_key], kp.join('.'), val);
+          } else {
+            key = _key;
           }
           res = (await continueWithNewFrame(current, val)).data;
         }
@@ -103,17 +108,20 @@ export namespace Async {
 
   export const parseNextStructure = async (layer: Moss.ReturnValue, input: Moss.BranchData) => {
     const { state } = layer;
-    // try {
-    if (check(input, Array)) {
-      return await parseArray(layer, input);
-    }
-    else if (check(input, Object)) {
-      if (!state.merge && shouldConstruct(input)) {
-        return await cascade({ data: input, state });
+    try {
+      if (check(input, Array)) {
+        return await parseArray(layer, input);
       }
-      return await parseObject({ data: input, state });
-    } else {
-      return await interpolate(layer, input);
+      else if (check(input, Object)) {
+        if (!state.merge && shouldConstruct(input)) {
+          return await cascade({ data: input, state });
+        }
+        return await parseObject({ data: input, state });
+      } else {
+        return await interpolate(layer, input);
+      }
+    } catch (e) {
+      handleError(e, layer, input || layer.data);
     }
   }
 
@@ -128,11 +136,12 @@ export namespace Async {
         precedence: {}
       };
     }
-    const rhs = (await continueWithNewFrame(rv, setter)).data;
+
+    const rhs = (await parseNextStructure({ data: {}, state }, setter)).data;
     if (check(lhs, Array)) {
       mergeArray(rv, rhs)
     } else if (check(lhs, Object)) {
-      mergeObject(rv, rhs)
+      mergeOrReturnAssignment(rv, rhs)
     } else {
       rv.data = rhs;
     }
@@ -246,7 +255,7 @@ export namespace Async {
         name: 'MossError',
         message: args,
         errorPaths: parent.state.errorPaths,
-        branch: args
+        source: args
       });
     },
     each: async (parent: Moss.ReturnValue, args: any) => {
@@ -257,7 +266,7 @@ export namespace Async {
           name: 'MossError',
           message: `for $each please supply an 'of:' branch`,
           errorPaths: layer.state.errorPaths,
-          branch: data
+          source: data
         });
       }
       if (!data.do) {
@@ -265,7 +274,7 @@ export namespace Async {
           name: 'MossError',
           message: `for $each please supply a 'do:' branch`,
           errorPaths: layer.state.errorPaths,
-          branch: data
+          source: data
         });
       }
       let i = 0;
@@ -293,10 +302,9 @@ export namespace Async {
       currentErrorPath(fromCtx.state).path.pop();
       if (!to) {
         throw ({
-          name: 'MossError',
           message: `for $map please supply 'to:' as input`,
           errorPaths: fromCtx.state.errorPaths,
-          branch: args
+          source: args
         });
       }
       let i = 0;
@@ -332,7 +340,7 @@ export namespace Async {
           name: 'MossError',
           message: `for $map please supply 'to:' as input`,
           errorPaths: fromCtx.state.errorPaths,
-          branch: args
+          source: args
         });
       }
       let i = 0;
@@ -355,26 +363,23 @@ export namespace Async {
       const { data } = layer;
       if (!data.each) {
         throw ({
-          name: 'MossError',
           message: `for $reduce please supply 'each:' as branch`,
           errorPaths: layer.state.errorPaths,
-          branch: data
+          source: data
         });
       }
       if (!data.with) {
         throw ({
-          name: 'MossError',
           message: `for $reduce please supply 'with:' in branch`,
           errorPaths: layer.state.errorPaths,
-          branch: data
+          source: data
         });
       }
       if (!(data.memo || check(data.memo, Number))) {
         throw ({
-          name: 'MossError',
           message: `for $reduce please supply 'memo:' in branch`,
           errorPaths: layer.state.errorPaths,
-          branch: data
+          source: data
         });
       }
       if (check(data.each, Array)) {
@@ -393,7 +398,7 @@ export namespace Async {
             res = (await parseNextStructure(nextLayer, data.with)).data;
           }
         };
-        return res;
+        parent.data = res;
       }
       if (check(data.each, Object)) {
         let i = 0;
@@ -412,8 +417,7 @@ export namespace Async {
           }
           else state.auto.memo = state.auto.memo + res;
         };
-        const res = state.auto.memo;
-        return res;
+        parent.data = state.auto.memo;
       }
     },
     compare: async (parent: Moss.ReturnValue, _args: any) => {
@@ -427,12 +431,12 @@ export namespace Async {
     group: async (parent: Moss.ReturnValue, args: any) => {
       const layer = await continueWithNewFrame(parent, args);
       const { data } = layer;
-      return sum(data, (v: any) => v);
+      parent.data = sum(data, (v: any) => v);
     },
     sum: async (parent: Moss.ReturnValue, args: any) => {
       const layer = await continueWithNewFrame(parent, args);
       const { data } = layer;
-      return sum(data, (v: any) => v);
+      parent.data = sum(data, (v: any) => v);
     }
   });
 
