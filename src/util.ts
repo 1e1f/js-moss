@@ -36,8 +36,7 @@ export const handleError = (e: MossError, layer: Moss.ReturnValue, input?: Moss.
     } else {
         throw {
             name: 'MossError',
-            message: JSON.stringify(error, null, 2),
-            data: error
+            ...error
         }
     }
 }

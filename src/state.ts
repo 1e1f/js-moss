@@ -12,6 +12,10 @@ export const newState = (): Moss.State => {
         autoMap: {},
         stack: {},
         strict: false,
+        merge: {
+            operator: '|',
+            precedence: {}
+        },
         resolverCache: {},
         selectors: {},
         errorPaths: [{ path: [] }]
@@ -25,13 +29,14 @@ export const newLayer = (): Moss.ReturnValue => {
 export const pushState = (layer: Moss.ReturnValue) => {
     if (!layer.state.locked) {
         const { resolverCache, ..._state } = layer.state;
-        if (_state.merge) {
-            _state.merge.precedence = {};
-        }
         return {
             data: layer.data,
             state: {
                 ...clone(_state),
+                merge: {
+                    ..._state.merge,
+                    precedence: {}
+                },
                 resolverCache
             }
         };

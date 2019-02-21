@@ -10,33 +10,33 @@ env:
 config:
   select<:
     useCustomLibrary:
-      <=: false
-      <=ios: true
+      =: false
+      =ios: true
   $<:
     # compiler>: &compiler
     #   cc: $host.compiler
     host:
       ninja:
           version:
-            <=host-mac: 1.5.7
-            <=host-linux: 1.4
+            =host-mac: 1.5.7
+            =host-linux: 1.4
       compiler:
-        <=host-mac: clang
-        <=host-linux: gcc
+        =host-mac: clang
+        =host-linux: gcc
     graphicsLib:
-      <=: opengl
-      <=win: directx
+      =: opengl
+      =win: directx
     build>:
       ninja:
         cc: $host.compiler
         # <<: *compiler
         fetch: http://ninja-v${host.ninja.version}.tar.gz
       sources:
-        <=:
+        =:
           - 'common.c'
-        <+ios:
+        +ios:
           - 'ios.c'
-        <+ios simulator:
+        +ios simulator:
           - 'simulator.c'
       defines:
         $<:
@@ -44,21 +44,21 @@ config:
           BE: 1234
         TARGET_ENDIANNESS: ${${endianness}}
       cFlags:
-        <=production:
+        =production:
           wAll: true
           O: 3
-        <=debug:
+        =debug:
           O: 0
       link:
         $graphicsLib: $graphicsLib
   build:
     map<:
       from:
-        <=mac, linux:
+        =mac, linux:
           device:
             arch: x64
             endianness: LE
-        <=ios !linux:
+        =ios !linux:
           device:
             $<>:
               arch: arm
@@ -71,7 +71,7 @@ config:
       to: ${${build}}
   theme:
     colors:
-      <=:
+      =:
         purple: rgb(184, 0, 142)
         $<:
           r: 184 
@@ -81,14 +81,14 @@ config:
           rr: =r + a
           bb: ={${b} + ${a}}
         mix: rgb(${rr}, ${g}, ${bb})
-      <+dark:
+      +dark:
         blue: rgb(184, 0, 142)
     gradients:
       rainbow: linear-gradient(to right, ${colors.purple}, ${colors.blue})
   require:
-    <=:
+    =:
       requiredLibrary: tmake/requiredLibrary
-    <+useCustomLibrary:
+    +useCustomLibrary:
       customLibrary: tmake/customLibrary
 expect:
   build:

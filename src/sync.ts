@@ -65,7 +65,7 @@ export namespace Sync {
                     const operator = _key[1];
                     const { selectors } = parseSelectors(state.selectors);
                     const precedence = select(selectors, _key.slice(2));
-                    if (target != current.data) throw ('not targeting current object...');
+                    if (target != current.data) throw ({ message: 'not targeting current object...' });
                     if (precedence > (state.merge.precedence[operator] || 0)) {
                         state.merge.precedence[operator] = precedence;
                         key = _key[0] + _key[1];
@@ -117,7 +117,7 @@ export namespace Sync {
                 return parseArray(layer, input);
             }
             else if (check(input, Object)) {
-                if (!state.merge && shouldConstruct(input)) {
+                if (shouldConstruct(input)) {
                     return cascade({ data: input, state });
                 }
                 return parseObject({ data: input, state });
@@ -134,13 +134,7 @@ export namespace Sync {
     export const onMatch = (rv: Moss.ReturnValue, setter: any, operator: Merge.Operator, key: string) => {
         let { state, data: lhs } = rv;
         currentErrorPath(state).path.push(key);
-        if (operator != '=') {
-            state.merge = {
-                operator,
-                precedence: {}
-            };
-        }
-
+        state.merge.operator = operator;
         const rhs = (parseNextStructure({ data: {}, state }, setter)).data;
         if (check(lhs, Array)) {
             mergeArray(rv, rhs)
@@ -152,11 +146,13 @@ export namespace Sync {
         currentErrorPath(state).path.pop();
     }
 
-    const operators: Merge.Operator[] = ['=', '+', '|', '^', '*', '&', '-', '?'];
+    const constructOperators: Merge.Operator[] = ['=', '+', '-'];
+    const mergeOperators: Merge.Operator[] = ['=', '+', '|', '^', '*', '&', '-', '?'];
+
     export const cascade = (rv: Moss.ReturnValue) => {
         const input = clone(rv.data);
         rv.data = null;
-        for (const operator of operators) {
+        for (const operator of constructOperators) {
             _cascade(rv, input, {
                 operator,
                 usePrecedence: (operator == '='),
@@ -289,7 +285,6 @@ export namespace Sync {
                 i++;
                 continueWithNewFrame(ret, clone(data.do));
             };
-            return Promise.resolve();
         },
         map: (parent: Moss.ReturnValue, args: any) => {
             const base = currentErrorPath(parent.state).path.join('.');

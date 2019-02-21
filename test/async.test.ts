@@ -45,17 +45,6 @@ describe('Async API', () => {
         assert.isBoolean(result.state.selectors.production);
     });
 
-    it('import', async () => {
-        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'import.moss'), 'utf8'));
-        let res;
-        try {
-            res = await parse(config, env)
-        } catch (e) {
-            res = e;
-        }
-        assert.deepEqual(res, expect);
-    });
-
     it('kitchen sink', async () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8'));
         let res;
@@ -87,5 +76,16 @@ describe('Async API', () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8'));
         const result = require('./compare').default;
         assert.deepEqual(result, expect);
+    });
+
+    it('import', async () => {
+        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'import.moss'), 'utf8'));
+        let res;
+        try {
+            res = await parse(config, env)
+        } catch (e) {
+            res = e;
+        }
+        assert.deepEqual(res, expect);
     });
 });
