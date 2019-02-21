@@ -131,7 +131,7 @@ export namespace Async {
         let { state, data: lhs } = rv;
         currentErrorPath(state).path.push(key);
         state.merge.operator = operator;
-        const rhs = (await parseNextStructure({ data: {}, state }, setter)).data;
+        const rhs = (await continueWithNewFrame({ data: {}, state }, setter)).data;
         if (check(lhs, Array)) {
             mergeArray(rv, rhs)
         } else if (check(lhs, Object)) {

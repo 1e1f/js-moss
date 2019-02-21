@@ -135,7 +135,7 @@ export namespace Sync {
         let { state, data: lhs } = rv;
         currentErrorPath(state).path.push(key);
         state.merge.operator = operator;
-        const rhs = (parseNextStructure({ data: {}, state }, setter)).data;
+        const rhs = (continueWithNewFrame({ data: {}, state }, setter)).data;
         if (check(lhs, Array)) {
             mergeArray(rv, rhs)
         } else if (check(lhs, Object)) {
