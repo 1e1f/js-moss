@@ -313,7 +313,7 @@ export namespace Async {
                 const nextLayer = pushState(ctx);
                 nextLayer.state.auto.index = i;
                 nextLayer.state.auto.value = item;
-                nextLayer.state.auto.memo = key;
+                nextLayer.state.auto.key = key;
                 i++;
                 return (await parseNextStructure(nextLayer, clone(to))).data
             });
