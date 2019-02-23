@@ -2,9 +2,14 @@
 
 import { clone } from "typed-json-transform";
 
-export const currentErrorPath = (state: Moss.State) => state.errorPaths[state.errorPaths.length - 1];
-export const pushErrorPath = (state: Moss.State) => state.errorPaths.push({ path: [] })
-export const popErrorPath = (state: Moss.State) => state.errorPaths.pop();
+export const currentErrorPath = (state: Moss.State) =>
+    state.errorPaths[state.errorPaths.length - 1];
+    
+export const pushErrorPath = (state: Moss.State, path?: any) =>
+    state.errorPaths.push(path || { path: [] })
+
+export const popErrorPath = (state: Moss.State) =>
+    state.errorPaths.pop();
 
 export const newState = (): Moss.State => {
     return {

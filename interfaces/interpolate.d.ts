@@ -21,12 +21,12 @@ declare namespace Expand {
   }
 
   export interface Options {
-    replace?: (sub: string) => any
-    call?: (sub: any) => any
-    fetch?: (sub: any) => any
-    shell?: (sub: string) => string
+    replace?: (sub: string, sourceMap?: number[]) => any
+    call?: (sub: any, sourceMap?: number[]) => any
+    fetch?: (sub: any, sourceMap?: number[]) => any
+    shell?: (sub: string, sourceMap?: number[]) => string
     getStack?: any
-    pushErrorState?: () => void
+    pushErrorState?: (state?: Moss.ErrorPath) => void
     pushErrorPath?: (s: string) => void
     popErrorState?: () => void
   }

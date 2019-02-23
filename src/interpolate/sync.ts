@@ -48,18 +48,17 @@ export function expand(str: string, options: Expand.Options) {
         ptr.state.terminal = terminal;
     }
 
-    const sub = (fn: (s: string) => any, str: string, sourceMap?: number[]) => {
+    const sub = (fn: (s: string, location: any) => any, str: string, sourceMap?: number[]) => {
         let required = true;
         if (str && str[str.length - 1] == '?') {
             required = false;
             str = str.slice(0, str.length - 1);
         }
-        const res = str && fn(str);
+        const res = str && fn(str, sourceMap);
         if (required && !(res || check(res, Number))) {
             throw {
                 message: `${str} doesn't exist, and is required.\nignore (non-strict) with: ${str}?`,
-                failed: str,
-                sourceMap
+                source: str
             }
         }
         return res;
@@ -149,9 +148,10 @@ export function expand(str: string, options: Expand.Options) {
                     break;
                 default:
                     if (detecting) {
-                        if (ptr.raw[ptr.raw.length - 1].length == 1) {
+                        const lse = ptr.raw[ptr.raw.length - 1];
+                        if (lse.length < 2 || (lse[(lse.length - 2)] === ' ')) {
                             if (detecting == '=') open('math', '__null__');
-                            else if (detecting == '^') open('fetch', '__null__');
+                            else if (detecting == '^') open('fetch', ' ');
                             else if (detecting == '$') open('replace', ' ');
                         } else {
                             ptr.state.detecting = null;
@@ -165,6 +165,7 @@ export function expand(str: string, options: Expand.Options) {
         }
     }
     while (ptr.state.op) {
+        if (ptr.state.terminal == '}') throw { message: `expected a closing ${ptr.state.terminal}` }
         close();
     }
     if (ptr.state.detecting) {
@@ -177,7 +178,6 @@ export function interpolate(input: any, options: Expand.Options) {
     if (!check(input, String)) {
         return { value: input, changed: false };
     }
-    const res = expand(input, options);
-    return concat(res);
+    return concat(expand(input, options))
 }
 

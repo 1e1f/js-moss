@@ -52,7 +52,6 @@ export namespace Async {
                         await functions[fn](current, source[_key]);
                     } else {
                         throw ({
-                            name: 'MossError',
                             message: `no known function ${fn}`,
                             errorPaths: state.errorPaths
                         });
@@ -218,7 +217,6 @@ export namespace Async {
             const { data } = layer;
             if (!data.source) {
                 throw ({
-                    name: 'MossError',
                     message: `for $extend please supply an 'source:' branch`,
                     errorPaths: layer.state.errorPaths
                 });
@@ -248,7 +246,6 @@ export namespace Async {
         },
         assert: async (parent: Moss.ReturnValue, args: any) => {
             throw ({
-                name: 'MossError',
                 message: args,
                 errorPaths: parent.state.errorPaths,
                 source: args
@@ -259,7 +256,6 @@ export namespace Async {
             const { data } = layer;
             if (!data.of) {
                 throw ({
-                    name: 'MossError',
                     message: `for $each please supply an 'of:' branch`,
                     errorPaths: layer.state.errorPaths,
                     source: data
@@ -267,7 +263,6 @@ export namespace Async {
             }
             if (!data.do) {
                 throw ({
-                    name: 'MossError',
                     message: `for $each please supply a 'do:' branch`,
                     errorPaths: layer.state.errorPaths,
                     source: data
@@ -281,14 +276,12 @@ export namespace Async {
                 i++;
                 await continueWithNewFrame(ret, clone(data.do));
             };
-            return Promise.resolve();
         },
         map: async (parent: Moss.ReturnValue, args: any) => {
             const base = currentErrorPath(parent.state).path.join('.');
             const { from, to } = args;
             if (!from) {
                 throw ({
-                    name: 'MossError',
                     message: `for $map please supply 'from:' as input`,
                     errorPaths: parent.state.errorPaths,
                 });
@@ -323,7 +316,6 @@ export namespace Async {
             const { from, to } = args;
             if (!from) {
                 throw ({
-                    name: 'MossError',
                     message: `for $map please supply 'from:' as input`,
                     errorPaths: parent.state.errorPaths,
                 });
@@ -333,7 +325,6 @@ export namespace Async {
             currentErrorPath(fromCtx.state).path.pop();
             if (!to) {
                 throw ({
-                    name: 'MossError',
                     message: `for $map please supply 'to:' as input`,
                     errorPaths: fromCtx.state.errorPaths,
                     source: args
@@ -448,10 +439,8 @@ export namespace Async {
                     message: e.message
                 }
             }
-            pushErrorPath(layer.state);
-            currentErrorPath(layer.state).rhs = input || true;
-            currentErrorPath(layer.state).path = e.sourceMap;
             throw {
+                source: e.source || input,
                 message: e.message
             }
         }
@@ -467,8 +456,13 @@ export namespace Async {
         let popAll = 0;
         const options = {
             ...{
-                replace: (str: string) => { // replace from trie
+                replace: (str: string, sourceMap: any) => { // replace from trie
                     if (!str) return;
+                    popAll++;
+                    pushErrorPath(layer.state, {
+                        path: sourceMap,
+                        rhs: true
+                    });
                     const res = valueForKeyPath(str, dictionary);
                     if (res) {
                         let errorPath = [];
@@ -477,33 +471,36 @@ export namespace Async {
                             const kpLocation = layer.state.autoMap[firstKey];
                             errorPath = kpLocation.split('.').concat(remainder);
                         }
-                        pushErrorPath(layer.state);
-                        currentErrorPath(layer.state).path = errorPath;
+                        popAll++;
+                        pushErrorPath(layer.state, {
+                            path: [errorPath]
+                        })
                     }
                     return res;
                 },
-                call: async (obj: Object) => { // call method
+                call: async (obj: Object, sourceMap: any) => { // call method
                     const keys = Object.keys(obj);
                     if (!(keys && keys.length)) return '';
                     const nextLayer: Moss.ReturnValue = await parseNextStructure(layer, obj);
                     const res = nextLayer.data;
                     return res;
                 },
-                fetch: async (uris: string) => {
+                fetch: async (uris: string, sourceMap: any) => {
+                    popAll++;
+                    pushErrorPath(layer.state, {
+                        path: sourceMap,
+                        rhs: true
+                    });
                     const b = await getBranch(uris, resolvers, layer);
                     if (!b) {
                         throw ({
-                            name: 'MossError',
                             message: `Can't resolve ${uris}.\nNone of the available resolvers found a match.\n[${(await map(resolvers, (r) => r.name)).filter(e => e).join(', ')}] `,
-                            sourceMap: [0, uris.length]
                         })
                     }
                     if (b.data) {
-                        const sourceMap = '^' + b.path;
-                        pushErrorPath(layer.state);
-                        currentErrorPath(layer.state).rhs = sourceMap;
+                        popAll++;
+                        pushErrorPath(layer.state, { path: ['^' + b.path] })
                         const res: Moss.ReturnValue = await parseNextStructure(layer, b.data);
-                        currentErrorPath(layer.state).path.push(sourceMap);
                         return res.data;
                     }
                 },

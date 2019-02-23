@@ -2,16 +2,16 @@ interface MossError {
   name: 'MossError',
   at?: string
   message: string
-  errorPaths: Moss.KeyPath[]
+  errorPaths: Moss.ErrorPath[]
   source?: any
   stack?: any
   sourceMap?: any
 }
 
 declare namespace Moss {
-  interface KeyPath {
-    path: string[]
-    rhs?: string
+  interface ErrorPath {
+    path: any[],
+    rhs?: boolean
   }
 
   interface State {
@@ -23,7 +23,7 @@ declare namespace Moss {
     selectors?: any
     resolverCache?: any
     target?: Moss.BranchData
-    errorPaths: KeyPath[]
+    errorPaths: ErrorPath[]
     merge?: {
       operator: Merge.Operator,
       precedence: { [x: string]: number }

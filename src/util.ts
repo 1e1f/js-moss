@@ -15,19 +15,35 @@ export function MossError(error: Moss.Error) {
     this.message = (message || "");
     this.stack = stack;
     this.source = source;
-    this.errorPaths = errorPaths.map(e => ({ ...e, path: e.path.join('.') }))
+    this.errorPaths = errorPaths;
 }
 MossError.prototype = Error.prototype;
 
+const formatPaths = (paths: Moss.ErrorPath[]) => {
+    const res = [];
+    for (const e of paths) {
+        if (e.rhs) {
+            const start = e.path[0];
+            const end = start + e.path[1];
+            res[res.length - 1] += `.${start}-${end}`
+        } else {
+            res.push(e.path.join('.'));
+        }
+    }
+    return res;
+}
+
 export const handleError = (e: MossError, layer: Moss.ReturnValue, input?: Moss.BranchData) => {
     let error: MossError;
-    let at: any;
-    layer.state.errorPaths.forEach(p => { if (!p.rhs) at = p.path });
+    const { errorPaths } = layer.state;
+    const stack = formatPaths(errorPaths);
+    const at = stack[stack.length - 1];
     error = {
         name: 'MossError',
         message: `${e.message || 'unexpected error'}`,
-        errorPaths: layer.state.errorPaths,
-        at: at.join('.'),
+        errorPaths,
+        at,
+        stack,
         source: input,
         ...e
     };
