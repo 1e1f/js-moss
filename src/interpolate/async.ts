@@ -1,10 +1,10 @@
 import { check } from 'typed-json-transform';
-import * as math from 'mathjs';
+const expression = require('./expression');
 
-import { newState, concat, reduce, append as _append, pop } from './shared';
+import { newState, parse, reduce, append as _append, pop } from './shared';
 
-export async function expand(str: string, options: Expand.Options) {
-    const { replace, call, shell, fetch, getStack } = options;
+export async function tokenize(str: string, options: Expand.Options) {
+    const { dereference, call, shell, fetch } = options;
     const template = String(str);
     let i = 0;
     let offset = i;
@@ -29,13 +29,17 @@ export async function expand(str: string, options: Expand.Options) {
         }
     }
 
-    const open = (op: Expand.Op, terminal: Expand.Terminal) => {
-        offset = i - (terminal ? 1 : 0);
+    const stepBack = () => {
         if (ptr.state.op) {
             pop(ptr.subst);
         } else {
             pop(ptr.raw);
         }
+    }
+
+    const open = (op: Expand.Op, terminal: Expand.Terminal) => {
+        stepBack();
+        ptr.state.header = null;
         ptr.state.detecting = null;
         const existing = ptr.state.op;
         if (existing) {
@@ -64,6 +68,22 @@ export async function expand(str: string, options: Expand.Options) {
         return res;
     }
 
+    const subSync = (fn: (s: string, location: any) => any, str: string, sourceMap?: number[]) => {
+        let required = true;
+        if (str && str[str.length - 1] == '?') {
+            required = false;
+            str = str.slice(0, str.length - 1);
+        }
+        const res = str && fn(str, sourceMap);
+        if (required && !(res || check(res, Number))) {
+            throw {
+                message: `${str} doesn't exist, and is required.\nignore (non-strict) with: ${str}?`,
+                source: str
+            }
+        }
+        return res;
+    }
+
     const close = async () => {
         const op = ptr.state.op;
         ptr.state.sourceMap = [offset, i + (ptr.state.terminal && ptr.state.terminal.length) - offset];
@@ -74,19 +94,15 @@ export async function expand(str: string, options: Expand.Options) {
         if (check(swap, [Object, Array])) {
             res = await call(swap);
         } else {
-            if (op == 'replace') {
-                res = await sub(replace, swap, ptr.state.sourceMap);
-            } else if (op == 'shell') {
+            if (op == 'v') {
+                res = await sub(dereference, swap, ptr.state.sourceMap);
+            } else if (op == 's') {
                 res = await sub(shell, swap, ptr.state.sourceMap);
-            } else if (op == 'fetch') {
+            } else if (op == 'f') {
                 res = await sub(fetch, swap, ptr.state.sourceMap);
-            } else if (op == 'math') {
-                const vars = getStack();
-                if (Object.keys(vars).length) {
-                    res = await sub((s) => math.eval(s, vars), swap, ptr.state.sourceMap)
-                } else {
-                    res = await sub((s) => math.eval(s), swap, ptr.state.sourceMap)
-                }
+            } else if (op == 'e') {
+                const deref = (str: string) => subSync(dereference, str, ptr.state.sourceMap)
+                res = await sub((s) => expression(deref).parse(s), swap, ptr.state.sourceMap)
             }
         }
         if (y > 0) {
@@ -111,34 +127,33 @@ export async function expand(str: string, options: Expand.Options) {
             ptr.state.escape = false;
             append(char);
         } else {
-            const detecting = ptr.state.detecting;
+            const { detecting, header, op, terminal } = ptr.state;
             switch (char) {
                 case '(':
                     if (detecting) {
-                        open('shell', ')');
+                        open('s', ')');
                         break;
+                    } else {
+                        append(char);
                     }
-                    append(char);
                     break;
                 case '{':
                     if (detecting) {
-                        open(detecting == '$' ? 'replace' : detecting == '^' ? 'fetch' : 'math', '}');
+                        open(detecting == '$' ? 'v' : detecting == '^' ? 'f' : 'e', '}');
                         break;
+                    } else {
+                        append(char);
                     }
-                    append(char);
                     break;
                 case '}': case ')':
-                    if (ptr.state.op && ptr.state.terminal == ' ') {
+                    if (op && terminal == char) {
                         await close();
+                    } else {
+                        append(char);
                     }
-                    if (ptr.state.op && ptr.state.terminal == char) {
-                        await close();
-                        break;
-                    }
-                    append(char);
                     break;
                 case ' ':
-                    if (ptr.state.op && ptr.state.terminal == char) {
+                    if (op && terminal == char) {
                         await close();
                     }
                     append(char);
@@ -147,17 +162,17 @@ export async function expand(str: string, options: Expand.Options) {
                     ptr.state.escape = true;
                     break;
                 default:
-                    if (detecting) {
-                        const lse = ptr.raw[ptr.raw.length - 1];
-                        if (lse.length < 2 || (lse[(lse.length - 2)] === ' ')) {
-                            if (detecting == '=') open('math', '__null__');
-                            else if (detecting == '^') open('fetch', ' ');
-                            else if (detecting == '$') open('replace', ' ');
-                        } else {
-                            ptr.state.detecting = null;
-                        }
+                    if (header) {
+                        ptr.state.header = null;
+                        if (header == '=') open('e', '__null__');
+                        else if (header == '^') open('f', '__null__');
+                        else if (header == '$') open('v', ' ');
                     } else if (char == '=' || char == '$' || char == '^') {
+                        if (i < 1) ptr.state.header = char;
                         ptr.state.detecting = char;
+                    }
+                    if (detecting) {
+                        ptr.state.detecting = null;
                     }
                     append(char);
                     break;
@@ -178,11 +193,6 @@ export async function interpolate(input: any, options: Expand.Options) {
     if (!check(input, String)) {
         return { value: input, changed: false };
     }
-    // const res = [];
-    // const words = input.split(' ');
-    // for (const w of words) {
-    //     res.push();
-    // };
-    return concat(await expand(input, options))
+    return parse(await tokenize(input, options))
 }
 

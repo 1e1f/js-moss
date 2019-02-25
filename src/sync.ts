@@ -111,21 +111,21 @@ export namespace Sync {
 
     export const parseNextStructure = (layer: Moss.ReturnValue, input: Moss.BranchData) => {
         const { state } = layer;
-        try {
-            if (check(input, Array)) {
-                return parseArray(layer, input);
-            }
-            else if (check(input, Object)) {
-                if (shouldConstruct(input)) {
-                    return cascade({ data: input, state });
-                }
-                return parseObject({ data: input, state });
-            } else {
-                return interpolate(layer, input);
-            }
-        } catch (e) {
-            handleError(e, layer, input || layer.data);
+        // try {
+        if (check(input, Array)) {
+            return parseArray(layer, input);
         }
+        else if (check(input, Object)) {
+            if (shouldConstruct(input)) {
+                return cascade({ data: input, state });
+            }
+            return parseObject({ data: input, state });
+        } else {
+            return interpolate(layer, input);
+        }
+        // } catch (e) {
+        //     handleError(e, layer, input || layer.data);
+        // }
     }
 
 
@@ -366,13 +366,6 @@ export namespace Sync {
                     source: data
                 });
             }
-            if (!(data.memo || check(data.memo, Number))) {
-                throw ({
-                    message: `for $reduce please supply 'memo:' in branch`,
-                    errorPaths: layer.state.errorPaths,
-                    source: data
-                });
-            }
             if (check(data.each, Array)) {
                 let res: any = data.memo;
                 for (const i in data.each) {
@@ -406,7 +399,7 @@ export namespace Sync {
                     if (check(res, Object)) {
                         extend(nextLayer.state.auto.memo, res);
                     }
-                    else state.auto.memo = state.auto.memo + res;
+                    else state.auto.memo = res;
                 };
                 parent.data = state.auto.memo;
             }
@@ -434,20 +427,20 @@ export namespace Sync {
     function interpolate(layer: Moss.ReturnValue, input: any) {
         const { data, state } = layer;
         const dictionary = { ...state.auto, stack: state.stack }
-        try {
-            const res = _interpolate(layer, input, dictionary);
-            return { data: res, state: layer.state } as Moss.ReturnValue;
-        } catch (e) {
-            if (e.function) {
-                throw {
-                    message: e.message
-                }
-            }
-            throw {
-                source: e.source || input,
-                message: e.message
-            }
-        }
+        // try {
+        const res = _interpolate(layer, input, dictionary);
+        return { data: res, state: layer.state } as Moss.ReturnValue;
+        // } catch (e) {
+        //     if (e.function) {
+        //         throw {
+        //             message: e.message
+        //         }
+        //     }
+        //     throw {
+        //         source: e.source || input,
+        //         message: e.message
+        //     }
+        // }
     }
 
     const interpolationFunctions = {};
@@ -460,7 +453,7 @@ export namespace Sync {
         let popAll = 0;
         const options = {
             ...{
-                replace: (str: string, sourceMap: any) => { // replace from trie
+                dereference: (str: string, sourceMap: any) => { // replace from trie
                     if (!str) return;
                     popAll++;
                     pushErrorPath(layer.state, {
@@ -498,7 +491,7 @@ export namespace Sync {
                     const b = getBranch(uris, resolvers, layer);
                     if (!b) {
                         throw ({
-                            message: `Can't resolve ${uris}.\nNone of the available resolvers found a match.\n[${(map(resolvers, (r) => r.name)).filter(e => e).join(', ')}] `,
+                            message: `Can't resolve ${uris}\nNone of the available resolvers found a match.\n[${(map(resolvers, (r) => r.name)).filter(e => e).join(', ')}] `,
                         })
                     }
                     if (b.data) {
@@ -526,10 +519,10 @@ export namespace Sync {
         } else {
             value = clone(value) // object immutability
         }
-        while (popAll > 0) {
+        for (let i = 0; i < popAll; i++) {
             popErrorPath(layer.state);
-            popAll--;
         }
+        popAll = 0;
         return value;
     }
 

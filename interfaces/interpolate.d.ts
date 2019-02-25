@@ -2,10 +2,11 @@ declare namespace Expand {
   type Key = '$' | '=' | '^';
   type Open = '{' | '(';
   type Terminal = '}' | ')' | ' ' | '__null__';
-  type Op = 'replace' | 'shell' | 'math' | 'fetch';
+  type Op = 'v' | 's' | 'e' | 'f';
 
   interface State {
     detecting?: Key
+    header?: Key
     op?: Op
     terminal?: Terminal;
     dirty?: boolean
@@ -21,7 +22,7 @@ declare namespace Expand {
   }
 
   export interface Options {
-    replace?: (sub: string, sourceMap?: number[]) => any
+    dereference?: (sub: string, sourceMap?: number[]) => any
     call?: (sub: any, sourceMap?: number[]) => any
     fetch?: (sub: any, sourceMap?: number[]) => any
     shell?: (sub: string, sourceMap?: number[]) => string

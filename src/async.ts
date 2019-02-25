@@ -107,21 +107,21 @@ export namespace Async {
 
     export const parseNextStructure = async (layer: Moss.ReturnValue, input: Moss.BranchData) => {
         const { state } = layer;
-        try {
-            if (check(input, Array)) {
-                return await parseArray(layer, input);
-            }
-            else if (check(input, Object)) {
-                if (shouldConstruct(input)) {
-                    return await cascade({ data: input, state });
-                }
-                return await parseObject({ data: input, state });
-            } else {
-                return await interpolate(layer, input);
-            }
-        } catch (e) {
-            handleError(e, layer, input || layer.data);
+        // try {
+        if (check(input, Array)) {
+            return await parseArray(layer, input);
         }
+        else if (check(input, Object)) {
+            if (shouldConstruct(input)) {
+                return await cascade({ data: input, state });
+            }
+            return await parseObject({ data: input, state });
+        } else {
+            return await interpolate(layer, input);
+        }
+        // } catch (e) {
+        //     handleError(e, layer, input || layer.data);
+        // }
     }
 
 
@@ -362,13 +362,6 @@ export namespace Async {
                     source: data
                 });
             }
-            if (!(data.memo || check(data.memo, Number))) {
-                throw ({
-                    message: `for $reduce please supply 'memo:' in branch`,
-                    errorPaths: layer.state.errorPaths,
-                    source: data
-                });
-            }
             if (check(data.each, Array)) {
                 let res: any = data.memo;
                 for (const i in data.each) {
@@ -402,7 +395,7 @@ export namespace Async {
                     if (check(res, Object)) {
                         extend(nextLayer.state.auto.memo, res);
                     }
-                    else state.auto.memo = state.auto.memo + res;
+                    else state.auto.memo = res;
                 };
                 parent.data = state.auto.memo;
             }
@@ -430,20 +423,20 @@ export namespace Async {
     async function interpolate(layer: Moss.ReturnValue, input: any) {
         const { data, state } = layer;
         const dictionary = { ...state.auto, stack: state.stack }
-        try {
-            const res = await _interpolate(layer, input, dictionary);
-            return { data: res, state: layer.state } as Moss.ReturnValue;
-        } catch (e) {
-            if (e.function) {
-                throw {
-                    message: e.message
-                }
-            }
-            throw {
-                source: e.source || input,
-                message: e.message
-            }
-        }
+        // try {
+        const res = await _interpolate(layer, input, dictionary);
+        return { data: res, state: layer.state } as Moss.ReturnValue;
+        // } catch (e) {
+        //     if (e.function) {
+        //         throw {
+        //             message: e.message
+        //         }
+        //     }
+        //     throw {
+        //         source: e.source || input,
+        //         message: e.message
+        //     }
+        // }
     }
 
     const interpolationFunctions = {};
@@ -456,7 +449,7 @@ export namespace Async {
         let popAll = 0;
         const options = {
             ...{
-                replace: (str: string, sourceMap: any) => { // replace from trie
+                dereference: (str: string, sourceMap: any) => { // replace from trie
                     if (!str) return;
                     popAll++;
                     pushErrorPath(layer.state, {
@@ -494,7 +487,7 @@ export namespace Async {
                     const b = await getBranch(uris, resolvers, layer);
                     if (!b) {
                         throw ({
-                            message: `Can't resolve ${uris}.\nNone of the available resolvers found a match.\n[${(await map(resolvers, (r) => r.name)).filter(e => e).join(', ')}] `,
+                            message: `Can't resolve ${uris}\nNone of the available resolvers found a match.\n[${(await map(resolvers, (r) => r.name)).filter(e => e).join(', ')}] `,
                         })
                     }
                     if (b.data) {
@@ -522,10 +515,10 @@ export namespace Async {
         } else {
             value = clone(value) // object immutability
         }
-        while (popAll > 0) {
+        for (let i = 0; i < popAll; i++) {
             popErrorPath(layer.state);
-            popAll--;
         }
+        popAll = 0;
         return value;
     }
 

@@ -1,6 +1,6 @@
 /// <reference path="../../interfaces/interpolate.d.ts" />
 
-import { check, valueForKeyPath, replaceAll } from 'typed-json-transform';
+import { check, valueForKeyPath } from 'typed-json-transform';
 
 export const chunk = (txt: string, brackets: string | string[]) => {
   var parts = txt.split(brackets[0]);
@@ -17,8 +17,8 @@ export const chunk = (txt: string, brackets: string | string[]) => {
 
 export function join(current: any, next: any, curSource: string, nextSource: string): any {
   if (check(current, [Array, Object])) {
-    if (check(next, Array)){
-      if (check(current, Array)){
+    if (check(next, Array)) {
+      if (check(current, Array)) {
         return current.concat(next);
       } else {
         throw {
@@ -53,7 +53,7 @@ export function join(current: any, next: any, curSource: string, nextSource: str
         }
         if (remainder) return join(current, remainder, curSource, nextSource)
         return current;
-      } else if (check(current, Array)){
+      } else if (check(current, Array)) {
         return [...current, next];
       }
       throw {
@@ -131,11 +131,11 @@ export function newState(): Expand.Elem {
   return { state: { sourceMap: [] }, raw: [], subst: [], source: [] };
 }
 
-export function concat(stack: Expand.Elem[][]) {
+export function parse(tokens: Expand.Elem[][]) {
   let out = '';
   let outSource = '';
   let changed = false;
-  for (const e of stack) {
+  for (const e of tokens) {
     const flat = reduce(e[0].raw, e[0].source);
     out = join(out, flat, outSource, e[0].source[0]);
     outSource = e[0].source.join('');
