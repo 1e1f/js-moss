@@ -1,7 +1,7 @@
 {
     "name": "js-moss",
     "description": "moss is a set of parsing rules for yaml and json",
-    "version": "0.17.6",
+    "version": "0.17.7",
     "homepage": "https://github.com/1e1f/js-moss",
     "author": {
         "name": "Leif Shackelford",

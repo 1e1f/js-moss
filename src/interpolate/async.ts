@@ -4,7 +4,7 @@ const expression = require('../../compiled/expression');
 import { newState, parse, reduce, append as _append, pop } from './shared';
 
 export async function tokenize(str: string, options: Expand.Options) {
-    const { dereference, call, shell, fetch } = options;
+    const { dereference, dereferenceSync, call, shell, fetch } = options;
     const template = String(str);
     let i = 0;
     let offset = i;
@@ -101,8 +101,8 @@ export async function tokenize(str: string, options: Expand.Options) {
             } else if (op == 'f') {
                 res = await sub(fetch, swap, ptr.state.sourceMap);
             } else if (op == 'e') {
-                const deref = (str: string) => subSync(dereference, str, ptr.state.sourceMap)
-                res = await sub((s) => expression(deref).parse(s), swap, ptr.state.sourceMap)
+                const deref = (str: string) => subSync(dereferenceSync, str, ptr.state.sourceMap)
+                res = await sub((s) => expression(deref, check).parse(s), swap, ptr.state.sourceMap)
             }
         }
         if (y > 0) {
@@ -130,7 +130,7 @@ export async function tokenize(str: string, options: Expand.Options) {
             const { detecting, header, op, terminal } = ptr.state;
             switch (char) {
                 case '(':
-                    if (detecting) {
+                    if (detecting && (detecting == '$')) {
                         open('s', ')');
                         break;
                     } else {

@@ -16,6 +16,7 @@ import {
 } from './state';
 
 import { handleError } from './util';
+import { Sync } from './sync';
 
 export namespace Async {
     type Functions = Moss.Async.Functions;
@@ -107,21 +108,19 @@ export namespace Async {
 
     export const parseNextStructure = async (layer: Moss.ReturnValue, input: Moss.BranchData) => {
         const { state } = layer;
-        // try {
-        if (check(input, Array)) {
-            return await parseArray(layer, input);
-        }
-        else if (check(input, Object)) {
-            if (shouldConstruct(input)) {
-                return await cascade({ data: input, state });
+        try {
+            if (check(input, Array)) {
+                return await parseArray(layer, input);
             }
-            return await parseObject({ data: input, state });
-        } else {
-            return await interpolate(layer, input);
-        }
-        // } catch (e) {
-        //     handleError(e, layer, input || layer.data);
-        // }
+            else if (check(input, Object)) {
+                if (shouldConstruct(input)) {
+                    return await cascade({ data: input, state });
+                }
+                return await parseObject({ data: input, state });
+            } else {
+                return await interpolate(layer, input);
+            }
+        } catch (e) { handleError(e, layer, input) }
     }
 
 
@@ -423,20 +422,8 @@ export namespace Async {
     async function interpolate(layer: Moss.ReturnValue, input: any) {
         const { data, state } = layer;
         const dictionary = { ...state.auto, stack: state.stack }
-        // try {
         const res = await _interpolate(layer, input, dictionary);
         return { data: res, state: layer.state } as Moss.ReturnValue;
-        // } catch (e) {
-        //     if (e.function) {
-        //         throw {
-        //             message: e.message
-        //         }
-        //     }
-        //     throw {
-        //         source: e.source || input,
-        //         message: e.message
-        //     }
-        // }
     }
 
     const interpolationFunctions = {};
@@ -445,32 +432,37 @@ export namespace Async {
         extend(interpolationFunctions, options);
     }
 
+    export const dereference = async (str: string, { layer, dictionary, popAll, sourceMap }: any) => { // replace from trie
+        if (!str) return;
+        popAll();
+        pushErrorPath(layer.state, {
+            path: sourceMap,
+            rhs: true
+        });
+        const res = valueForKeyPath(str, dictionary);
+        if (res) {
+            let errorPath = [];
+            const [firstKey, ...remainder] = str.split('.');
+            if (layer.state.autoMap[firstKey]) {
+                const kpLocation = layer.state.autoMap[firstKey];
+                errorPath = kpLocation.split('.').concat(remainder);
+            }
+            popAll();
+            pushErrorPath(layer.state, {
+                path: [errorPath]
+            })
+            const nextLayer: Moss.ReturnValue = await parseNextStructure(layer, valueForKeyPath(str, dictionary));
+            return nextLayer.data;
+        }
+        return res;
+    }
+
     async function _interpolate(layer: Moss.ReturnValue, input: any, dictionary: any) {
         let popAll = 0;
         const options = {
             ...{
-                dereference: (str: string, sourceMap: any) => { // replace from trie
-                    if (!str) return;
-                    popAll++;
-                    pushErrorPath(layer.state, {
-                        path: sourceMap,
-                        rhs: true
-                    });
-                    const res = valueForKeyPath(str, dictionary);
-                    if (res) {
-                        let errorPath = [];
-                        const [firstKey, ...remainder] = str.split('.');
-                        if (layer.state.autoMap[firstKey]) {
-                            const kpLocation = layer.state.autoMap[firstKey];
-                            errorPath = kpLocation.split('.').concat(remainder);
-                        }
-                        popAll++;
-                        pushErrorPath(layer.state, {
-                            path: [errorPath]
-                        })
-                    }
-                    return res;
-                },
+                dereferenceSync: (str: string, sourceMap: any) => Sync.dereference(str, { sourceMap, layer, dictionary, popAll: () => popAll++ }),
+                dereference: async (str: string, sourceMap: any) => await dereference(str, { sourceMap, layer, dictionary, popAll: () => popAll++ }),
                 call: async (obj: Object, sourceMap: any) => { // call method
                     const keys = Object.keys(obj);
                     if (!(keys && keys.length)) return '';

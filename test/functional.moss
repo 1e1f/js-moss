@@ -46,7 +46,7 @@ config:
     reduce<:
       each: $weather
       with>:
-        $value.type: =memo.${value.type} + value.amount
+        $value.type: =memo[value.type] + value.amount
       memo:
         rain: 0
         snow: 0

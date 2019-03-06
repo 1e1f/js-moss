@@ -22,6 +22,7 @@ declare namespace Expand {
   }
 
   export interface Options {
+    dereferenceSync?: (sub: string, sourceMap?: number[]) => any 
     dereference?: (sub: string, sourceMap?: number[]) => any
     call?: (sub: any, sourceMap?: number[]) => any
     fetch?: (sub: any, sourceMap?: number[]) => any

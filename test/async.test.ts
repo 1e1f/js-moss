@@ -36,7 +36,13 @@ describe('Async API', () => {
 
     it('functional', async () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'functional.moss'), 'utf8'));
-        assert.deepEqual(await parse(config, env), expect);
+        let res;
+        try {
+            res = await parse(config, env)
+        } catch (e) {
+            console.log(e)
+        }
+        assert.deepEqual(res, expect);
     });
 
     it('environment', async () => {

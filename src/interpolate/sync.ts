@@ -102,7 +102,7 @@ export function tokenize(str: string, options: Expand.Options) {
                 res = sub(fetch, swap, ptr.state.sourceMap);
             } else if (op == 'e') {
                 const deref = (str: string) => subSync(dereference, str, ptr.state.sourceMap)
-                res = sub((s) => expression(deref).parse(s), swap, ptr.state.sourceMap)
+                res = sub((s) => expression(deref, check).parse(s), swap, ptr.state.sourceMap)
             }
         }
         if (y > 0) {
