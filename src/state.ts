@@ -1,17 +1,27 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
-import { clone } from "typed-json-transform";
+import { clone, Graph } from "typed-json-transform";
+// import { jsonStableHash } from "./hash";
 
 export const currentErrorPath = (state: Moss.State) =>
     state.errorPaths[state.errorPaths.length - 1];
-    
+
 export const pushErrorPath = (state: Moss.State, path?: any) =>
     state.errorPaths.push(path || { path: [] })
 
 export const popErrorPath = (state: Moss.State) =>
     state.errorPaths.pop();
 
-export const newState = (): Moss.State => {
+export const newState = (branch?: Moss.Branch): Moss.State => {
+    const path = branch ? branch.path : 'root';
+    // const contentHash = jsonStableHash(branch ? branch.data : {});
+
+    const pathGraph = new Graph();
+    pathGraph.addNode(path, branch);
+
+    // const contentHashGraph = new Graph<null>();
+    // contentHashGraph.addNode(contentHash);
+
     return {
         auto: {},
         autoMap: {},
@@ -21,19 +31,20 @@ export const newState = (): Moss.State => {
             operator: '|',
             precedence: {}
         },
-        resolverCache: {},
+        currentBranch: path,
+        graph: pathGraph,
         selectors: {},
         errorPaths: [{ path: [] }]
     };
 }
 
-export const newLayer = (): Moss.ReturnValue => {
-    return { data: {}, state: newState() }
+export const newLayer = (branch?: Moss.Branch): Moss.ReturnValue => {
+    return { data: {}, state: newState(branch) }
 }
 
 export const pushState = (layer: Moss.ReturnValue) => {
     if (!layer.state.locked) {
-        const { resolverCache, ..._state } = layer.state;
+        const { graph, currentBranch, ..._state } = layer.state;
         return {
             data: layer.data,
             state: {
@@ -42,7 +53,8 @@ export const pushState = (layer: Moss.ReturnValue) => {
                     ..._state.merge,
                     precedence: {}
                 },
-                resolverCache
+                currentBranch,
+                graph
             }
         };
     }

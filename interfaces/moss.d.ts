@@ -1,3 +1,5 @@
+/// <reference types="typed-json-transform" />
+
 interface MossError {
   name: 'MossError',
   at?: string
@@ -14,26 +16,37 @@ declare namespace Moss {
     rhs?: boolean
   }
 
-  interface State {
-    locked?: boolean
-    strict: boolean
+  interface ParserState {
     auto?: any
-    autoMap?: any
     stack?: any
     selectors?: any
-    resolverCache?: any
-    target?: Moss.BranchData
-    errorPaths: ErrorPath[]
     merge?: {
       operator: Merge.Operator,
       precedence: { [x: string]: number }
     }
   }
 
+  interface SourceCodeState {
+    target?: Moss.BranchData
+    autoMap?: any
+    currentBranch?: string
+    errorPaths: ErrorPath[]
+    graph?: TypedJSONTransform.Graph<Branch>
+  }
+
+  interface State extends ParserState, SourceCodeState {
+    locked?: boolean
+    strict: boolean
+  }
+
   interface Branch {
     path?: string
     text?: string
     data?: BranchData
+    intermediate?: {
+      data: BranchData
+      state: ParserState
+    }
   }
 
   type BranchData = any;
@@ -86,6 +99,7 @@ declare module 'moss' {
 
     export function next(current: Moss.ReturnValue, input: any): Promise<Moss.ReturnValue>;
     export function start(input: any): Promise<Moss.ReturnValue>;
+    export function startBranch(input: Moss.Branch): Promise<Moss.ReturnValue>;
 
     export function parse(trunk: Moss.BranchData, baseParser?: Moss.BranchData): Promise<ParsedObject>;
     export function load(config: string, baseParser?: string): Promise<ParsedObject>;

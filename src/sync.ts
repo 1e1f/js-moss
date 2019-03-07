@@ -24,6 +24,7 @@ import { handleError } from './util'
 export namespace Sync {
     type Functions = Moss.Sync.Functions;
     type Resolvers = Moss.Sync.Resolvers;
+
     export const continueWithNewFrame = (current: Moss.ReturnValue, input: Moss.BranchData) => {
         const layer = pushState(current);
         return parseNextStructure(layer, input);
@@ -110,18 +111,19 @@ export namespace Sync {
 
     export const parseNextStructure = (layer: Moss.ReturnValue, input: Moss.BranchData) => {
         const { state } = layer;
-        // try {
-        if (check(input, Array)) {
-            return parseArray(layer, input);
-        }
-        else if (check(input, Object)) {
-            if (shouldConstruct(input)) {
-                return cascade({ data: input, state });
+        try {
+            if (check(input, Array)) {
+                return parseArray(layer, input);
             }
-            return parseObject({ data: input, state });
-        } else {
-            return interpolate(layer, input);
-        }
+            else if (check(input, Object)) {
+                if (shouldConstruct(input)) {
+                    return cascade({ data: input, state });
+                }
+                return parseObject({ data: input, state });
+            } else {
+                return interpolate(layer, input);
+            }
+        } catch (e) { handleError(e, layer, input) }
     }
 
 
@@ -487,7 +489,9 @@ export namespace Sync {
                         popAll++;
                         pushErrorPath(layer.state, { path: ['^' + b.path] })
                         const res: Moss.ReturnValue = parseNextStructure(layer, b.data);
-                        return res.data;
+                        const { data, state: { auto, stack, selectors, merge } } = res;
+                        b.intermediate = { data, state: { auto, stack, selectors, merge } };
+                        return data;
                     }
                 },
                 shell: () => 'no shell method supplied',
@@ -517,6 +521,13 @@ export namespace Sync {
 
     export function start(trunk: Moss.BranchData) {
         return parseNextStructure(newLayer(), trunk);
+    }
+
+    export function startBranch(branch: Moss.Branch) {
+        const res = parseNextStructure(newLayer(branch), branch.data);
+        const { data, state: { auto, stack, selectors, merge } } = res;
+        branch.intermediate = { data, state: { auto, stack, selectors, merge } };
+        return res;
     }
 
     export function parse(trunk: Moss.BranchData, baseParser?: Moss.BranchData) {

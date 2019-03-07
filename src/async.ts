@@ -123,8 +123,6 @@ export namespace Async {
         } catch (e) { handleError(e, layer, input) }
     }
 
-
-
     export const onMatch = async (rv: Moss.ReturnValue, setter: any, operator: Merge.Operator, key: string) => {
         let { state, data: lhs } = rv;
         currentErrorPath(state).path.push(key);
@@ -476,17 +474,26 @@ export namespace Async {
                         path: sourceMap,
                         rhs: true
                     });
-                    const b = await getBranch(uris, resolvers, layer);
-                    if (!b) {
+                    let resolvedBranch;
+                    try {
+                        resolvedBranch = await getBranch(uris, resolvers, layer);
+                    } catch (e) {
+                        throw ({
+                            message: `Can't resolve ${uris}\n ${e.message}`,
+                        })
+                    }
+                    if (!resolvedBranch) {
                         throw ({
                             message: `Can't resolve ${uris}\nNone of the available resolvers found a match.\n[${(await map(resolvers, (r) => r.name)).filter(e => e).join(', ')}] `,
                         })
                     }
-                    if (b.data) {
+                    if (resolvedBranch.data) {
                         popAll++;
-                        pushErrorPath(layer.state, { path: ['^' + b.path] })
-                        const res: Moss.ReturnValue = await parseNextStructure(layer, b.data);
-                        return res.data;
+                        pushErrorPath(layer.state, { path: ['^' + resolvedBranch.path] })
+                        const res: Moss.ReturnValue = await parseNextStructure(layer, resolvedBranch.data);
+                        const { data, state: { auto, stack, selectors, merge } } = res;
+                        resolvedBranch.intermediate = { data, state: { auto, stack, selectors, merge } };
+                        return data;
                     }
                 },
                 shell: () => 'no shell method supplied',
@@ -516,6 +523,13 @@ export namespace Async {
 
     export async function start(trunk: Moss.BranchData) {
         return await parseNextStructure(newLayer(), trunk);
+    }
+
+    export async function startBranch(branch: Moss.Branch) {
+        const res = await parseNextStructure(newLayer(branch), branch.data);
+        const { data, state: { auto, stack, selectors, merge } } = res;
+        branch.intermediate = { data, state: { auto, stack, selectors, merge } };
+        return res;
     }
 
     export async function parse(trunk: Moss.BranchData, baseParser?: Moss.BranchData) {
