@@ -50,6 +50,6 @@
     },
     "dependencies": {
         "js-yaml": "^3.12",
-        "typed-json-transform": "^0.24.2"
+        "typed-json-transform": "^0.24.3"
     }
 }
