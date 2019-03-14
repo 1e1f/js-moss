@@ -159,12 +159,12 @@ root -> scope {% function(d) {
 scope ->
   map {% id %}
 
-map -> (mapEntry):+ eol {% function(d) {
+map -> (mapEntry):+ {% function(d) {
     let map = new Map();
 	const entries = d[0];
 	for (const mapEntry of entries) {
 		const [key, valuePair] = mapEntry[0];
-		const value = valuePair ? valuePair[0] : null;
+		const value = valuePair ? valuePair : null;
     	if(key) { 
 			if (map.get(key)){
 				throw new Error(`duplicate key ${key}`);
@@ -175,33 +175,34 @@ map -> (mapEntry):+ eol {% function(d) {
     return map;
 } %}
 
+
 mapEntry
-	-> mapKey __ {% function(d) {
+	-> dataType endStatement {% function(d) {
 		return d[0]; 
 	} %}
-	| mapKey mapClass {% function(d) {
+	| dataType mapClass {% function(d) {
 			const [key, mapClass] = d;
-			console.log('parse map val', key[0], mapClass);
+			console.log('pair', key[0], mapClass);
 			const pair = [key[0], mapClass];
 			return pair;
 		} %}
 
 
-eol -> comment:? _ (%nl | %eof)
+pushScope -> separator %indent:?
+popScope -> endStatement dedent:? %eof:?
+endStatement -> ("," _) | __ | endLine
+endLine -> comment:? _ (nl | %eof)
 
-mapKey -> label | number
+dataType -> label | number
 
 mapClass -> 
-  separator __ mapKey {% function(d) { return d[2]; } %}
-  
-  #| separator _ mapDescriptor {% function(d) { return d[2][0]; } %}
+  pushScope __ mapEntry popScope {% function(d) { return d[2]; } %}
+  #| separator mapDescriptor {% function(d) { return d[1]; } %}
   
 mapDescriptor ->
-  _ directive "text" _ %indent nestedMultilineString {% function(d) { return d[4]; } %}
-  | _ %indent nestedMap {% function(d) { return d[2]; } %}
+  pushScope scope popScope {% function(d) { return d[1]; } %}
+  | __ directive "text" _ %indent nestedMultilineString {% function(d) { return d[5]; } %}
 
-
-nestedMap -> scope %dedent {% function(d) { return d[1]; } %}
 nestedMultilineString -> multilineString %dedent {% function(d) { return d[1]; } %}
 nestedValue ->
 	nonStringLike
@@ -277,7 +278,7 @@ nonStringLike ->
 lineBreak -> nl | indent | dedent
 indent		   -> %indent {% function(d) { return d[0].value } %}
 dedent		   -> %dedent {% function(d) { return d[0].value } %}
-nl		       -> %nl {% function(d) { } %}
+nl		       -> %nl {% function(d) { return null} %}
 
 # Numbers
 
