@@ -1,7 +1,7 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
-import { merge, mergeArray, mergeObject, amap as map, aokmap as okmap, arrayify, extend, check, clone, each, union, difference, sum, valueForKeyPath, all, isEqual, unflatten, flatObject, unsetKeyPath, setValueForKeyPath, mergeOrReturnAssignment } from 'typed-json-transform';
-import { interpolateAsync as __interpolate } from './interpolate';
+import { merge, mergeArray, mergeObject, okmap as okmapSync, amap as map, aokmap as okmap, arrayify, extend, check, clone, each, union, difference, sum, valueForKeyPath, all, isEqual, unflatten, flatObject, unsetKeyPath, setValueForKeyPath, mergeOrReturnAssignment, contains } from 'typed-json-transform';
+import { interpolateAsync as __interpolate, reservedKeys } from './interpolate';
 import { cascadeAsync as _cascade, shouldConstruct, select, parseSelectors } from './cascade';
 import * as yaml from 'js-yaml';
 
@@ -17,6 +17,7 @@ import {
 
 import { handleError } from './util';
 import { Sync } from './sync';
+import { parseDescription } from './schema';
 
 export namespace Async {
     type Functions = Moss.Async.Functions;
@@ -35,7 +36,9 @@ export namespace Async {
         const target = state.target || current.data;
 
         let res;
-        for (const _key of Object.keys(source)) {
+        const keys = Object.keys(source);
+        console.log('evaluate keys', keys);
+        for (const _key of keys) {
             if (!_key) {
                 continue;
             }
@@ -70,14 +73,11 @@ export namespace Async {
                 } else {
                     let val = source[_key];
                     if (_key[0] === '$') {
-                        key = <any>(await interpolate(current, _key)).data;
-                    } else if (_key[0] == '\\') {
-                        key = key.slice(1);
-                    } else if (_key.indexOf('.') != -1) {
-                        const [first, ...kp] = _key.split('.')
-                        key = first;
-                        val = {};
-                        setValueForKeyPath(source[_key], kp.join('.'), val);
+                        if (!contains(reservedKeys, _key)) {
+                            key = <any>(await interpolate(current, _key)).data;
+                        } else {
+                            key = _key;
+                        }
                     } else {
                         key = _key;
                     }
@@ -87,9 +87,13 @@ export namespace Async {
             if (key) {
                 state.auto[key] = res;
                 state.autoMap[key] = currentErrorPath(state).path.join('.');
+
                 target[key] = res;
             }
             currentErrorPath(state).path.pop();
+        }
+        if (current.state.schema) {
+            // check
         }
         return current;
     }
@@ -208,6 +212,14 @@ export namespace Async {
         },
         $: async (current: Moss.ReturnValue, args: any) => {
             await parseNextStructure(current, args);
+        },
+        schema: async (current: Moss.ReturnValue, args: any) => {
+            const description = await continueWithNewFrame(current, args);
+            current.state.schema = parseDescription(description.data);
+            current.data = current.state.schema;
+        },
+        validate: async (current: Moss.ReturnValue, args: any) => {
+            const schema = await continueWithNewFrame(current, args);
         },
         extend: async (parent: Moss.ReturnValue, args: any) => {
             const layer = await continueWithNewFrame(parent, args);

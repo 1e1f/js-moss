@@ -1,15 +1,16 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
 import {
-    map as map, okmap as okmap, arrayify, extend,
+    map as map, okmap as okmapSync, okmap, arrayify, extend,
     check, clone, each, setValueForKeyPath, sum, valueForKeyPath,
-    all, isEqual, mergeArray, mergeOrReturnAssignment
+    all, isEqual, mergeArray, mergeOrReturnAssignment, contains
 } from 'typed-json-transform';
-import { interpolate as __interpolate } from './interpolate';
+import { interpolate as __interpolate, reservedKeys } from './interpolate';
 import { cascade as _cascade, shouldConstruct, select, parseSelectors } from './cascade';
 import * as yaml from 'js-yaml';
 
 import { getBranchSync as getBranch } from './resolvers';
+import { parseDescription } from './schema';
 
 import {
     newLayer,
@@ -73,14 +74,16 @@ export namespace Sync {
                 } else {
                     let val = source[_key];
                     if (_key[0] === '$') {
-                        key = <any>(interpolate(current, _key)).data;
-                    } else if (_key[0] == '\\') {
-                        key = key.slice(1);
-                    } else if (_key.indexOf('.') != -1) {
-                        const [first, ...kp] = _key.split('.')
-                        key = first;
-                        val = {};
-                        setValueForKeyPath(source[_key], kp.join('.'), val);
+                        if (!contains(reservedKeys, _key)) {
+                            key = <any>(interpolate(current, _key)).data;
+                        } else {
+                            key = _key;
+                        }
+                        // } else if (_key.indexOf('.') != -1) {
+                        //     const [first, ...kp] = _key.split('.')
+                        //     key = first;
+                        //     val = {};
+                        //     setValueForKeyPath(source[_key], kp.join('.'), val);
                     } else {
                         key = _key;
                     }
@@ -93,6 +96,9 @@ export namespace Sync {
                 target[key] = res;
             }
             currentErrorPath(state).path.pop();
+        }
+        if (current.state.schema) {
+            // check
         }
         return current;
     }
@@ -125,8 +131,6 @@ export namespace Sync {
             }
         } catch (e) { handleError(e, layer, input) }
     }
-
-
 
     export const onMatch = (rv: Moss.ReturnValue, setter: any, operator: Merge.Operator, key: string) => {
         let { state, data: lhs } = rv;
@@ -213,6 +217,12 @@ export namespace Sync {
         },
         $: (current: Moss.ReturnValue, args: any) => {
             parseNextStructure(current, args);
+        },
+        schema: (current: Moss.ReturnValue, args: any) => {
+            const description = continueWithNewFrame(current, args);
+            current.state.schema = parseDescription(description.data);
+            console.log(current.state.schema);
+            current.data = current.state.schema;
         },
         extend: (parent: Moss.ReturnValue, args: any) => {
             const layer = continueWithNewFrame(parent, args);
@@ -422,9 +432,13 @@ export namespace Sync {
         }
     });
 
+    const jsonSchemaKeywords = ['id', 'schema', 'ref', 'comment'];
+    const mongoKeywords = ['set', 'unset', 'push', 'pull', 'gt', 'lt', 'gte', 'lte', 'exists'];
+    const keywords = okmapSync(jsonSchemaKeywords.concat(mongoKeywords), (key) => ({ key, value: key }));
+
     function interpolate(layer: Moss.ReturnValue, input: any) {
         const { data, state } = layer;
-        const dictionary = { ...state.auto, stack: state.stack }
+        const dictionary = { ...state.auto, ...keywords, stack: state.stack }
         const res = _interpolate(layer, input, dictionary);
         return { data: res, state: layer.state } as Moss.ReturnValue;
     }
@@ -479,18 +493,25 @@ export namespace Sync {
                         path: sourceMap,
                         rhs: true
                     });
-                    const b = getBranch(uris, resolvers, layer);
-                    if (!b) {
+                    let resolvedBranch;
+                    try {
+                        resolvedBranch = getBranch(uris, resolvers, layer);
+                    } catch (e) {
+                        throw ({
+                            message: `Can't resolve ${uris}\n ${e.message}`,
+                        })
+                    }
+                    if (!resolvedBranch) {
                         throw ({
                             message: `Can't resolve ${uris}\nNone of the available resolvers found a match.\n[${(map(resolvers, (r) => r.name)).filter(e => e).join(', ')}] `,
                         })
                     }
-                    if (b.data) {
+                    if (resolvedBranch.data) {
                         popAll++;
-                        pushErrorPath(layer.state, { path: ['^' + b.path] })
-                        const res: Moss.ReturnValue = parseNextStructure(layer, b.data);
+                        pushErrorPath(layer.state, { path: ['^' + resolvedBranch.path] })
+                        const res: Moss.ReturnValue = parseNextStructure(layer, resolvedBranch.data);
                         const { data, state: { auto, stack, selectors, merge } } = res;
-                        b.intermediate = { data, state: { auto, stack, selectors, merge } };
+                        resolvedBranch.intermediate = { data, state: { auto, stack, selectors, merge } };
                         return data;
                     }
                 },

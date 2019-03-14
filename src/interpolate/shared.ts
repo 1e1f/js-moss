@@ -110,9 +110,11 @@ export const pop = (stack: any[]) => {
   const lastIndex = (stack.length - 1) || 0;
   if (check(stack[lastIndex], String)) {
     const s = stack[lastIndex];
+    const l = s.slice(-1);
     stack[lastIndex] = s.slice(0, s.length - 1);
+    return l;
   } else {
-    stack.pop();
+    return stack.pop();
   }
 }
 
@@ -127,19 +129,14 @@ export const reduce = (raw: any[], source: any[]) => {
   return res;
 }
 
-export function newState(): Expand.Elem {
-  return { state: { sourceMap: [] }, raw: [], subst: [], source: [] };
+export function newState(options?: Partial<Expand.Elem>): Expand.Elem {
+  return { sourceMap: [], out: [], source: [], ...options };
 }
 
-export function parse(tokens: Expand.Elem[][]) {
+export function parse(tokens: Expand.Elem[]) {
   let out = '';
   let outSource = '';
   let changed = false;
-  for (const e of tokens) {
-    const flat = reduce(e[0].raw, e[0].source);
-    out = join(out, flat, outSource, e[0].source[0]);
-    outSource = e[0].source.join('');
-    if (e[0].state.dirty) changed = true;
-  }
+  out = reduce(tokens[0].out, tokens[0].source);
   return { value: out, changed: changed };
 }

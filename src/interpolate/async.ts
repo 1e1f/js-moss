@@ -1,7 +1,7 @@
 import { check } from 'typed-json-transform';
 const expression = require('../../compiled/expression');
 
-import { newState, parse, reduce, append as _append, pop } from './shared';
+import { newState, parse, reduce, append as _append } from './shared';
 
 export async function tokenize(str: string, options: Expand.Options) {
     const { dereference, dereferenceSync, call, shell, fetch } = options;
@@ -11,45 +11,42 @@ export async function tokenize(str: string, options: Expand.Options) {
     let x = 0;
     let y = 0;
 
-    const stack: Expand.Elem[][] = [[{ state: { sourceMap: [0, str.length] }, raw: [], subst: [], source: [] }]];
-    let ptr = stack[x][y];
+    const stack: Expand.Elem[] = [newState()];
+    let frame = stack[y];
 
-
-    const append = (char: string) => {
+    const append = (val: any) => {
+        if (frame.escape) {
+            frame.escaped += val;
+            return;
+        }
         let nextChunk = false;
-        if (ptr.state.op) {
-            nextChunk = _append(ptr.subst, char)
-        } else {
-            nextChunk = _append(ptr.raw, char)
-        }
+        nextChunk = _append(frame.out, val)
         if (nextChunk) {
-            ptr.source.push(char);
+            frame.source.push(val);
         } else {
-            ptr.source[(ptr.source.length - 1) || 0] += char;
+            frame.source[(frame.source.length - 1) || 0] += val;
         }
     }
 
-    const stepBack = () => {
-        if (ptr.state.op) {
-            pop(ptr.subst);
-        } else {
-            pop(ptr.raw);
+    const open = (char: string, op: Expand.Op, terminal: Expand.Terminal) => {
+        const { escape, escaped } = frame;
+        if (escape) {
+            frame.escape = null;
+            frame.escaped = '';
+            const directive = escaped.slice(1);
+            if (!directive){
+                throw new Error('explicit interpolate without 2 char prefix directive');
+            }
+            append(directive);
+            if (char) {
+                append(char);
+            }
         }
-    }
-
-    const open = (op: Expand.Op, terminal: Expand.Terminal) => {
-        stepBack();
-        ptr.state.header = null;
-        ptr.state.detecting = null;
-        const existing = ptr.state.op;
-        if (existing) {
-            y++;
-            stack[x][y] = newState();
-            ptr = stack[x][y];
-            ptr.raw = [];
-        }
-        ptr.state.op = op;
-        ptr.state.terminal = terminal;
+        frame.header = null;
+        frame.detecting = null;
+        y++;
+        stack[y] = newState({ op: escape ? 'n' : op, terminal });
+        frame = stack[y];
     }
 
     const sub = async (fn: (s: string, location: any) => any, str: string, sourceMap?: number[]) => {
@@ -85,106 +82,130 @@ export async function tokenize(str: string, options: Expand.Options) {
     }
 
     const close = async () => {
-        const op = ptr.state.op;
-        ptr.state.sourceMap = [offset, i + (ptr.state.terminal && ptr.state.terminal.length) - offset];
-        ptr.state.op = null;
-        ptr.state.terminal = null;
+        const { op, terminal, escape, escaped } = frame;
+        frame.sourceMap = [offset, i + (terminal && terminal.length) - offset];
+        frame.op = null;
+        frame.terminal = null;
+        if (escape && escaped) {
+            frame.escape = false;
+            frame.escaped = '';
+            append(escaped);
+        }
+        const swap = reduce(frame.out, frame.source);
+        let out: any;
         let res;
-        const swap = reduce(ptr.subst, ptr.source);
         if (check(swap, [Object, Array])) {
-            res = await call(swap);
+            out = await call(swap);
         } else {
             if (op == 'v') {
-                res = await sub(dereference, swap, ptr.state.sourceMap);
+                out = await sub(dereference, swap, frame.sourceMap);
             } else if (op == 's') {
-                res = await sub(shell, swap, ptr.state.sourceMap);
+                out = await sub(shell, swap, frame.sourceMap);
             } else if (op == 'f') {
-                res = await sub(fetch, swap, ptr.state.sourceMap);
+                out = await sub(fetch, swap, frame.sourceMap);
             } else if (op == 'e') {
-                const deref = (str: string) => subSync(dereferenceSync, str, ptr.state.sourceMap)
-                res = await sub((s) => expression(deref, check).parse(s), swap, ptr.state.sourceMap)
+                const deref = (str: string) => subSync(dereferenceSync, str, frame.sourceMap)
+                out = await sub((s) => expression(deref, check).parse(s), swap, frame.sourceMap)
+            } else if (op == 'n') {
+                if (terminal != '__null__') append(terminal);
+                out = reduce(frame.out, frame.source);
             }
         }
-        if (y > 0) {
-            delete stack[x][y];
-            y--;
-            ptr = stack[x][y];
-            ptr.subst.push(res);
-        }
-        else {
-            if (res) { ptr.state.dirty = true };
-            ptr.raw.push(res);
-            x++;
-            y = 0;
-            stack[x] = [newState()];
-            ptr = stack[x][y];
-        }
+        // if (out) frame.dirty = true;
+        // const { out } = frame;
+        // const out = reduce(frame.out, frame.source);
+        // delete stack[y];
+        stack.length--
+        y--;
+        frame = stack[y];
+        append(out);
+        // frame.source.push(out);
     }
 
     for (i = 0; i != template.length; i++) {
         const char = template[i];
-        if (ptr.state.escape) {
-            ptr.state.escape = false;
-            append(char);
-        } else {
-            const { detecting, header, op, terminal } = ptr.state;
-            switch (char) {
-                case '(':
-                    if (detecting && (detecting == '$')) {
-                        open('s', ')');
-                        break;
-                    } else {
-                        append(char);
-                    }
+        const { detecting, header, op, terminal, escape, escaped } = frame;
+        switch (char) {
+            case '(':
+                if (detecting && (detecting == '$')) {
+                    open(char, 's', ')');
                     break;
-                case '{':
-                    if (detecting) {
-                        open(detecting == '$' ? 'v' : detecting == '^' ? 'f' : 'e', '}');
-                        break;
-                    } else {
-                        append(char);
-                    }
-                    break;
-                case '}': case ')':
-                    if (op && terminal == char) {
-                        await close();
-                    } else {
-                        append(char);
-                    }
-                    break;
-                case ' ':
-                    if (op && terminal == char) {
-                        await close();
-                    }
+                } else {
                     append(char);
+                }
+                break;
+            case '{':
+                if (detecting) {
+                    open(char, detecting == '$' ? 'v' : detecting == '^' ? 'f' : 'e', '}');
                     break;
-                case '\\':
-                    ptr.state.escape = true;
-                    break;
-                default:
-                    if (header) {
-                        ptr.state.header = null;
-                        if (header == '=') open('e', '__null__');
-                        else if (header == '^') open('f', '__null__');
-                        else if (header == '$') open('v', ' ');
-                    } else if (char == '=' || char == '$' || char == '^') {
-                        if (i < 1) ptr.state.header = char;
-                        ptr.state.detecting = char;
-                    }
-                    if (detecting) {
-                        ptr.state.detecting = null;
-                    }
+                } else {
                     append(char);
-                    break;
-            }
+                }
+                break;
+            case '}': case ')':
+                if (op && terminal == char) {
+                    await close();
+                } else {
+                    append(char);
+                }
+                break;
+            case ' ':
+                if (op && terminal == char) {
+                    await close();
+                }
+                append(char);
+                break;
+            case '\\':
+                if (frame.escape) {
+                    append(char);
+                } else {
+                    frame.escape = true;
+                    frame.escaped = '\\';
+                }
+                break;
+            case '=': case '$': case '^':
+                if (detecting) {
+                    append(detecting);
+                }
+                if (!frame.out[0] || (frame.out[0].length < 2)) {
+                    frame.header = char;
+                }
+                if (frame.escape) {
+                    append(char);
+                }
+                frame.detecting = char;
+                break;
+            default:
+                if (header) {
+                    frame.header = null;
+                    if (header == '=') open(null, 'e', '__null__');
+                    else if (header == '^') open(null, 'f', '__null__');
+                    else if (header == '$') open(null, 'v', '__null__');
+                } else {
+                    if (detecting) {
+                        frame.detecting = null;
+                        append(detecting);
+                    }
+                    if (escape) {
+                        frame.escape = false;
+                        frame.escaped = null;
+                        // console.log('append escaped', escaped)
+                        append(escaped);
+                    }
+                }
+                append(char);
+                break;
         }
     }
-    while (ptr.state.op) {
-        if (ptr.state.terminal == '}') throw { message: `expected a closing ${ptr.state.terminal}` }
+    if (frame.detecting) {
+        append(frame.detecting);
+    }
+    while (frame.op) {
+        if (frame.terminal == '}') throw { message: `expected a closing ${frame.terminal}` }
         await close();
     }
-    if (ptr.state.detecting) {
-        ptr.state.detecting = null;
+    if (frame.detecting) {
+        frame.detecting = null;
     }
     return stack;
 };
