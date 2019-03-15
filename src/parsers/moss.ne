@@ -1,17 +1,17 @@
 @lexer lexer
 		
 root
-	-> scope eof
+	-> scope nl:*
 		{% ([scope]) => scope %}
 
 scope 
 	-> map {% id %}
-		
+	
 map 
-	-> map mapPairConstructor 
-		{% ([map, nextMatch]) => {
+	-> map _ mapPairConstructor 
+		{% ([map, ws, nextMatch]) => {
 			if (nextMatch) {
-				console.log('addPairToMap', nextMatch);
+				//console.log('addPairToMap', nextMatch);
 				addPairToMap(nextMatch, map);
 			}
 			return map;
@@ -21,7 +21,7 @@ map
 			const map = new Map();
 			mapId++;
 			if (initialMatch) {
-				console.log('newMap', mapId, initialMatch);
+				//console.log('newMap', mapId, initialMatch);
 				addPairToMap(initialMatch, map);
 			}
 			return map;
@@ -29,32 +29,84 @@ map
 
 
 mapPairConstructor 
-	# valid
-	-> dataValue endGroup 
-  		{% ([dv]) => {
-			console.log('label', dv);
-			return [dv, true] 
-		}%}
+	# nested constrained scope
+	-> label scopeOperator __ ((constraintMap (__ | pushScope)) | pushScope) scope popScope
+  		{% ([key, _1, _2, scopeConstaints, scope]) => {
+			console.log('scopeConstaints', scopeConstaints[0]) 
+			return [key, scope] 
+		} %}
 	
-	| dataValue separator __ dataValue endGroup 
-  		{% ([key, _1, _2, value]) => {
-				console.log('pair', [key, value]);
+	
+	# nested scope
+	| label scopeOperator pushScope scope popScope  
+  		{% ([key, _1, scope]) => {
+			return [key, scope]
+		} %}
+	
+	# map pair, optionally constrained
+	| label scopeOperator __ (constraintMap __):? label endGroup 
+  		{% ([key, _1, _2, constraintMap, value]) => {
+				//console.log('pair', [key, value]);
 				return [key, value] 
 			}
 		%}
-	
-  	| dataValue pushScope scope popScope  
-  		{% ([key, _1, scope]) => {
-			return [key, scope] 
-		} %}
+		
+	# default simple value
+	| label endGroup
+  		{% ([dv]) => {
+			//console.log('label', dv);
+			return [dv, true] 
+		}%}
 		
 	| commentLine {% () => null %}
-	
+
 	# error cases
-	| dataValue nl indent scope popScope
+	| label pushScope scope popScope
   		{% expectedScopeOperator %}
 		
-inlineContextDescription -> _ {% () => null %}
+
+constraintMap 
+	-> constraintMap __ constraint
+		{% ([map, ws, nextMatch]) => {
+			if (nextMatch) {
+				addPairToMap(nextMatch, map);
+			}
+			return map;
+		} %}
+	| constraint
+		{% ([initialMatch]) => {
+			const map = new Map();
+			mapId++;
+			if (initialMatch) {
+				//console.log('add prop', initialMatch)
+				addPairToMap(initialMatch, map);
+			}
+			return map;
+		} %}
+		
+constraint
+	-> "@" label "[" ((scope "]") | (inlineScope "]"))
+		{% ([_0, property, _2, scopeSelector]) => {
+			return [property, scopeSelector[0][0][2]] 
+		}%}
+	| "@" label
+		{% ([_0, property]) => [property, true] %}
+
+inlineScope
+	-> nl indent scope dedent
+
+list 
+	-> list "," _ label 
+		{% ([list, _1, _2, item]) => {
+			if (item) {
+				list.push(item);
+			}
+			return list;
+		} %}
+	| label
+		{% ([value]) => {
+			return [value];
+		} %}
 
 # MultiLine String
 
@@ -78,10 +130,12 @@ multilineString
 
 # HighLevel
 
-dataValue -> 
-	label {% id %}
+label -> 
+	word {% id %}
+	| escapedString {% id %}
+	| dqString  {% id %}
 	| number {% id %}
-	
+
 # Numbers
 
 number 
@@ -100,22 +154,23 @@ _int
 	| _posint {% id %}
  
 _posint
-	-> [0-9] {% id %}
-	| _posint [0-9] {% ([lhs, rhs]) => lhs + rhs %}
+	-> %digitChar {% id %}
+	| _posint %digitChar {% ([lhs, rhs]) => lhs + rhs %}
  
 
 #Strings
-
-label
-	-> label [\w] {% ([l, r]) => { return l + r.value; }%}
-	| [a-zA-Z$_] {% ([char]) => char.value %}
 	
+word
+	-> word (%wordChar | %digitChar) 
+		{% ([l, r]) => { return l + r; }%}
+	| %wordChar {% ([char]) => char.value %}
+
 dqString 
 	-> "\"" _string "\"" {% function(d) {return d[1]; } %}
 escapedString
 	-> "`" _escapedString "`" {% function(d) {return d[1]; } %}
 	
-_string 
+_string
 	-> null {% function() {return ""; } %}
 	| _string _stringchar {% ([lhs, rhs]) => lhs + rhs %}
 _stringchar
@@ -124,44 +179,39 @@ _stringchar
 
 _escapedString 
 	-> null {% function() {return ""; } %}
-	| _escapedString _escapedStringChar {% ([lhs, rhs]) => lhs + rhs %}
-
-_escapedStringChar
-	-> [^] {% id %}
-	| "\\" [^] {% ([lhs, rhs]) => lhs + rhs %}
-
+	| _escapedString (%wordChar | %digitChar | %anyChar | %space)  {% ([lhs, rhs]) => lhs + rhs %}
 
 # Simple
 
-cssLabel -> 
-	selector (label ",":? __:?):* {% function(d) { return [d[0], d[1]] } %}
+cssword -> 
+	selector (word ",":? __:?):* {% function(d) { return [d[0], d[1]] } %}
 
 symbol 
 	-> directive {% id %}
 	| selector {% id %}
-	| separator {% id %}
+	| scopeOperator {% id %}
 
 selector
-	-> "=" {% () => '<selector>' %}
+	-> "=" {% () => '=' %}
 directive
-	-> "@" {% () => '<directive>' %}
-separator 
-	-> ":" {% () => '<separator>' %}
+	-> "@" {% () => '@' %}
+scopeOperator 
+	-> ":" {% () => ':' %}
 
 # Formatting
 pushScope
-	-> separator nl indent {% () => null %}
-		
+	-> nl indent {% () => null %}
+
 popScope
 	-> comment:? dedent {% () => null %}
-
+	
 indent
 	-> %indent {% () => null %}
 dedent
 	-> %dedent {% () => null %}
 	
 endGroup
-	-> "," | endLine {% () => null %}
+	-> (",") | endLine {% () => null %}
 
 endLine
 	-> comment:? _ nl {% () => null %}
@@ -263,18 +313,20 @@ function* indented(lexer, source, info) {
         stack.push(indent)
         indent = newIndent
 		yield {...tok, type: 'nl'}
-        yield {...tok, type: 'indent', value: indent}
+        yield {...tok, type: 'indent', value: 'indent', indent: indent}
 
-      } else {
+      } else if (newIndent < indent){
         while (newIndent < indent) {
           indent = stack.pop()
 		  yield {...tok, type: 'nl'}
-          yield {...tok, type: 'dedent', value: indent}
+          yield {...tok, type: 'dedent', value: null, indent: indent}
         }
         if (newIndent !== indent) {
           throw new Error('inconsistent indentation')
         }
-      }
+      } else {
+	  	yield {...tok, type: 'nl'}
+	  }
       indent = newIndent
     } else {
       yield tok
@@ -284,20 +336,12 @@ function* indented(lexer, source, info) {
   // dedent remaining blocks at eof
   for (let i = stack.length; i--;) {
 	indent = stack.pop();
-	yield {type: 'nl'}
-    yield {value: indent, type: 'dedent', text: '@dedent'}
+	yield {type: 'nl', value: '<nl>' }
+	yield {type: 'dedent', value: '<nl>' }
   }
-	
-  yield Object.assign({
-	  type: 'eof'
-    }, {
-    toString() { return this.value },
-    offset: lexer.index,
-    size: 0,
-    lineBreaks: 0,
-    line: lexer.line,
-    col: lexer.col,
-  })
+  
+  yield { type: 'nl', value: '<nl>' }
+
 }
 
 function peekable(lexer) {
@@ -360,11 +404,10 @@ StreamLexer.prototype.getTokenTypes = function(source) {
 		switch (t.type){
 			case "nl": return "\n";
 			case "space": return " ";
-			case "char": return t.value;
-				
 			case "indent": return "->";
 			case "dedent": return "<-";
 			case "eof": return "eof";
+			default: return t.text;
 		}
 	})
 }
@@ -391,7 +434,10 @@ let mapId = 0;
 const rules = {
 	nl: {match: /[\n\r]+/, lineBreaks: true },
 	space: /[ ]+/,
-	char: /./
+	operator: /[+\-*?|\/]/,
+	wordChar: /[a-zA-Z$_]/,
+	digitChar: /[0-9]/,
+	anyChar: /./,
 };
 
 const lexer = new StreamLexer();
