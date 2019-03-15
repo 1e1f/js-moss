@@ -1,7 +1,249 @@
+@lexer lexer
+		
+root
+	-> scope eof
+		{% ([scope]) => scope %}
+
+scope 
+	-> map {% id %}
+		
+map 
+	-> map mapPairConstructor 
+		{% ([map, nextMatch]) => {
+			if (nextMatch) {
+				console.log('addPairToMap', nextMatch);
+				addPairToMap(nextMatch, map);
+			}
+			return map;
+		} %}
+	| mapPairConstructor
+		{% ([initialMatch]) => {
+			const map = new Map();
+			mapId++;
+			if (initialMatch) {
+				console.log('newMap', mapId, initialMatch);
+				addPairToMap(initialMatch, map);
+			}
+			return map;
+		} %}
+
+
+mapPairConstructor 
+	# valid
+	-> dataValue endGroup 
+  		{% ([dv]) => {
+			console.log('label', dv);
+			return [dv, true] 
+		}%}
+	
+	| dataValue separator __ dataValue endGroup 
+  		{% ([key, _1, _2, value]) => {
+				console.log('pair', [key, value]);
+				return [key, value] 
+			}
+		%}
+	
+  	| dataValue pushScope scope popScope  
+  		{% ([key, _1, scope]) => {
+			return [key, scope] 
+		} %}
+		
+	| commentLine {% () => null %}
+	
+	# error cases
+	| dataValue nl indent scope popScope
+  		{% expectedScopeOperator %}
+		
+inlineContextDescription -> _ {% () => null %}
+
+# MultiLine String
+
+multilineString 
+	-> ((nl | dedent) _string):* dedent 
+		{% function(d) {
+			const indent = d[0][0][0][0];
+
+			const lines = d[2].map(segment => {
+				const relativeIndent = segment[0] - indent;
+				let base = '';
+				if (relativeIndent > 0){
+					for (let i = 0; i < relativeIndent; i++){
+						base = base + ' ';	
+					}
+				}
+				return base + segment[1];
+			}).join('\\n');
+			return lines;
+		} %}
+
+# HighLevel
+
+dataValue -> 
+	label {% id %}
+	| number {% id %}
+	
+# Numbers
+
+number 
+	-> _number {% ([numberString]) => parseFloat(numberString) %}
+
+_number
+	-> _float {% id %}
+	| _float "e" _int {% ([lhs, operator, rhs]) => lhs + operator + rhs %}
+ 
+_float 
+	-> _int {% id %}
+	| _int "." _posint {% ([lhs, operator, rhs]) => lhs + operator + rhs %}
+ 
+_int 
+	-> "-" _posint {% ([lhs, rhs]) => lhs + rhs %}
+	| _posint {% id %}
+ 
+_posint
+	-> [0-9] {% id %}
+	| _posint [0-9] {% ([lhs, rhs]) => lhs + rhs %}
+ 
+
+#Strings
+
+label
+	-> label [\w] {% ([l, r]) => { return l + r.value; }%}
+	| [a-zA-Z$_] {% ([char]) => char.value %}
+	
+dqString 
+	-> "\"" _string "\"" {% function(d) {return d[1]; } %}
+escapedString
+	-> "`" _escapedString "`" {% function(d) {return d[1]; } %}
+	
+_string 
+	-> null {% function() {return ""; } %}
+	| _string _stringchar {% ([lhs, rhs]) => lhs + rhs %}
+_stringchar
+	-> [^\\"] {% id %}
+	| "\\" [^] {% ([lhs, rhs]) => lhs + rhs %}
+
+_escapedString 
+	-> null {% function() {return ""; } %}
+	| _escapedString _escapedStringChar {% ([lhs, rhs]) => lhs + rhs %}
+
+_escapedStringChar
+	-> [^] {% id %}
+	| "\\" [^] {% ([lhs, rhs]) => lhs + rhs %}
+
+
+# Simple
+
+cssLabel -> 
+	selector (label ",":? __:?):* {% function(d) { return [d[0], d[1]] } %}
+
+symbol 
+	-> directive {% id %}
+	| selector {% id %}
+	| separator {% id %}
+
+selector
+	-> "=" {% () => '<selector>' %}
+directive
+	-> "@" {% () => '<directive>' %}
+separator 
+	-> ":" {% () => '<separator>' %}
+
+# Formatting
+pushScope
+	-> separator nl indent {% () => null %}
+		
+popScope
+	-> comment:? dedent {% () => null %}
+
+indent
+	-> %indent {% () => null %}
+dedent
+	-> %dedent {% () => null %}
+	
+endGroup
+	-> "," | endLine {% () => null %}
+
+endLine
+	-> comment:? _ nl {% () => null %}
+	
+commentLine
+	-> comment nl {% () => null %}
+comment
+	-> "#" _escapedString {% () => null %}
+
+eof -> %eof
+
+nl
+	-> %nl {% () => null %}
+_
+	-> null | _ %space {% () => null %}
+__
+	-> %space | __ %space {% ([ws]) => ws %}
+
+
 @{%
+// Errors
 
+function missingComma(){
+	throw new Error("missing comma");
+}
 
-// implementation
+function expectedScopeOperator(){
+	throw new Error("nested scope without scope operator");
+}
+
+function missingRhs(){
+	throw new Error("rhs of pair assignment missing");
+}
+
+function unknownOrEmpty(){
+	throw new Error("unknown or empty");
+}
+
+// Value Reducers
+
+function addPairToMap([key, value], map){
+	if (map.get(key)){
+		throw new Error(`duplicate key ${key}`);
+	}
+	map.set(key, value);
+}
+
+function join(list, rhs){
+	if (!list) return rhs;
+	if (typeof list == 'string'){
+		return list + rhs;
+	}
+	return list + rhs;
+}
+
+function reduceN(...list){
+	if (list.length == 1){
+		return list[0];
+	}
+	let memo;
+	for (const item of list){
+		memo = join(memo, item);
+	}
+	return memo;
+}
+
+function reduce(list){
+	return reduceN(...list);
+}
+
+function map2Object(map){
+	const object = {};
+	for (const pair of map){
+		const [key] = pair;
+		object[key] = map.get(key);
+	}
+	return object;
+}
+%}
+
+@{%
+// Lexer
 
 function* indented(lexer, source, info) {
   let iter = peekable(lexer.reset(source, info))
@@ -15,17 +257,19 @@ function* indented(lexer, source, info) {
       const newIndent = iter.nextIndent()
       if (newIndent == null) break // eof
       else if (newIndent === indent) {
-        yield {type: 'nl'}
+        yield {...tok, type: 'nl'}
 
       } else if (newIndent > indent) {
         stack.push(indent)
         indent = newIndent
-        yield {type: 'indent', value: indent}
+		yield {...tok, type: 'nl'}
+        yield {...tok, type: 'indent', value: indent}
 
       } else {
         while (newIndent < indent) {
           indent = stack.pop()
-          yield {type: 'dedent', value: indent}
+		  yield {...tok, type: 'nl'}
+          yield {...tok, type: 'dedent', value: indent}
         }
         if (newIndent !== indent) {
           throw new Error('inconsistent indentation')
@@ -39,7 +283,9 @@ function* indented(lexer, source, info) {
 
   // dedent remaining blocks at eof
   for (let i = stack.length; i--;) {
-    yield {type: 'dedent'}
+	indent = stack.pop();
+	yield {type: 'nl'}
+    yield {value: indent, type: 'dedent', text: '@dedent'}
   }
 	
   yield Object.assign({
@@ -112,12 +358,13 @@ StreamLexer.prototype.getTokenTypes = function(source) {
 	}
 	return arr.map(t => {
 		switch (t.type){
+			case "nl": return "\n";
+			case "space": return " ";
 			case "char": return t.value;
+				
 			case "indent": return "->";
 			case "dedent": return "<-";
-			case "nl": return "\n";
 			case "eof": return "eof";
-			case "space": return " ";
 		}
 	})
 }
@@ -126,7 +373,7 @@ StreamLexer.prototype.reset = function(source, info) {
 	console.log('types', this.getTokenTypes(source))
 	this.generator = indented(this.lexer, source, info);
 	this.initialized = true;
-}
+} 
 
 StreamLexer.prototype.formatError = function(token) {
 	return this.lexer.formatError(token);
@@ -139,6 +386,8 @@ StreamLexer.prototype.has = function(name) {
 	return this.lexer.has(name);
 }
 
+let mapId = 0;
+
 const rules = {
 	nl: {match: /[\n\r]+/, lineBreaks: true },
 	space: /[ ]+/,
@@ -146,259 +395,5 @@ const rules = {
 };
 
 const lexer = new StreamLexer();
-
-%}
-
-
-@lexer lexer
-
-root -> scope {% function(d) {
-	return d[0]; 
-} %}
-
-scope ->
-  map {% id %}
-
-map -> (mapEntry):+ {% function(d) {
-    let map = new Map();
-	const entries = d[0];
-	for (const mapEntry of entries) {
-		const [key, valuePair] = mapEntry[0];
-		const value = valuePair ? valuePair : null;
-    	if(key) { 
-			if (map.get(key)){
-				throw new Error(`duplicate key ${key}`);
-			}
-			map.set(key, value)
-		}
-    }
-    return map;
-} %}
-
-
-mapEntry
-	-> dataType endStatement {% function(d) {
-		return d[0]; 
-	} %}
-	| dataType mapClass {% function(d) {
-			const [key, mapClass] = d;
-			console.log('pair', key[0], mapClass);
-			const pair = [key[0], mapClass];
-			return pair;
-		} %}
-
-
-pushScope -> separator %indent:?
-popScope -> endStatement dedent:? %eof:?
-endStatement -> ("," _) | __ | endLine
-endLine -> comment:? _ (nl | %eof)
-
-dataType -> label | number
-
-mapClass -> 
-  pushScope __ mapEntry popScope {% function(d) { return d[2]; } %}
-  #| separator mapDescriptor {% function(d) { return d[1]; } %}
-  
-mapDescriptor ->
-  pushScope scope popScope {% function(d) { return d[1]; } %}
-  | __ directive "text" _ %indent nestedMultilineString {% function(d) { return d[5]; } %}
-
-nestedMultilineString -> multilineString %dedent {% function(d) { return d[1]; } %}
-nestedValue ->
-	nonStringLike
-	| stringLike {% id %}
-    | jsonRoot
-    | jsonArray
-
-jsonRoot -> 
-	jsObject
-	| "{" _ jsonPair (_ jsonPair):+ _ "}" {% missingComma %}
-
-jsObject -> "{" ((nl | indent | null) jsonPair ",":?):* dedent:? "}" {% function map(d) {
-    let output = {};
-	for (let i in d[1]) {
-		const pair = d[1][i];
-		const key = pair[1][0];
-		const value = pair[1][1];
-    	if(key) { 
-			if (output[key]){
-				throw new Error(`duplicate key ${key}`);
-			}
-			output[key] = value[0]; 
-		}
-    }
-    return output; 
-} %}
-
-jsonPair -> _ dqString _ separator _ dqString _ {% function(d) { return [d[1], d[5]]; } %}
-
-jsonArray -> "[" _ "]" {% function(d) { return []; } %}
-    | "[" _ jsonRoot (_ "," _ jsonRoot):* _ "]" {% extractArray %}
-
-# MultiLine String
-
-multilineString -> (lineBreak _ multilineEntry):* %dedent {% function(d) {
-	const indent = d[0][0][0][0];
-	
-	const lines = d[2].map(segment => {
-		const relativeIndent = segment[0] - indent;
-		let base = '';
-		if (relativeIndent > 0){
-			for (let i = 0; i < relativeIndent; i++){
-				base = base + ' ';	
-			}
-		}
-		return base + segment[1];
-	}).join('\\n');
-	return lines;
-} %}
-
-multilineEntry 
-	-> stringLike _ comment:? {% function(d) { return d[0]; } %}
-	| stringLike __ (stringLike | nonStringLike | __):+ comment:? 
-		{% function(d) {
-			const head = d[0][0];
-			const tail = reduce(d[2]);
-			const stringLine = reduceN(head, d[1], tail);
-			console.log({stringLine});
-			return stringLine;
-		} %}
-
-stringLike
-	-> label {% id %}
-	| symbol {% id %}
-	| escapedString {% id %}
-
-nonStringLike -> 
-	number {% id %}
-    | "true" {% function(d) { return true; } %}
-    | "false" {% function(d) { return false; } %}
-    | "null" {% function(d) { return null; } %}
-	
-lineBreak -> nl | indent | dedent
-indent		   -> %indent {% function(d) { return d[0].value } %}
-dedent		   -> %dedent {% function(d) { return d[0].value } %}
-nl		       -> %nl {% function(d) { return null} %}
-
-# Numbers
-
-number -> _number {% function(d) {return parseFloat(d[0])} %}
- 
-_posint ->
-	[0-9] {% id %}
-	| _posint [0-9] {% function(d) {return d[0] + d[1]} %}
- 
-_int ->
-	"-" _posint {% function(d) {return d[0] + d[1]; }%}
-	| _posint {% id %}
- 
-_float ->
-	_int {% id %}
-	| _int "." _posint {% function(d) {return d[0] + d[1] + d[2]; }%}
- 
-_number ->
-	_float {% id %}
-	| _float "e" _int {% function(d){return d[0] + d[1] + d[2]; } %}
- 
-
-#Strings
-
-dqString -> "\"" _string "\"" {% function(d) {return d[1]; } %}
-escapedString -> "`" _string "`" {% function(d) {return d[1]; } %}
- 
-_string ->
-	null {% function() {return ""; } %}
-	| _string _stringchar {% function(d) {return d[0] + d[1];} %}
- 
-_stringchar ->
-	[^\\"] {% id %}
-	| "\\" [^] {% function(d) {return JSON.parse("\"" + d[0] + d[1] + "\""); } %}
-
-label -> _label {% function(d) {return d[0]} %}
- 
-_label ->
-	[a-zA-Z<$] _labelChar:* {% function(d) {
-		const label = d[0] + (d[1] ? d[1].join('') : '')
-		return label
-	} %}
-
-_labelChar ->
-	[a-zA-Z0-9<>$] {% function(d) { return d[0] } %}
-
-# Simple
-
-cssLabel -> selector (label ",":? __:?):* {% function(d) { return [d[0], d[1]] } %}
-
-symbol ->
-	directive
-	| selector
-	| separator {% function(d) { } %}
-
-selector       -> "=" {% function(d) { } %}
-directive      -> "@" {% function(d) { } %}
-separator      -> ":" {% function(d) { } %}
-
-# Whitespace
-_ -> null | _ %space {% function() {} %}
-__ -> %space | __ %space {% function() { return d[0]} %}
-
-comment -> "#" _ [\.*] {% function(d) { return null; } %}
-
-@{%
-// errors
-
-function missingComma(){
-	throw new Error("missing comma");
-}
-
-function addPairToMap(pair, map){
-	const [key, value] = pair;
-	if(key) { 
-		if (map[key]){
-			throw new Error(`duplicate key ${key}`);
-		}
-        map.set(key, value);
-	}
-}
-
-function join(list, rhs){
-	if (!list) return rhs;
-	if (typeof list == 'string'){
-		return list + rhs;
-	}
-	return list + rhs;
-}
-
-function reduceN(...list){
-	if (list.length == 1){
-		return list[0];
-	}
-	let memo;
-	for (const item of list){
-		memo = join(memo, item);
-	}
-	return memo;
-}
-
-function reduce(list){
-	return reduceN(...list);
-}
-
-function extractObject(d) {
-    const map = new Map();
-    addPairToMap(d[2], output);
-    for (let i in d[3]) {
-        addPairToMap(d[3][i][3], output);
-    }
-    return map;
-}
-
-function extractArray(d) {
-    let array = [d[2]];
-    for (let i in d[3]) {
-        array.push(d[3][i][3]);
-    }
-    return array;
-}
 
 %}
