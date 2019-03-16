@@ -1,17 +1,13 @@
 @lexer lexer
-		
-root
-	-> scope nl:*
-		{% ([scope]) => scope %}
 
-scope 
-	-> map {% id %}
-	
+scope
+	-> map nl:* {% id %}
+
 map 
-	-> map _ mapPairConstructor 
-		{% ([map, ws, nextMatch]) => {
+	-> map mapPairConstructor
+		{% ([_map, nextMatch]) => {
+			const map = new Map(_map);
 			if (nextMatch) {
-				//console.log('addPairToMap', nextMatch);
 				addPairToMap(nextMatch, map);
 			}
 			return map;
@@ -19,14 +15,11 @@ map
 	| mapPairConstructor
 		{% ([initialMatch]) => {
 			const map = new Map();
-			mapId++;
 			if (initialMatch) {
-				//console.log('newMap', mapId, initialMatch);
 				addPairToMap(initialMatch, map);
 			}
 			return map;
 		} %}
-
 
 mapPairConstructor 
 	# nested constrained scope
@@ -38,30 +31,31 @@ mapPairConstructor
 	
 	
 	# nested scope
-	| label scopeOperator pushScope scope popScope  
-  		{% ([key, _1, scope]) => {
+	| label scopeOperator pushScope scope popScope
+  		{% ([key, _1, _2, scope]) => {
 			return [key, scope]
 		} %}
-	
+		
 	# map pair, optionally constrained
-	| label scopeOperator __ (constraintMap __):? label endGroup 
+	| label scopeOperator __ (constraintMap __):? expression endGroup
   		{% ([key, _1, _2, constraintMap, value]) => {
-				//console.log('pair', [key, value]);
+				console.log('pair', [key, value]);
 				return [key, value] 
 			}
 		%}
 		
 	# default simple value
-	| label endGroup
-  		{% ([dv]) => {
-			//console.log('label', dv);
-			return [dv, true] 
+	| expression endGroup
+  		{% ([value]) => {
+			return [value, true] 
 		}%}
 		
-	| commentLine {% () => null %}
+	| commentLine {% ([comment]) => {
+			return ['comment', comment] 
+		}%}
 
 	# error cases
-	| label pushScope scope popScope
+	| label pushScope scope
   		{% expectedScopeOperator %}
 		
 
@@ -76,7 +70,6 @@ constraintMap
 	| constraint
 		{% ([initialMatch]) => {
 			const map = new Map();
-			mapId++;
 			if (initialMatch) {
 				//console.log('add prop', initialMatch)
 				addPairToMap(initialMatch, map);
@@ -85,15 +78,23 @@ constraintMap
 		} %}
 		
 constraint
-	-> "@" label "[" ((scope "]") | (inlineScope "]"))
+	-> "@" label "[" scope "]"
 		{% ([_0, property, _2, scopeSelector]) => {
-			return [property, scopeSelector[0][0][2]] 
+			return [property, scopeSelector[2]]
+		}%}
+	| "@" "[" (scope | inlineScope) "]"
+		{% ([_0, _1, scopeSelector]) => {
+			return scopeSelector[0][2]
+		}%}
+	| "@[" _ "]"
+		{% ([_0, property, _2, scopeSelector]) => {
+			return [property, true] 
 		}%}
 	| "@" label
 		{% ([_0, property]) => [property, true] %}
 
 inlineScope
-	-> nl indent scope dedent
+	-> pushScope scope popScope
 
 list 
 	-> list "," _ label 
@@ -130,46 +131,60 @@ multilineString
 
 # HighLevel
 
-label -> 
-	word {% id %}
-	| escapedString {% id %}
-	| dqString  {% id %}
-	| number {% id %}
+# Maths
+
+expression 
+	-> add {% id %}
+ 
+add 
+	-> add _ ("+"|"-") _ multiply {% (d) => {console.log(d); return d.join('')} %}
+	| multiply {% id %}
+ 
+multiply 
+	-> multiply _ ("*"|"/") _ term {% (d) => d.join('') %}
+	| term {% id %}
+
+group 
+	-> "(" expression ")" {% (d) => d.join('') %}
+	
+term
+	-> group {% id %}
+	| label {% id %}
 
 # Numbers
 
 number 
-	-> _number {% ([numberString]) => parseFloat(numberString) %}
+	-> _number {% ([n]) => parseFloat(n) %}
 
 _number
-	-> _float {% id %}
-	| _float "e" _int {% ([lhs, operator, rhs]) => lhs + operator + rhs %}
- 
-_float 
-	-> _int {% id %}
-	| _int "." _posint {% ([lhs, operator, rhs]) => lhs + operator + rhs %}
+	-> _float "e" _int {% ([lhs, operator, rhs]) => lhs + operator + rhs %}
+ 	| _float {% id %}
+	
+_float
+	-> _int "." %number {% ([lhs, operator, rhs]) => lhs + operator + rhs %}
+	| _int {% id %} 
  
 _int 
-	-> "-" _posint {% ([lhs, rhs]) => lhs + rhs %}
-	| _posint {% id %}
- 
-_posint
-	-> %digitChar {% id %}
-	| _posint %digitChar {% ([lhs, rhs]) => lhs + rhs %}
- 
+	-> "-" %number {% ([lhs, rhs]) => lhs + rhs %}
+	| %number {% ([n]) => n %}
+	
+# Words
+label ->
+	word {% id %}
+	| escapedString {% id %}
+	| dqString {% id %}
+	| number {% id %}
 
 #Strings
-	
-word
-	-> word (%wordChar | %digitChar) 
-		{% ([l, r]) => { return l + r; }%}
-	| %wordChar {% ([char]) => char.value %}
+
+word -> %word {% ([n]) => n.value || "" %}
 
 dqString 
 	-> "\"" _string "\"" {% function(d) {return d[1]; } %}
+
 escapedString
 	-> "`" _escapedString "`" {% function(d) {return d[1]; } %}
-	
+
 _string
 	-> null {% function() {return ""; } %}
 	| _string _stringchar {% ([lhs, rhs]) => lhs + rhs %}
@@ -178,32 +193,20 @@ _stringchar
 	| "\\" [^] {% ([lhs, rhs]) => lhs + rhs %}
 
 _escapedString 
-	-> null {% function() {return ""; } %}
-	| _escapedString (%wordChar | %digitChar | %anyChar | %space)  {% ([lhs, rhs]) => lhs + rhs %}
+	-> _escapedString (%word | %number | %space)  {% ([lhs, rhs]) => lhs + rhs[0] %}
 
-# Simple
-
-cssword -> 
-	selector (word ",":? __:?):* {% function(d) { return [d[0], d[1]] } %}
-
-symbol 
-	-> directive {% id %}
-	| selector {% id %}
-	| scopeOperator {% id %}
-
-selector
-	-> "=" {% () => '=' %}
 directive
 	-> "@" {% () => '@' %}
+
 scopeOperator 
 	-> ":" {% () => ':' %}
 
 # Formatting
 pushScope
-	-> nl indent {% () => null %}
+	-> nl indent _ {% () => null %}
 
 popScope
-	-> comment:? dedent {% () => null %}
+	-> dedent {% () => null %}
 	
 indent
 	-> %indent {% () => null %}
@@ -211,27 +214,177 @@ dedent
 	-> %dedent {% () => null %}
 	
 endGroup
-	-> (",") | endLine {% () => null %}
+	-> _ (("," _) | endLine) {% () => null %}
 
 endLine
-	-> comment:? _ nl {% () => null %}
+	-> comment:? nl {% () => null %}
 	
 commentLine
-	-> comment nl {% () => null %}
+	-> comment nl {% ([comment]) => (comment) %}
+
 comment
-	-> "#" _escapedString {% () => null %}
+	-> "#" _escapedString {% ([_, comment]) => (comment) %}
 
-eof -> %eof
+nl -> %nl {% id %}
+_ 
+	-> _ space {% ([e]) => {
+			return e ? e + ' ': '';
+		} %}
+	| null
 
-nl
-	-> %nl {% () => null %}
-_
-	-> null | _ %space {% () => null %}
-__
-	-> %space | __ %space {% ([ws]) => ws %}
+__ -> space {% id %}
 
+space -> %space {% ([d]) => d.value %}
 
 @{%
+// Lexer
+
+function* indented(lexer, source, info) {
+  let iter = peekable(lexer.reset(source, info))
+  let stack = [] 
+
+  // absorb initial blank lines and indentation
+  let indent = iter.nextIndent()
+
+  for (let tok; tok = iter.next(); ) {
+    if (tok.type === 'nl') {
+      const newIndent = iter.nextIndent()
+      if (newIndent == null) break // eof
+      else if (newIndent === indent) {
+        yield {...tok, type: 'nl'}
+      } else if (newIndent > indent) {
+        stack.push(indent)
+        indent = newIndent
+		yield {...tok, type: 'nl'}
+        yield {...tok, type: 'indent', indent: indent}
+
+      } else if (newIndent < indent){
+        while (newIndent < indent) {
+          indent = stack.pop()
+		  yield {...tok, type: 'nl'}
+          yield {...tok, type: 'dedent', indent: indent}
+        }
+        if (newIndent !== indent) {
+          throw new Error('inconsistent indentation')
+        }
+      } else {
+	  	yield {...tok, type: 'nl'}
+	  }
+      indent = newIndent
+    } else {
+      yield { ...tok, indent: indent}
+    }
+  }
+
+  // dedent remaining blocks at eof
+  for (let i = stack.length; i--;) {
+	indent = stack.pop();
+	yield {type: 'nl', value: '<nl>' }
+	yield {type: 'dedent', value: '<nl>' }
+  }
+	
+  yield {type: 'nl', value: '<nl>' }
+}
+
+function peekable(lexer) {
+  let here = lexer.next()
+  return {
+    next() {
+      const old = here
+      here = lexer.next()
+      return old
+    },
+    peek() {
+      return here
+    },
+    nextIndent() {
+      for (let tok; tok = this.peek(); ) {
+        if (tok.type === 'nl') {
+          this.next();
+        }
+        else if (tok.type === 'space') {
+          const indent = tok.value.length
+         	console.log(indent);
+			const recur = (indent) => {
+			  this.next()
+			  const next = this.peek()
+			  if (!next) return indent
+			  if (next.type === 'nl') {
+				this.next()
+				return indent
+			  } else if (next.type === 'space') {
+				console.log(indent);
+				
+				return recur(indent + 1);
+			  }
+			  return indent
+			}
+			return recur(1);
+        }
+        return 0
+      }
+    },
+  }
+}
+
+
+function StreamLexer() {
+	this.lexer = moo.compile(rules);
+}
+
+StreamLexer.prototype.next = function() {
+	const { value } = this.generator.next();
+	return value;
+}
+
+StreamLexer.prototype.save = function() {
+}
+
+StreamLexer.prototype.getTokenTypes = function(source) {
+	const types = [];
+	const iter = indented( moo.compile(rules), source);
+	const arr = [];
+	for (const t of iter){
+		arr.push(t);
+	}
+	return arr.map(t => {
+		switch (t.type){
+			case "nl": return "\n";
+			case "space": return " ";
+			case "indent": return "->";
+			case "dedent": return "<-";
+			default: return t.text;
+		}
+	})
+}
+
+StreamLexer.prototype.reset = function(source, info) {
+	//console.log('tokens', this.getTokenTypes(source))
+	this.generator = indented(this.lexer, source, info);
+} 
+
+StreamLexer.prototype.formatError = function(token) {
+	return this.lexer.formatError(token);
+}
+
+StreamLexer.prototype.has = function(name) {
+	if (name == 'indent') return true;
+	if (name == 'dedent') return true;
+	return this.lexer.has(name);
+}
+
+const rules = {
+	space: /[ ]/,
+	nl: {match: /[\n\r]+/, lineBreaks: true },
+	word: /[a-zA-Z$_][a-zA-Z0-9$_]*/,
+	number: /[0-9]+/,
+	operator: /[\+]/,
+	anyChar: /./
+	//anyChar: /[a-zA-Z0-9\.\+\-*\?\|\/ \():]/,
+};
+
+const lexer = new StreamLexer();
+
 // Errors
 
 function missingComma(){
@@ -290,156 +443,5 @@ function map2Object(map){
 	}
 	return object;
 }
-%}
-
-@{%
-// Lexer
-
-function* indented(lexer, source, info) {
-  let iter = peekable(lexer.reset(source, info))
-  let stack = [] 
-
-  // absorb initial blank lines and indentation
-  let indent = iter.nextIndent()
-
-  for (let tok; tok = iter.next(); ) {
-    if (tok.type === 'nl') {
-      const newIndent = iter.nextIndent()
-      if (newIndent == null) break // eof
-      else if (newIndent === indent) {
-        yield {...tok, type: 'nl'}
-
-      } else if (newIndent > indent) {
-        stack.push(indent)
-        indent = newIndent
-		yield {...tok, type: 'nl'}
-        yield {...tok, type: 'indent', value: 'indent', indent: indent}
-
-      } else if (newIndent < indent){
-        while (newIndent < indent) {
-          indent = stack.pop()
-		  yield {...tok, type: 'nl'}
-          yield {...tok, type: 'dedent', value: null, indent: indent}
-        }
-        if (newIndent !== indent) {
-          throw new Error('inconsistent indentation')
-        }
-      } else {
-	  	yield {...tok, type: 'nl'}
-	  }
-      indent = newIndent
-    } else {
-      yield tok
-    }
-  }
-
-  // dedent remaining blocks at eof
-  for (let i = stack.length; i--;) {
-	indent = stack.pop();
-	yield {type: 'nl', value: '<nl>' }
-	yield {type: 'dedent', value: '<nl>' }
-  }
-  
-  yield { type: 'nl', value: '<nl>' }
-
-}
-
-function peekable(lexer) {
-  let here = lexer.next()
-  return {
-    next() {
-      const old = here
-      here = lexer.next()
-      return old
-    },
-    peek() {
-      return here
-    },
-    nextIndent() {
-      for (let tok; tok = this.peek(); ) {
-        if (tok.type === 'nl') {
-          this.next();
-        }
-        else if (tok.type === 'space') {
-          const indent = tok.value.length
-          this.next()
-
-          const next = this.peek()
-          if (!next) return
-          if (next.type === 'nl') {
-            this.next()
-            continue
-          }
-          return indent
-        }
-        return 0
-      }
-    },
-  }
-}
-
-
-function StreamLexer() {
-	this.lexer = moo.compile(rules);
-}
-
-StreamLexer.prototype.next = function() {
-	const { value } = this.generator.next();
-	if (value){
-		return value;
-	}
-}
-
-StreamLexer.prototype.save = function() {
-}
-
-StreamLexer.prototype.getTokenTypes = function(source) {
-	const types = [];
-	const iter = indented(this.lexer, source);
-	const arr = [];
-	for (const t of iter){
-		arr.push(t);
-	}
-	return arr.map(t => {
-		switch (t.type){
-			case "nl": return "\n";
-			case "space": return " ";
-			case "indent": return "->";
-			case "dedent": return "<-";
-			case "eof": return "eof";
-			default: return t.text;
-		}
-	})
-}
-
-StreamLexer.prototype.reset = function(source, info) {
-	console.log('types', this.getTokenTypes(source))
-	this.generator = indented(this.lexer, source, info);
-	this.initialized = true;
-} 
-
-StreamLexer.prototype.formatError = function(token) {
-	return this.lexer.formatError(token);
-}
-
-StreamLexer.prototype.has = function(name) {
-	if (name == 'indent') return true;
-	if (name == 'dedent') return true;
-	if (name == 'eof') return true;
-	return this.lexer.has(name);
-}
-
-let mapId = 0;
-
-const rules = {
-	nl: {match: /[\n\r]+/, lineBreaks: true },
-	space: /[ ]+/,
-	operator: /[+\-*?|\/]/,
-	wordChar: /[a-zA-Z$_]/,
-	digitChar: /[0-9]/,
-	anyChar: /./,
-};
-
-const lexer = new StreamLexer();
 
 %}
