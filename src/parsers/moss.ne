@@ -1,17 +1,17 @@
 @lexer lexer
-	
-root
-	-> scope %eof {% id %}
+
+start
+	-> sof scope eof {% ([sof, scope]) => scope %}
 
 scope
 	-> map {% id %}
 	
-map 
+map
 	-> map mapPairConstructor
 		{% ([_map, nextMatch]) => {
 			//console.log({nextMatch});
 			const map = new Map(_map);
-			if (nextMatch) {
+			if (nextMatch && (nextMatch[0] !== undefined)) {
 				addPairToMap(nextMatch, map);
 			}
 			return map;
@@ -19,49 +19,41 @@ map
 	| mapPairConstructor
 		{% ([initialMatch]) => {
 			const map = new Map();
-	        //console.log({initialMatch});
-			if (initialMatch) {
+	        console.log({initialMatch});
+			if (initialMatch && (initialMatch[0] !== undefined)) {
 				addPairToMap(initialMatch, map);
 			}
 			return map;
 		} %}
 
-mapPairConstructor 
+mapPairConstructor
 	# nested constrained scope
-	-> key space ((constraintMap (space | pushScope)) | pushScope) scope popScope
-  		{% ([key, space, scopeConstaints, scope]) => {
+	-> key ((space constraintMap pushScope) | pushScope) scope popScope
+  		{% ([key, scopeConstaints, scope]) => {
 			return [key, scope] 
 		} %}
 	
-	# nested scope
-	| key pushScope scope popScope
-  		{% ([key, push, scope]) => {
-			return [key, scope]
-		} %}
-		
 	# map pair, optionally constrained
-	| key space (constraintMap space):? expression expressionTerminator
-  		{% ([key, space, constraintMap, expression]) => {
-				return [key, expression] 
+	| key (space constraintMap):? list
+  		{% ([key, constraintMap, list]) => {
+				return [key, list] 
 			}
 		%}
 		
 	# default simple value
-	| expression expressionTerminator
-  		{% ([expression]) => {
-			return [expression, true]
+	| list
+  		{% ([list]) => {
+			return [list, true]
 		}%}
 	
-	| expressionTerminator {% id %}
-	| commentedLine {% id %}
+	| sol eol {% () => null %}
+	| sol comment {% () => null %}
 	# error cases
-	| key space ((constraintMap (space | pushScope)) | pushScope) expressionTerminator
-  		{% expectedRhs %}
 	| label pushScope scope
   		{% expectedScopeOperator %}
 		
 
-constraintMap 
+constraintMap
 	-> constraintMap space constraint
 		{% ([map, ws, nextMatch]) => {
 			if (nextMatch) {
@@ -80,11 +72,9 @@ constraintMap
 		} %}
 		
 constraint
-	-> "@" "[" (scope | (nestedScope "]"))
-		{% ([_0, _1, scopeSelector]) => {
-			return scopeSelector[0][2]
-		}%}
-	| "@" label "[" list "]"
+	-> "@" bracketedScope
+		{% ([directive, scope]) => scope %}
+	| "@" label "[" space listLoop space "]"
 		{% ([_0, property, _2, scopeSelector]) => {
 			return [property, scopeSelector[2]]
 		}%}
@@ -92,67 +82,57 @@ constraint
 		{% ([_0, property]) => [property, true] %}
 		
 	# error cases
-	| "@" "[" space:+ nl {% extraSpace %}
-	| "@" "[" (_ | nl) "]" {% emptyScope %}
+	| "@" "[" space:+ eol {% extraSpace %}
+	| "@" "[" (_ | eol) "]" {% emptyScope %}
 	| "@" label "[" _ "]" {% emptyScope %}
 
-list 
-	-> list listSeparator label 
-		{% ([list, _1, _2, item]) => {
-			if (item) {
-				list.push(item);
-			}
-			return list;
-		} %}
-	| label
-		{% ([value]) => {
-			return [value];
-		} %}
+bracketedScope
+	-> "[" nestedScope sol "]" {% ([bracket, scope]) => scope %}
+	| "[" scope {% rhs %}
 
-# MultiLine String
+# Map
+key
+	-> (sol | space) listLoop ":" {% ([pre, label, scopeOperator]) => label %}
 
-multilineString 
-	-> ((nl | dedent) _string):* dedent 
-		{% function(d) {
-			const indent = d[0][0][0][0];
-
-			const lines = d[2].map(segment => {
-				const relativeIndent = segment[0] - indent;
-				let base = '';
-				if (relativeIndent > 0){
-					for (let i = 0; i < relativeIndent; i++){
-						base = base + ' ';	
-					}
-				}
-				return base + segment[1];
-			}).join('\\n');
-			return lines;
-		} %}
+# List
+list
+	-> (sol | space) listLoop ("," | endLine | (" " "]"))
+		{% ([pre, list]) => list %}
 	
-# Maths
+listLoop
+	-> listValue (space listValue):* {% 
+ 	([head, tail]) => {
+		if (tail && tail.length){
+			return head + reduce(tail.map(reduce)); 
+		}
+	return head; 
+ }%}
 
-expression 
+listValue
+	-> label {% id %}
+	| uri {% id %}
+
+#Math
+
+expression
 	-> add {% id %}
  
 add 
-	-> add space ("+"|"-") space multiply {% reduce %}
+	-> add ("+"|"-") multiply {% reduce %}
 	| multiply {% id %}
  
 multiply 
-	-> multiply space ("*"|"/") space term {% reduce %}
+	-> multiply ("*"|"/") term {% reduce %}
 	| term {% id %}
 
-group 
-	-> "(" expression ")" {% (d) => d.join('') %}
+term 
+	-> group {% id %}
+	| label {% id %}
+	
+group
+	-> "(" expression ")" {% reduce %}
+	| label {% id %}
 
-key
-	-> label ":" {% lhs %}
-
-term
-	-> label {% id %}
-	| group {% id %}
-	| uri {% id %}
-#	| chunk {% id %}
 
 # Operators
 directive
@@ -160,34 +140,23 @@ directive
 
 # Formatting
 nestedScope
-	-> pushScope scope popScope
+	-> pushScope scope popScope {% ([push, scope]) => scope %}
 
 pushScope
-	-> (inlineComment | nl) indent {% () => null %}
+	-> (inlineComment | eol) indent {% () => null %}
 
-expressionTerminator
-	-> listSeparator {% id %}
-	| endLine {% id %}
-	| "]" {% id %}
-
-listSeparator
-	-> "," space {% reduce %}
-
+popScope
+	-> dedent {% () => null %}
+	
 endLine
 	-> inlineComment {% id %}
-	| nl {% id %}
+	| eol {% id %}
 	
-commentedLine
-	-> space:* comment {% id %}
-
 inlineComment
 	-> space comment {% id %}
 
 comment
-	-> "#" _escapedString:? nl {% ([operator, comment]) => (comment) %}
-	
-popScope
-	-> dedent {% () => null %}
+	-> "#" _escapedString:? eol {% ([operator, comment]) => (comment) %}
 	
 # Numbers
 
@@ -206,14 +175,16 @@ _int
 	-> "-" digit {% concat %}
 	| digit {% ([n]) => n %}
 
-digit -> [0-9] {% ([tok]) => tok.value %}
+digit
+	-> digit [0-9] {% concat %}
+	| [0-9] {% ([tok]) => tok %}
 
 # Words
 	
 label
 	-> escapedString {% id %}
 	| dqString {% id %}
-	| word {% id %}
+	| singleWord {% id %}
 	| number {% id %}
 
 # URL = scheme:[//authority]path[?query][#fragment]
@@ -222,7 +193,7 @@ uri
 	| urx {% id %}
 
 url
-	-> urlScheme urx {% pickBest %}
+	-> urlScheme urx {% reduce %}
 
 urlScheme
 	-> urlSafe ":" "/" "/" {% reduce %}
@@ -232,9 +203,7 @@ urx
 	| urd {% reduce %}
 
 urd
-	-> tld urlPath uriQuery {% reduce %}
-	| tld urlPath {% reduce %}
-	| tld {% reduce %}
+	-> tld urlPath:? uriQuery:? {% reduce %}
 		
 urlCredentials
 	-> emailCredentials {% id %}
@@ -281,15 +250,19 @@ domain ->
 	| urlSafe {% id %}
 
 uriQuery
-  -> "?" queryList {% id %}
+  -> "?" queryList {% reduce %}
 
 queryList
   -> queryList "&" queryFragment {% reduce %}
   | queryFragment {% id %}
   
 queryFragment
-  -> queryFragment "=" urlSafe {% reduce %}
-  | urlSafe {% id %}
+  -> queryFragment "=" urlSafePlusEncoded {% reduce %}
+  | urlSafePlusEncoded {% id %}
+
+singleWord
+	-> [a-zA-Z$_] [a-zA-Z$_0-9]:*
+		{% optionalTail %}
 
 word 
 	-> word wordSafeChar {% concat %}
@@ -302,6 +275,26 @@ wordSafeChar
 wordStartChar
 	-> [a-zA-Z$_] {% ([tok]) => tok.value %}
 
+# MultiLine String
+
+multilineString
+	-> ((eol | dedent) _string):* dedent
+		{% function(d) {
+			const indent = d[0][0][0][0];
+
+			const lines = d[2].map(segment => {
+				const relativeIndent = segment[0] - indent;
+				let base = '';
+				if (relativeIndent > 0){
+					for (let i = 0; i < relativeIndent; i++){
+						base = base + ' ';	
+					}
+				}
+				return base + segment[1];
+			}).join('\\n');
+			return lines;
+		} %}
+	
 dqString
 	-> "\"" _string "\"" {% function(d) {return d[1]; } %}
 
@@ -338,8 +331,8 @@ chunk
 	-> chunk chunkChar {% concat %}
 	| chunkChar {% id %}
 
-chunkChar 
-	-> [a-zA-Z0-9\+\-*\?\|\/\()\\:] {% ([tok]) => tok.value %}
+chunkChar
+	-> [a-zA-Z0-9@+\-*?|/()\\:] {% ([tok]) => tok.value %}
 
 _escapedString
 	-> _escapedString escapedChar {% concat %}
@@ -349,11 +342,14 @@ escapedChar
 	| %any {% ([tok]) => tok.value %}
 
 # syntactic whitespace
-nl -> %nl {% ([tok]) => null %}
+sof -> %sof {% ([tok]) => tok.value %}
+eof -> %eof {% ([tok]) => tok.value %}
+sol -> %sol {% ([tok]) => tok.value %}
+eol -> %eol {% ([tok]) => tok.value %}
 indent
-	-> %indent {% () => null %}
+	-> %indent {% ([tok]) => tok.value %}
 dedent
-	-> %dedent {% () => null %}
+	-> %dedent {% ([tok]) => tok.value %}
 space -> %space {% ([tok]) => tok.value %}
 
 # ignored whitespace or chars
@@ -366,8 +362,11 @@ _
 @{%
 // Lexer
 
-const nl = () => ({type: 'nl', offset: 2, toString: () => ''});
-const eof = () => ({type: 'eof'});
+const makeToken = (type, text) => ({type, text, value: text, toString: () => text});
+const makeEol = () => makeToken('eol', '\n');
+const makeEof = () => makeToken('eof', 'eof');
+const makeSol = () => makeToken('sol', '\n');
+const makeSof = () => makeToken('sof', 'sof');
 
 function* indented(lexer, source, info) {
   let iter = peekable(lexer.reset(source, info))
@@ -376,32 +375,38 @@ function* indented(lexer, source, info) {
   // absorb initial blank lines and indentation
   let indent = iter.nextIndent()
 
-
+  yield makeSof();
+  yield makeSol();
+	
   for (let tok; tok = iter.next(); ) {
-    if (tok.type === 'nl') {
+    if (tok.type === 'eol') {
       const newIndent = iter.nextIndent()
       if (newIndent == null) {
 		  break;
 	  }// eof
       else if (newIndent === indent) {
-        yield nl();
+        yield makeEol();
+	    yield makeSol();
       } else if (newIndent > indent) {
         stack.push(indent)
         indent = newIndent
-		yield nl();
-        yield {...tok, type: 'indent', indent: indent}
+		yield makeEol();
+        yield {...makeToken('indent'), indent: indent}
+	    yield makeSol();
 
       } else if (newIndent < indent){
         while (newIndent < indent) {
           indent = stack.pop()
-		  yield nl();
-          yield {...tok, type: 'dedent', indent: indent}
+		  yield makeEol();
+		  yield {...makeToken('dedent'), indent: indent}
+		  yield makeSol();
         }
         if (newIndent !== indent) {
           throw new Error('inconsistent indentation')
         }
       } else {
-		yield nl();
+		yield makeEol();
+		yield makeSol();
 	  }
       indent = newIndent
     } else {
@@ -412,12 +417,13 @@ function* indented(lexer, source, info) {
   // dedent remaining blocks at eof
   for (let i = stack.length; i--;) {
 	indent = stack.pop();
-	yield nl();
+	yield makeEol();
 	yield {type: 'dedent', indent: indent }
+	yield makeSol();
   }
 	
-  yield nl();
-  yield eof();
+  yield makeEol();
+  yield makeEof();
 }
 
 function peekable(lexer) {
@@ -433,7 +439,7 @@ function peekable(lexer) {
     },
     nextIndent() {
       for (let tok; tok = this.peek(); ) {
-        if (tok.type === 'nl') {
+        if (tok.type === 'eol') {
           this.next();
         }
         else if (tok.type === 'space') {
@@ -442,7 +448,7 @@ function peekable(lexer) {
 			  this.next()
 			  const next = this.peek()
 			  if (!next) return indent
-			  if (next.type === 'nl') {
+			  if (next.type === 'eol') {
 				this.next()
 				return indent
 			  } else if (next.type === 'space') {
@@ -460,11 +466,13 @@ function peekable(lexer) {
 
 const printToken = (t) => {
 	switch (t.type){
-		case "nl": return "\n";
+		case "eol": return "}";
 		case "space": return " ";
 		case "indent": return "->";
 		case "dedent": return "<-";
 		case "eof": return "</>";
+		case "sof": return "<>";
+		case "sol": return "{";
 		default: return t.text;
 	}
 }
@@ -490,7 +498,7 @@ StreamLexer.prototype.getTokenTypes = function(source) {
 	const arr = [];
 	for (const t of iter){
 		if (t.type == 'any'){
-			const back = arr[arr.length - 1];
+			const back = arr.length ? arr[arr.length - 1] : null;
 			if (back && back.type == 'any'){
 				back.value += t.value;
 				back.text += t.text;
@@ -516,18 +524,22 @@ StreamLexer.prototype.formatError = function(token) {
 StreamLexer.prototype.has = function(name) {
 	if (name == 'indent') return true;
 	if (name == 'dedent') return true;
+	if (name == 'sof') return true;
+	if (name == 'sol') return true;
+	if (name == 'eof') return true;
+	if (name == 'eol') return true;
 	return this.lexer.has(name);
 }
 
 const rules = {
 	space: /[ ]/,
-	nl: {match: /[\n\r]+/, lineBreaks: true },
+	eol: {match: /[\n\r]+/, lineBreaks: true },
 	//word: /[a-zA-Z$_][a-zA-Z0-9$_]*/,
 	//number: /[0-9]/,
 	//urlUnsafe: /["<>#%{}|\\^~[]`]/,
 	//urlReserved: /[;/?:@=&]/,
 	//urlSafe: /[0-9a-zA-Z$\-_.+!*'()]/,
-	// chunk: /[a-zA-Z0-9\+\-*\?\|\/\()\\:]/,
+	//chunk: /[a-zA-Z0-9\+\-*\?\|\/\()\\:]/,
 	any: /[^\s]/ 
 };
 
@@ -603,12 +615,15 @@ function reduce(list){
 	for (const item of list){
 		memo = join(memo, item);
 	}
-		console.log(memo);
 	return memo;
 }
 
-function pickBest(list){
-	return reduce(list);
+function optionalTail(list){
+	const [head, tail] = list;
+	if (tail && tail.length){
+		return head.value + reduce(tail);
+	}
+	return head.value; f
 }
 
 function map2Object(map){
