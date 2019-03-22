@@ -7,7 +7,7 @@ rootScope
 	-> map {% id %}
 	| (sol eol "string") multilineString ("\/string") {% ([sol, scope]) => scope %}
 	| (sol eol "list") list ("\/list") {% ([sol, scope]) => scope %}
-	
+
 scope
 	-> map {% id %}
 
@@ -35,29 +35,29 @@ mapPairConstructor
   		{% ([key, context, mode, scope]) => {
 			if (context){
 				return [key, scope, {multiLineString: true, ...context[1]}]
-			} else {		
-			  return [key, scope, {multiLineString: true}]			
+			} else {
+			  return [key, scope, {multiLineString: true}]
 			}
 		} %}
-	
+
 	# nested explicitly declared multiline string
 	| key ((space constraintMap) | space) (eol "string" indent) multilineString popScope "\/string"
   		{% ([key, context, mode, scope]) => {
 			if (context){
 				return [key, scope, {multiLineString: true, ...context[1]}]
-			} else {		
-			  return [key, scope, {multiLineString: true}]			
+			} else {
+			  return [key, scope, {multiLineString: true}]
 			}
 		} %}
-		
+
 	# nested constrained scope
 	| key pushTypedScope scope popScope
   		{% ([key, context, scope]) => {
-			  return [key, scope]			
+			  return [key, scope]
 		} %}
-	
+
 	# explicit map pair, rhs is a nested map
-	| "@no" key ((space constraintMap) | space) "{" nestedScope sol "}" endLine
+	| key ((space constraintMap) | space) "{" nestedScope sol "}" endLine
 		{% ([directive, bracket, scope]) => scope %}
 
 	# explicit map pair, rhs is a map
@@ -65,20 +65,19 @@ mapPairConstructor
   		{% ([key, context, bracket, scope]) => {
 				return [key, scope]
 			} %}
-			
+
 	# default map pair, rhs is a statement
-	| key (space constraintMap):? space statement mapTerminator
-  		{% ([key, context, space, statement]) => {
-				console.log('pair', [key, statement])
+	| key (space constraintMap):? statement mapTerminator
+  		{% ([key, context, statement]) => {
 				return [key, statement]
 			} %}
-	
+
 	# default simple value
 	| (sol | space) statement mapTerminator
   		{% ([prefix, statement]) => {
 			return [statement, true]
 		}%}
-	
+
 	| sol eol {% () => null %}
 	| sol comment {% () => null %}
 	# error cases
@@ -87,7 +86,7 @@ mapPairConstructor
 
 mapTerminator
 	-> ((space "}") | "," | endLine) {% id %}
-	
+
 list
 	-> list mapPairConstructor
 		{% ([array, item]) => {
@@ -120,7 +119,7 @@ listConstructor
   		{% ([key, keyMode, scopeConstaints, indent, scope]) => {
 			return scope
 		} %}
-		
+
 	| ( sol ) pushTypedScope scope popScope
   		{% ([key, scopeConstaints, indent, scope]) => {
 			return scope
@@ -137,7 +136,7 @@ multilineString
 					let margin = '';
 					if (indent > startIndent){
 						for (let i = 0; i < indent - startIndent; i++){
-							margin = margin + ' ';	
+							margin = margin + ' ';
 						}
 					}
 					if (line){
@@ -149,7 +148,7 @@ multilineString
 		}
 		return mls;
 	} %}
-	
+
 stringLine
 	-> indent multilineString dedent
 		{% ([indent, mls]) => {
@@ -159,16 +158,17 @@ stringLine
 		{% ([sol, string]) => {
 			return [sol.indent, string];
 		} %}
-		
 
-pushTypedScope -> 
-	space constraintMap indent {% ([space, constraintMap]) => constraintMap %}
+
+pushTypedScope ->
+	space constraintMap indent 
+		{% ([space, constraintMap]) => constraintMap %}
 	| pushScope {% id %}
-	
+
 
 constraintMap
 	-> constraintMap constraint
-		{% ([map, ws, nextMatch]) => {
+		{% ([map, nextMatch]) => {
 			if (nextMatch) {
 				addPairToMap(nextMatch, map);
 			}
@@ -182,7 +182,7 @@ constraintMap
 			}
 			return map;
 		} %}
-		
+
 constraint
 	-> "@" "{" nestedScope sol "}" endLine
 		{% ([directive, bracket, scope]) => scope %}
@@ -204,7 +204,7 @@ keyExpression
 # statement
 statement
 	-> concat {% id %}
-	
+
 # Operators
 
 concat
@@ -214,11 +214,11 @@ concat
 boolean
 	-> boolean space ( "n" | "|" ) space add {% reduce %}
 	| add {% id %}
-	
+
 add
 	-> add space ( "+"|"-" ) space multiply {% reduce %}
 	| multiply {% id %}
-  
+
 multiply
 	-> multiply space ("*"|"/") space unaryPrefix {% reduce %}
 	| unaryPrefix {% id %}
@@ -246,36 +246,36 @@ pushScope
 
 popScope
 	-> dedent {% () => null %}
-	
+
 endLine
 	-> inlineComment {% id %}
 	| eol {% id %}
-	
+
 inlineComment
 	-> space comment {% id %}
 
 comment
 	-> "#" _escapedString:? eol {% ([operator, comment]) => (comment) %}
-	
+
 # Numbers
 
-number 
+number
 	-> _number {% ([n]) => parseFloat(n) %}
 
 _number
 	-> _float "e" digit {% reduce %}
  	| _float {% id %}
-	
+
 _float
 	-> digit "." digit {% reduce %}
-	| digit {% id %} 
- 
+	| digit {% id %}
+
 digit
 	-> digit [0-9] {% concat %}
 	| [0-9] {% ([tok]) => tok %}
 
 # Words
-	
+
 literal
 	-> escapedString {% id %}
 	| dqString {% id %}
@@ -293,14 +293,14 @@ url
 
 urlScheme
 	-> urlSafe ":" "/" "/" {% reduce %}
-	
+
 urx
 	-> urlCredentials "@" urd {% reduce %}
 	| urd {% reduce %}
 
 urd
 	-> tld urlPath:? uriQuery:? {% reduce %}
-		
+
 urlCredentials
 	-> emailCredentials {% id %}
 	| userCredentials {% id %}
@@ -311,7 +311,7 @@ urlPath
 relativePath ->
 	relativePath "/" fileName {% reduce %}
 	| fileName {% id %}
-	
+
 fileName ->
 	fileName "." word {% reduce %}
 	| word {% id %}
@@ -323,7 +323,7 @@ pathElement
 emailCredentials
 	-> emailCredentials ":" password {% reduce %}
 	| email {% reduce %}
-	
+
 userCredentials
 	-> userCredentials ":" password {% reduce %}
 	| urlSafe {% reduce %}
@@ -351,7 +351,7 @@ uriQuery
 queryList
   -> queryList "&" queryFragment {% reduce %}
   | queryFragment {% id %}
-  
+
 queryFragment
   -> queryFragment "=" urlSafePlusEncoded {% reduce %}
   | urlSafePlusEncoded {% id %}
@@ -360,17 +360,17 @@ singleWord
 	-> [a-zA-Z$_] [a-zA-Z$_0-9]:*
 		{% optionalTail %}
 
-word 
+word
 	-> word wordSafeChar {% concat %}
 	| wordStartChar {% id %}
 
 wordSafeChar
 	-> wordStartChar {% id %}
 	| [0-9] {% ([tok]) => tok.value %}
-	
+
 wordStartChar
 	-> [a-zA-Z$_] {% ([tok]) => tok.value %}
-	
+
 dqString
 	-> "\"" _string "\"" {% function(d) {return d[1]; } %}
 
@@ -380,7 +380,7 @@ escapedString
 _string
 	-> null {% function() {return ""; } %}
 	| _string _stringchar {% ([lhs, rhs]) => lhs + rhs %}
-	
+
 _stringchar
 	-> [^\\"] {% id %}
 	| "\\" [^] {% concat %}
@@ -393,7 +393,7 @@ urlSafePlusEncodedChars
 	-> "%" hexDigit hexDigit {% reduce %}
 	| "&" "a" "m" "p" ";" {% reduce %}
 	| urlSafeChar {% id %}
-	
+
 hexDigit -> [0-9a-fA-F] {% id %}
 
 urlSafe
@@ -414,8 +414,8 @@ _escapedString
 	-> _escapedString escapedChar {% concat %}
 	| escapedChar {% id %}
 
-escapedChar 
-	-> %space {% ([tok]) => tok.value %} 
+escapedChar
+	-> %space {% ([tok]) => tok.value %}
 	| %any {% ([tok]) => tok.value %}
 
 # notation modes
@@ -467,15 +467,15 @@ const doDedent = (ruleMap, indent, nextIndent) => {
 
 function* indented(lexer, source, info) {
   let iter = peekable(lexer.reset(source, info))
-  let stack = [] 
+  let stack = []
   let ruleMap = new Map();
-	
+
   // absorb initial blank lines and indentation
   let indent = iter.nextIndent()
 
   yield makeSof();
   yield makeSol(indent);
-	
+
   for (let tok; tok = iter.next(); ) {
     if (tok.type === 'eol' || tok.type === 'startRule') {
       const newIndent = iter.nextIndent()
@@ -535,13 +535,13 @@ function* indented(lexer, source, info) {
 	indent = nextIndent;
   }
 
-	yield makeEol();  
+	yield makeEol();
   	const ruleToken = ruleMap.get(0);
 	if (ruleToken) {
 	  yield makeToken('stopRule', `/${ruleToken.text}`);
 	  ruleMap.delete(0)
   	}
-  
+
 	yield makeEof();
 }
 
@@ -593,7 +593,7 @@ const rules = {
 	//urlReserved: /[;/?:@=&]/,
 	//urlSafe: /[0-9a-zA-Z$\-_.+!*'()]/,
 	//chunk: /[a-zA-Z0-9\+\-*\?\|\/\()\\:]/,
-	any: /[^\s]/ 
+	any: /[^\s]/
 };
 
 const printToken = (t) => {
@@ -648,7 +648,7 @@ StreamLexer.prototype.getTokenTypes = function(source) {
 StreamLexer.prototype.reset = function(source, info) {
 	console.log('tokens', this.getTokenTypes(source))
 	this.generator = indented(this.lexer, source, info);
-} 
+}
 
 StreamLexer.prototype.formatError = function(token) {
 	return this.lexer.formatError(token);
