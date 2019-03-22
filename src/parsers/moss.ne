@@ -1,60 +1,173 @@
 @lexer lexer
 
 start
-	-> sof scope eof {% ([sof, scope]) => scope %}
+	-> sof rootScope eof {% ([sof, scope]) => scope %}
 
+rootScope
+	-> map {% id %}
+	| (sol eol "string") multilineString ("\/string") {% ([sol, scope]) => scope %}
+	| (sol eol "list") list ("\/list") {% ([sol, scope]) => scope %}
+	
 scope
 	-> map {% id %}
-	
+
 map
 	-> map mapPairConstructor
-		{% ([_map, nextMatch]) => {
-			//console.log({nextMatch});
-			const map = new Map(_map);
+		{% ([_layer, nextMatch]) => {
+			const layer = new Map(_layer)
 			if (nextMatch && (nextMatch[0] !== undefined)) {
-				addPairToMap(nextMatch, map);
+				addPairToMap(nextMatch, layer)
 			}
-			return map;
+			return layer;
 		} %}
 	| mapPairConstructor
 		{% ([initialMatch]) => {
-			const map = new Map();
-	        console.log({initialMatch});
+			const layer = new Map();
 			if (initialMatch && (initialMatch[0] !== undefined)) {
-				addPairToMap(initialMatch, map);
+				addPairToMap(initialMatch, layer)
 			}
-			return map;
+			return layer;
 		} %}
 
 mapPairConstructor
-	# nested constrained scope
-	-> key ((space constraintMap pushScope) | pushScope) scope popScope
-  		{% ([key, scopeConstaints, scope]) => {
-			return [key, scope] 
+	# nested explicitly declared list
+	-> key ((space constraintMap) | space) (eol "list" indent) list popScope "\/list"
+  		{% ([key, context, mode, scope]) => {
+			if (context){
+				return [key, scope, {multiLineString: true, ...context[1]}]
+			} else {		
+			  return [key, scope, {multiLineString: true}]			
+			}
 		} %}
 	
-	# map pair, optionally constrained
-	| key (space constraintMap):? list
-  		{% ([key, constraintMap, list]) => {
-				return [key, list] 
+	# nested explicitly declared multiline string
+	| key ((space constraintMap) | space) (eol "string" indent) multilineString popScope "\/string"
+  		{% ([key, context, mode, scope]) => {
+			if (context){
+				return [key, scope, {multiLineString: true, ...context[1]}]
+			} else {		
+			  return [key, scope, {multiLineString: true}]			
 			}
-		%}
+		} %}
 		
+	# nested constrained scope
+	| key pushTypedScope scope popScope
+  		{% ([key, context, scope]) => {
+			  return [key, scope]			
+		} %}
+	
+	# explicit map pair, rhs is a nested map
+	| "@no" key ((space constraintMap) | space) "{" nestedScope sol "}" endLine
+		{% ([directive, bracket, scope]) => scope %}
+
+	# explicit map pair, rhs is a map
+	| key ((space constraintMap) | space) "{" scope endLine
+  		{% ([key, context, bracket, scope]) => {
+				return [key, scope]
+			} %}
+			
+	# default map pair, rhs is a statement
+	| key (space constraintMap):? space statement mapTerminator
+  		{% ([key, context, space, statement]) => {
+				console.log('pair', [key, statement])
+				return [key, statement]
+			} %}
+	
 	# default simple value
-	| list
-  		{% ([list]) => {
-			return [list, true]
+	| (sol | space) statement mapTerminator
+  		{% ([prefix, statement]) => {
+			return [statement, true]
 		}%}
 	
 	| sol eol {% () => null %}
 	| sol comment {% () => null %}
 	# error cases
-	| label pushScope scope
+	| literal pushScope scope
   		{% expectedScopeOperator %}
+
+mapTerminator
+	-> ((space "}") | "," | endLine) {% id %}
+	
+list
+	-> list mapPairConstructor
+		{% ([array, item]) => {
+			if (item){
+				if (item[1] === true) array.push(item[0]);
+				else {
+					const map = new Map();
+					map.set(item[0], item[1]);
+					array.push(map);
+				}
+			}
+			return array;
+		} %}
+	| mapPairConstructor
+		{% ([item]) => {
+			if (item[1] === true) return [item[0]];
+			else {
+				const map = new Map();
+				map.set(item[0], item[1]);
+				return map;
+			}
+		} %}
+
+listConstructor
+	-> ( sol ) statement endLine
+		{% ([key, statement]) => {
+			return statement
+		} %}
+	| ( sol ) (space _mls) pushTypedScope multilineString popScope
+  		{% ([key, keyMode, scopeConstaints, indent, scope]) => {
+			return scope
+		} %}
+		
+	| ( sol ) pushTypedScope scope popScope
+  		{% ([key, scopeConstaints, indent, scope]) => {
+			return scope
+		} %}
+	| sol eol {% () => null %}
+
+
+
+multilineString
+	-> stringLine stringLine:* {% ([head, tail]) => {
+		const [startIndent, mls] = head;
+		if (tail.length){
+			const res = tail.map(([indent, line]) => {
+					let margin = '';
+					if (indent > startIndent){
+						for (let i = 0; i < indent - startIndent; i++){
+							margin = margin + ' ';	
+						}
+					}
+					if (line){
+						return margin + line;
+					}
+					return margin;
+			});
+			return [mls, ...res].join('\n');
+		}
+		return mls;
+	} %}
+	
+stringLine
+	-> indent multilineString dedent
+		{% ([indent, mls]) => {
+			return [indent.indent, mls];
+		} %}
+	| sol _escapedString:? eol
+		{% ([sol, string]) => {
+			return [sol.indent, string];
+		} %}
 		
 
+pushTypedScope -> 
+	space constraintMap indent {% ([space, constraintMap]) => constraintMap %}
+	| pushScope {% id %}
+	
+
 constraintMap
-	-> constraintMap space constraint
+	-> constraintMap constraint
 		{% ([map, ws, nextMatch]) => {
 			if (nextMatch) {
 				addPairToMap(nextMatch, map);
@@ -65,74 +178,60 @@ constraintMap
 		{% ([initialMatch]) => {
 			const map = new Map();
 			if (initialMatch) {
-				//console.log('add prop', initialMatch)
 				addPairToMap(initialMatch, map);
 			}
 			return map;
 		} %}
 		
 constraint
-	-> "@" bracketedScope
-		{% ([directive, scope]) => scope %}
-	| "@" label "[" space listLoop space "]"
-		{% ([_0, property, _2, scopeSelector]) => {
-			return [property, scopeSelector[2]]
+	-> "@" "{" nestedScope sol "}" endLine
+		{% ([directive, bracket, scope]) => scope %}
+	| "@" literal "{" scope (space | endLine)
+		{% ([directive, literal, bracket, scope]) => [literal, scope] %}
+	| "@" literal (space | endLine) {% ([directive, property]) => {
+			return [property, true]
 		}%}
-	| "@" label
-		{% ([_0, property]) => [property, true] %}
-		
-	# error cases
-	| "@" "[" space:+ eol {% extraSpace %}
-	| "@" "[" (_ | eol) "]" {% emptyScope %}
-	| "@" label "[" _ "]" {% emptyScope %}
-
-bracketedScope
-	-> "[" nestedScope sol "]" {% ([bracket, scope]) => scope %}
-	| "[" scope {% rhs %}
 
 # Map
+
 key
-	-> (sol | space) listLoop ":" {% ([pre, label, scopeOperator]) => label %}
+	-> (sol | space) keyExpression ":" {% ([pre, key]) => key %}
 
-# List
-list
-	-> (sol | space) listLoop ("," | endLine | (" " "]"))
-		{% ([pre, list]) => list %}
+keyExpression
+	-> ( "=" | "+" | "|" | "&" | "^" | "-" ) space statement {% reduce %}
+	| concat {% id %}
+
+# statement
+statement
+	-> concat {% id %}
 	
-listLoop
-	-> listValue (space listValue):* {% 
- 	([head, tail]) => {
-		if (tail && tail.length){
-			return head + reduce(tail.map(reduce)); 
-		}
-	return head; 
- }%}
+# Operators
 
-listValue
-	-> label {% id %}
-	| uri {% id %}
+concat
+	-> concat space boolean {% reduce %}
+	| boolean {% id %}
 
-#Math
-
-expression
-	-> add {% id %}
- 
-add 
-	-> add ("+"|"-") multiply {% reduce %}
+boolean
+	-> boolean space ( "n" | "|" ) space add {% reduce %}
+	| add {% id %}
+	
+add
+	-> add space ( "+"|"-" ) space multiply {% reduce %}
 	| multiply {% id %}
- 
-multiply 
-	-> multiply ("*"|"/") term {% reduce %}
-	| term {% id %}
+  
+multiply
+	-> multiply space ("*"|"/") space unaryPrefix {% reduce %}
+	| unaryPrefix {% id %}
 
-term 
-	-> group {% id %}
-	| label {% id %}
-	
+unaryPrefix
+	-> "+" group {% reduce %}
+	| "-" group {% reduce %}
+	| "!" group {% reduce %}
+	| group {% id %}
+
 group
-	-> "(" expression ")" {% reduce %}
-	| label {% id %}
-
+	-> "(" concat ")" {% reduce %}
+	| literal {% id %}
 
 # Operators
 directive
@@ -164,27 +263,24 @@ number
 	-> _number {% ([n]) => parseFloat(n) %}
 
 _number
-	-> _float "e" _int {% reduce %}
+	-> _float "e" digit {% reduce %}
  	| _float {% id %}
 	
 _float
-	-> _int "." digit {% reduce %}
-	| _int {% id %} 
+	-> digit "." digit {% reduce %}
+	| digit {% id %} 
  
-_int 
-	-> "-" digit {% concat %}
-	| digit {% ([n]) => n %}
-
 digit
 	-> digit [0-9] {% concat %}
 	| [0-9] {% ([tok]) => tok %}
 
 # Words
 	
-label
+literal
 	-> escapedString {% id %}
 	| dqString {% id %}
 	| singleWord {% id %}
+	| uri {% id %}
 	| number {% id %}
 
 # URL = scheme:[//authority]path[?query][#fragment]
@@ -274,26 +370,6 @@ wordSafeChar
 	
 wordStartChar
 	-> [a-zA-Z$_] {% ([tok]) => tok.value %}
-
-# MultiLine String
-
-multilineString
-	-> ((eol | dedent) _string):* dedent
-		{% function(d) {
-			const indent = d[0][0][0][0];
-
-			const lines = d[2].map(segment => {
-				const relativeIndent = segment[0] - indent;
-				let base = '';
-				if (relativeIndent > 0){
-					for (let i = 0; i < relativeIndent; i++){
-						base = base + ' ';	
-					}
-				}
-				return base + segment[1];
-			}).join('\\n');
-			return lines;
-		} %}
 	
 dqString
 	-> "\"" _string "\"" {% function(d) {return d[1]; } %}
@@ -337,19 +413,26 @@ chunkChar
 _escapedString
 	-> _escapedString escapedChar {% concat %}
 	| escapedChar {% id %}
+
 escapedChar 
 	-> %space {% ([tok]) => tok.value %} 
 	| %any {% ([tok]) => tok.value %}
 
+# notation modes
+_aa -> "@" "m" "a" "p" {% reduce %}
+_ordered -> "@" "l" "i" "s" "t" {% reduce %}
+#_ordered -> "@" "list" {% id %}
+_mls -> "@" "s" "t" "r" "i" "n" "g" {% reduce %}
+
 # syntactic whitespace
 sof -> %sof {% ([tok]) => tok.value %}
 eof -> %eof {% ([tok]) => tok.value %}
-sol -> %sol {% ([tok]) => tok.value %}
-eol -> %eol {% ([tok]) => tok.value %}
+sol -> %sol {% ([tok]) => tok %}
+eol -> %eol {% ([tok]) => tok %}
 indent
-	-> %indent {% ([tok]) => tok.value %}
+	-> %indent {% ([tok]) => tok %}
 dedent
-	-> %dedent {% ([tok]) => tok.value %}
+	-> %dedent {% ([tok]) => tok %}
 space -> %space {% ([tok]) => tok.value %}
 
 # ignored whitespace or chars
@@ -362,51 +445,79 @@ _
 @{%
 // Lexer
 
-const makeToken = (type, text) => ({type, text, value: text, toString: () => text});
-const makeEol = () => makeToken('eol', '\n');
+const makeToken = (type, text, indent) => ({type, text, value: text, indent, toString: () => text});
+const makeEol = (indent) => makeToken('eol', '\n');
 const makeEof = () => makeToken('eof', 'eof');
-const makeSol = () => makeToken('sol', '\n');
+const makeSol = (indent) => makeToken('sol', '\n', indent)
+const makeIndent = (indent) => makeToken('indent', 'indent', indent)
+const makeDedent = (indent) => makeToken('dedent', 'dedent', indent)
 const makeSof = () => makeToken('sof', 'sof');
+
+const doDedent = (ruleMap, indent, nextIndent) => {
+	const tokens = [makeEol()];
+  	tokens.push(makeDedent(nextIndent));
+	const ruleToken = ruleMap.get(indent);
+	if (ruleToken) {
+	  tokens.push(makeToken('stopRule', `/${ruleToken.text}`));
+	  ruleMap.delete(indent)
+  	}
+  	tokens.push(makeSol(nextIndent));
+	return tokens;
+}
 
 function* indented(lexer, source, info) {
   let iter = peekable(lexer.reset(source, info))
   let stack = [] 
-
+  let ruleMap = new Map();
+	
   // absorb initial blank lines and indentation
   let indent = iter.nextIndent()
 
   yield makeSof();
-  yield makeSol();
+  yield makeSol(indent);
 	
   for (let tok; tok = iter.next(); ) {
-    if (tok.type === 'eol') {
+    if (tok.type === 'eol' || tok.type === 'startRule') {
       const newIndent = iter.nextIndent()
       if (newIndent == null) {
 		  break;
 	  }// eof
       else if (newIndent === indent) {
         yield makeEol();
-	    yield makeSol();
+		if (tok.type === 'startRule'){
+			if (indent === 0){
+				const ruleToken = makeToken('startRule', tok.text.split('<')[0]);
+				ruleMap.set(indent, ruleToken);
+				yield ruleToken;
+			}
+		}
+	    yield makeSol(indent);
       } else if (newIndent > indent) {
-        stack.push(indent)
-        indent = newIndent
+		stack.push(indent)
 		yield makeEol();
-        yield {...makeToken('indent'), indent: indent}
-	    yield makeSol();
-
+	    indent = newIndent
+		if (tok.type === 'startRule'){
+			const ruleToken = makeToken('startRule', tok.text.split('<')[0]);
+			ruleMap.set(indent, ruleToken);
+			yield ruleToken;
+		}
+		yield makeIndent(indent)
+	    yield makeSol(indent);
       } else if (newIndent < indent){
         while (newIndent < indent) {
-          indent = stack.pop()
-		  yield makeEol();
-		  yield {...makeToken('dedent'), indent: indent}
-		  yield makeSol();
+		  const nextIndent = stack.pop();
+		  const dedentTokens = doDedent(ruleMap, indent, nextIndent);
+		  for (const t of dedentTokens){
+			  yield t;
+		  }
+		  indent = nextIndent;
         }
         if (newIndent !== indent) {
-          throw new Error('inconsistent indentation')
+          throw new Error(`inconsistent indentation ${newIndent} != ${indent}`)
         }
       } else {
 		yield makeEol();
-		yield makeSol();
+		yield makeSol(indent);
 	  }
       indent = newIndent
     } else {
@@ -416,14 +527,22 @@ function* indented(lexer, source, info) {
 
   // dedent remaining blocks at eof
   for (let i = stack.length; i--;) {
-	indent = stack.pop();
-	yield makeEol();
-	yield {type: 'dedent', indent: indent }
-	yield makeSol();
+	const nextIndent = stack.pop() || 0;
+	const dedentTokens = doDedent(ruleMap, indent, nextIndent);
+	  for (const t of dedentTokens){
+		  yield t;
+	 }
+	indent = nextIndent;
   }
-	
-  yield makeEol();
-  yield makeEof();
+
+	yield makeEol();  
+  	const ruleToken = ruleMap.get(0);
+	if (ruleToken) {
+	  yield makeToken('stopRule', `/${ruleToken.text}`);
+	  ruleMap.delete(0)
+  	}
+  
+	yield makeEof();
 }
 
 function peekable(lexer) {
@@ -464,8 +583,22 @@ function peekable(lexer) {
   }
 }
 
+const rules = {
+	space: /[ ]/,
+	startRule: {match: /[a-zA-Z+\-]+<[\n\r]/, lineBreaks: true },
+	eol: {match: /[\n\r]/, lineBreaks: true },
+	//word: /[a-zA-Z$_][a-zA-Z0-9$_]*/,
+	//number: /[0-9]/,
+	//urlUnsafe: /["<>#%{}|\\^~[]`]/,
+	//urlReserved: /[;/?:@=&]/,
+	//urlSafe: /[0-9a-zA-Z$\-_.+!*'()]/,
+	//chunk: /[a-zA-Z0-9\+\-*\?\|\/\()\\:]/,
+	any: /[^\s]/ 
+};
+
 const printToken = (t) => {
 	switch (t.type){
+		case "eol": return "}";
 		case "eol": return "}";
 		case "space": return " ";
 		case "indent": return "->";
@@ -531,21 +664,13 @@ StreamLexer.prototype.has = function(name) {
 	return this.lexer.has(name);
 }
 
-const rules = {
-	space: /[ ]/,
-	eol: {match: /[\n\r]+/, lineBreaks: true },
-	//word: /[a-zA-Z$_][a-zA-Z0-9$_]*/,
-	//number: /[0-9]/,
-	//urlUnsafe: /["<>#%{}|\\^~[]`]/,
-	//urlReserved: /[;/?:@=&]/,
-	//urlSafe: /[0-9a-zA-Z$\-_.+!*'()]/,
-	//chunk: /[a-zA-Z0-9\+\-*\?\|\/\()\\:]/,
-	any: /[^\s]/ 
-};
-
 const lexer = new StreamLexer();
 
 // Errors
+function expectedListNotation(){
+	throw new Error("expected list notation");
+}
+
 function emptyScope(){
 	throw new Error("empty scope");
 }
@@ -592,10 +717,16 @@ const rhs = ([lhs, rhs]) => rhs
 const back = (d) => d[d.length - 1]
 
 function addPairToMap([key, value], map){
+	console.log('add to layer', [key, value], map);
 	if (map.get(key)){
 		throw new Error(`duplicate key ${key}`);
 	}
 	map.set(key, value);
+}
+
+function addPairToDataAndContext([key, data, context], [dataMap, contextMap]){
+	addPairToMap([key, data], dataMap);
+	addPairToMap([key, context], contextMap)
 }
 
 function join(list, rhs){
