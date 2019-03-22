@@ -5,7 +5,7 @@ start
 
 rootScope
 	-> map {% id %}
-	| (sol eol "string") multilineString ("\/string") {% ([sol, scope]) => scope %}
+	| (sol eol "text") multilineString ("\/text") {% ([sol, scope]) => scope %}
 	| (sol eol "list") list ("\/list") {% ([sol, scope]) => scope %}
 
 scope
@@ -30,7 +30,7 @@ map
 		} %}
 
 mapPairConstructor
-	# nested explicitly declared list
+	# list
 	-> key ((space constraintMap) | space) (eol "list" indent) list popScope "\/list"
   		{% ([key, context, mode, scope]) => {
 			if (context){
@@ -40,8 +40,8 @@ mapPairConstructor
 			}
 		} %}
 
-	# nested explicitly declared multiline string
-	| key ((space constraintMap) | space) (eol "string" indent) multilineString popScope "\/string"
+	# multiline string
+	| key ((space constraintMap) | space) (eol "text" indent) multilineString popScope "\/text"
   		{% ([key, context, mode, scope]) => {
 			if (context){
 				return [key, scope, {multiLineString: true, ...context[1]}]
@@ -50,24 +50,26 @@ mapPairConstructor
 			}
 		} %}
 
-	# nested constrained scope
+	# nested map
 	| key pushTypedScope scope popScope
   		{% ([key, context, scope]) => {
 			  return [key, scope]
 		} %}
 
-	# explicit map pair, rhs is a nested map
-	| key ((space constraintMap) | space) "{" nestedScope sol "}" endLine
-		{% ([directive, bracket, scope]) => scope %}
-
-	# explicit map pair, rhs is a map
-	| key ((space constraintMap) | space) "{" scope endLine
+	# map
+	| key ((space constraintMap) | space) "{" scope (endLine | (space "}"))
   		{% ([key, context, bracket, scope]) => {
 				return [key, scope]
 			} %}
-
-	# default map pair, rhs is a statement
-	| key (space constraintMap):? statement mapTerminator
+			
+	# map
+	| key ((space constraintMap) | space) "[" list (endLine | (space "]"))
+  		{% ([key, context, bracket, scope]) => {
+				return [key, scope]
+			} %}
+			
+	# statement
+	| key ((space constraintMap) | space) statement mapTerminator
   		{% ([key, context, statement]) => {
 				return [key, statement]
 			} %}
@@ -184,7 +186,7 @@ constraintMap
 		} %}
 
 constraint
-	-> "@" "{" nestedScope sol "}" endLine
+	-> "@" "{" nestedScope sol "}" (space | endLine)
 		{% ([directive, bracket, scope]) => scope %}
 	| "@" literal "{" scope (space | endLine)
 		{% ([directive, literal, bracket, scope]) => [literal, scope] %}
@@ -193,7 +195,6 @@ constraint
 		}%}
 
 # Map
-
 key
 	-> (sol | space) keyExpression ":" {% ([pre, key]) => key %}
 
@@ -277,8 +278,7 @@ digit
 # Words
 
 literal
-	-> escapedString {% id %}
-	| dqString {% id %}
+	-> string {% id %}
 	| singleWord {% id %}
 	| uri {% id %}
 	| number {% id %}
@@ -371,10 +371,7 @@ wordSafeChar
 wordStartChar
 	-> [a-zA-Z$_] {% ([tok]) => tok.value %}
 
-dqString
-	-> "\"" _string "\"" {% function(d) {return d[1]; } %}
-
-escapedString
+string
 	-> "`" _escapedString "`" {% function(d) {return d[1]; } %}
 
 _string
