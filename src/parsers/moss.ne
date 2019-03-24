@@ -317,64 +317,145 @@ literal
 # URL = scheme:[//authority]path[?query][#fragment]
 uri
 	-> url {% id %}
-	| urx {% id %}
+	| authority {% id %}
 
 url
-	-> urlScheme urx {% reduce %}
+	-> urlDomainScheme authority {% reduce %}
+	| urlScheme uriPathComponent {% reduce %}
+	| urlScheme urlPath {% reduce %}
+
+urlDomainScheme
+	-> urlScheme "/" "/" {% reduce %}
+
+urlSchemes
+	-> urlSchemes urlScheme {% reduce %}
+	| urlScheme {% id %}
 
 urlScheme
-	-> urlSafe ":" "/" "/" {% reduce %}
+	-> domainComponent ":" {% reduce %}
 
-urx
-	-> urlCredentials "@" urd {% reduce %}
-	| urd {% reduce %}
+authority
+	-> urlCredentials "@" _authority {% reduce %}
+	| _authority {% reduce %}
 
-urd
-	-> tld urlPath:? uriQuery:? {% reduce %}
+_authority
+	-> uriDomainComponent uriPathComponent:? uriQueries:? uriFragment:? {% reduce %}
+
+uriQueries 
+	-> uriQueries uriQuery {% reduce %}
+	| uriQuery {% id %}
+
+uriPathComponent 
+	-> "/" urlPath {% reduce %}
+	| "/" {% ([tok]) => tok.value %}
 
 urlCredentials
-	-> emailCredentials {% id %}
-	| userCredentials {% id %}
+	-> urlCredentials ":" password {% reduce %}
+	| email {% id %}
+	| subdomain {% id %}
 
 urlPath
-	-> "/" relativePath {% concat %}
+	-> urlPath "/" urlPathName {% reduce %}
+	| urlPath "/" {% reduce %}
+	| urlPathName {% id %}
 
-relativePath ->
-	relativePath "/" fileName {% reduce %}
+urlPathName ->
+	urlPathName "." urlPathWord {% reduce %}
+	| urlPathWord {% id %}
+	
+urlPathWord
+	-> urlPathWord urlPathChar {% reduce %}
+	| urlPathChar {% id %}
+	
+urlPathChar
+	-> [^ ^/^.^?^;] {% ([tok]) => tok.value %}
+
+filePath ->
+	filePath "/" fileName {% reduce %}
 	| fileName {% id %}
 
 fileName ->
-	fileName "." word {% reduce %}
-	| word {% id %}
+	fileName "." fileWord {% reduce %}
+	| fileWord {% id %}
 
-pathElement
-	-> pathElement "/" urlSafe {% reduce %}
-	| urlSafe {% id %}
+fileWord
+	-> fileWord fileChar {% reduce %}
+	| fileChar {% id %}
 
-emailCredentials
-	-> emailCredentials ":" password {% reduce %}
-	| email {% reduce %}
-
-userCredentials
-	-> userCredentials ":" password {% reduce %}
-	| urlSafe {% reduce %}
+fileChar
+	-> [^ ^/^.] {% ([tok]) => tok.value %}
 
 password
 	-> urlSafePlusEncoded {% reduce %}
 
 email
-	-> emailLhs "@" tld {% reduce %}
+	-> subdomain "@" domain {% reduce %}
 
-emailLhs
-	-> urlSafe "." emailLhs {% id %}
-	| urlSafe {% id %}
+uriDomainComponent
+	-> uriDomainComponent uriPortComponent {% reduce %}
+	| domain {% reduce %}
+	| "[" ipv6 "]" {% reduce %}
+	| ipv4 {% id %}
 
-tld
-	-> domain "." urlSafe {% reduce %}
+matchSeven[x] 
+	-> $x $x $x $x $x $x $x {% reduce %}
 
-domain ->
-	urlSafe "." domain {% reduce %}
-	| urlSafe {% id %}
+matchOneToSeven[x] 
+	-> $x $x $x $x $x $x $x {% reduce %}
+	| $x $x $x $x $x $x {% reduce %}
+	| $x $x $x $x $x {% reduce %}
+	| $x $x $x $x {% reduce %}
+	| $x $x $x $x {% reduce %}
+	| $x $x $x {% reduce %}
+	| $x $x {% reduce %}
+	| $x {% reduce %}
+	
+ipv6
+	-> matchSeven[ipv6Group] ipv6Number {% reduce %}
+	| matchOneToSeven[ipv6Group] ":" ipv6Number {% reduce %}
+
+matchOneToFour[x]
+	-> $x $x $x $x {% reduce %}
+	| $x $x $x {% reduce %}
+	| $x $x {% reduce %}
+	| $x {% reduce %}
+
+ipv6Group
+	-> ipv6Number ":" {% reduce %}
+
+ipv6Number
+	-> matchOneToFour[hexDigit]
+
+ipv4
+	-> ipv4Group "." ipv4Group "." ipv4Group "." ipv4Group
+
+ipv4Group
+	-> d2 d5 d0_5 {% reduce %}
+	| d2 d0_4 d0_9 {% reduce %}
+	| d1 d0_9 d0_9 {% reduce %}
+	| d0_9 d0_9 {% reduce %}
+	| d0_9 {% id %}
+
+d1 -> "1" {% ([tok]) => tok %}
+d2 -> "2" {% ([tok]) => tok %}
+d5 -> "5" {% ([tok]) => tok %}
+d0_4 -> [0-4] {% ([tok]) => tok %}
+d0_5 -> [0-5] {% ([tok]) => tok %}
+d0_9 -> [0-9] {% ([tok]) => tok %}
+
+domain
+	-> subdomain "." domainComponent {% reduce %}
+
+uriPortComponent
+	-> ":" number {% reduce %}
+
+subdomain ->
+	domainComponent "." subdomain {% reduce %}
+	| domainComponent {% id %}
+
+# ! $ & ' ( ) * + , ; = 
+# are permitted by generic URI syntax to be used unencoded
+# in the user information, host, and path as delimiters.
 
 uriQuery
   -> "?" queryList {% reduce %}
@@ -387,8 +468,15 @@ queryFragment
   -> queryFragment "=" urlSafePlusEncoded {% reduce %}
   | urlSafePlusEncoded {% id %}
 
+uriFragment
+  -> "#" queryList {% reduce %}
+
+domainComponent
+	-> [a-zA-Z] [a-zA-Z0-9\-]:*
+		{% optionalTail %}
+	
 singleWord
-	-> [a-zA-Z$_] [a-zA-Z$_0-9]:*
+	-> [a-zA-Z$_] [a-zA-Z0-9$_]:*
 		{% optionalTail %}
 
 word
@@ -428,8 +516,9 @@ urlSafe
 	-> urlSafe urlSafeChar {% concat %}
 	| urlSafeChar {% id %}
 
-# [0-9a-zA-Z$\-_.+!*'()] but we skip the dot as it is meaningfully parsed in rules
-urlSafeChar -> [0-9a-zA-Z$\-_+!*'()] {% ([tok]) => tok.value %}
+urlSafeChar -> [a-zA-Z0-9\-] {% ([tok]) => tok.value %}
+
+
 
 chunk
 	-> chunk chunkChar {% concat %}
