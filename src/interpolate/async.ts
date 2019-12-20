@@ -170,8 +170,7 @@ export async function tokenize(str: string, options: Expand.Options) {
                     } else if (char == '=' || char == '$' || char == '^') {
                         if (i < 1) ptr.state.header = char;
                         ptr.state.detecting = char;
-                    }
-                    if (detecting) {
+                    } else if (detecting) {
                         ptr.state.detecting = null;
                     }
                     append(char);
