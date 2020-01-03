@@ -1,5 +1,4 @@
 /.nyc_output
-/src
 /docker
 /meteor
 /server
