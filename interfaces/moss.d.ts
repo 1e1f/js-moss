@@ -44,6 +44,7 @@ declare namespace Moss {
   interface Branch {
     path?: string
     text?: string
+    kind?: string
     data?: BranchData
     intermediate?: {
       data: BranchData

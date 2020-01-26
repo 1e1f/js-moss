@@ -138,53 +138,20 @@ export function tokenize(str: string, options: Expand.Options) {
                 if (detecting) {
                     open(char, detecting == '$' ? 'v' : detecting == '^' ? 'f' : 'e', '}');
                     break;
-                } else {
-                    append(char);
-                }
-                break;
-            case '}': case ')':
-                if (op && terminal == char) {
-                    close();
-                } else {
-                    append(char);
-                }
-                break;
-            case ' ':
-                if (op && terminal == char) {
-                    close();
-                }
-                append(char);
-                break;
-            case '\\':
-                if (frame.escape) {
-                    append(char);
-                } else {
-                    frame.escape = true;
-                    frame.escaped = '\\';
-                }
-                break;
-            case '=': case '$': case '^':
-                if (detecting) {
-                    append(detecting);
-                }
-                if (!frame.out[0] || (frame.out[0].length < 2)) {
-                    frame.header = char;
-                }
-                if (frame.escape) {
-                    append(char);
-                }
-                frame.detecting = char;
-                break;
-            default:
-                if (header) {
-                    frame.header = null;
-                    if (header == '=') open(null, 'e', '__null__');
-                    else if (header == '^') open(null, 'f', '__null__');
-                    else if (header == '$') open(null, 'v', '__null__');
-                } else {
-                    if (detecting) {
-                        frame.detecting = null;
-                        append(detecting);
+                case '\\':
+                    ptr.state.escape = true;
+                    break;
+                default:
+                    if (header) {
+                        ptr.state.header = null;
+                        if (header == '=') open('e', '__null__');
+                        else if (header == '^') open('f', '__null__');
+                        else if (header == '$') open('v', ' ');
+                    } else if (char == '=' || char == '$' || char == '^') {
+                        if (i < 1) ptr.state.header = char;
+                        ptr.state.detecting = char;
+                    } else if (detecting) {
+                        ptr.state.detecting = null;
                     }
                     if (escape) {
                         frame.escape = false;
