@@ -1,7 +1,7 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
-import { merge, mergeArray, mergeObject, amap as map, aokmap as okmap, arrayify, extend, check, clone, each, union, difference, sum, valueForKeyPath, all, isEqual, unflatten, flatObject, unsetKeyPath, setValueForKeyPath, mergeOrReturnAssignment } from 'typed-json-transform';
-import { interpolateAsync as __interpolate } from './interpolate';
+import { merge, mergeArray, mergeObject, okmap as okmapSync, amap as map, aokmap as okmap, arrayify, extend, check, clone, each, union, difference, sum, valueForKeyPath, all, isEqual, unflatten, flatObject, unsetKeyPath, setValueForKeyPath, mergeOrReturnAssignment, contains } from 'typed-json-transform';
+import { interpolateAsync as __interpolate, reservedKeys } from './interpolate';
 import { cascadeAsync as _cascade, shouldConstruct, select, parseSelectors } from './cascade';
 import * as yaml from 'js-yaml';
 

@@ -1,15 +1,16 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
 import {
-    map as map, okmap as okmap, arrayify, extend,
+    map as map, okmap as okmapSync, okmap, arrayify, extend,
     check, clone, each, setValueForKeyPath, sum, valueForKeyPath,
-    all, isEqual, mergeArray, mergeOrReturnAssignment
+    all, isEqual, mergeArray, mergeOrReturnAssignment, contains
 } from 'typed-json-transform';
-import { interpolate as __interpolate } from './interpolate';
+import { interpolate as __interpolate, reservedKeys } from './interpolate';
 import { cascade as _cascade, shouldConstruct, select, parseSelectors } from './cascade';
 import * as yaml from 'js-yaml';
 
 import { getBranchSync as getBranch } from './resolvers';
+import { parseDescription } from './schema';
 
 import {
     newLayer,

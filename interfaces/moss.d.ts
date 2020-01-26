@@ -1,4 +1,5 @@
 /// <reference types="typed-json-transform" />
+/// <reference path="schema.d.ts" />
 
 interface MossError {
   name: 'MossError',
@@ -20,6 +21,7 @@ declare namespace Moss {
     auto?: any
     stack?: any
     selectors?: any
+    schema?: any
     merge?: {
       operator: Merge.Operator,
       precedence: { [x: string]: number }

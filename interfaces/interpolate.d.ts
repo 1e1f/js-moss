@@ -2,27 +2,26 @@ declare namespace Expand {
   type Key = '$' | '=' | '^';
   type Open = '{' | '(';
   type Terminal = '}' | ')' | ' ' | '__null__';
-  type Op = 'v' | 's' | 'e' | 'f';
+  type Op = 'v' | 's' | 'e' | 'f' | 'n';
 
   interface State {
     detecting?: Key
     header?: Key
     op?: Op
-    terminal?: Terminal;
+    terminal?: Terminal
     dirty?: boolean
     escape?: boolean
-    sourceMap: number[]
+    escaped?: string
+    sourceMap?: number[]
   }
 
-  interface Elem {
-    state: State
-    raw: any[]
+  interface Elem extends State {
+    out: any[]
     source: any[]
-    subst: any[]
   }
 
   export interface Options {
-    dereferenceSync?: (sub: string, sourceMap?: number[]) => any 
+    dereferenceSync?: (sub: string, sourceMap?: number[]) => any
     dereference?: (sub: string, sourceMap?: number[]) => any
     call?: (sub: any, sourceMap?: number[]) => any
     fetch?: (sub: any, sourceMap?: number[]) => any
