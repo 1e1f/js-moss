@@ -1,67 +1,70 @@
 /// <reference path="../interfaces/moss.d.ts" />
 
-import { interpolateAsync as __interpolate } from './interpolate';
-import { cascadeAsync as _cascade } from './cascade';
+import { interpolateAsync as __interpolate } from "./interpolate";
+import { cascadeAsync as _cascade } from "./cascade";
 
-export const getBranchAsync = async (urisString: string, resolvers: Moss.Async.Resolvers, layer: Moss.ReturnValue) => {
-    const uris = urisString.split(',');
-    let res;
-    for (const uri of uris) {
-        for (const resolverKey of Object.keys(resolvers).reverse()) {
-            const { match, resolve } = resolvers[resolverKey];
-            const trimmedUri = uri.trim();
-            if (match(trimmedUri)) {
-                let branch: any;
-                try {
-                    branch = await resolve(trimmedUri);
-                } catch (e) {
-                    e.message = `${resolverKey} resolver failed importing ${trimmedUri} with Error: ${e.message}`;
-                    throw e;
-                }
-
-                if (branch) {
-                    const { graph, currentBranch } = layer.state;
-
-                    graph.addNode(trimmedUri, branch);
-                    graph.addDependency(currentBranch, trimmedUri);
-                    graph.dependenciesOf(currentBranch);
-
-                    layer.state.currentBranch = trimmedUri;
-                }
-                return branch;
-            }
+export const getBranchAsync = async (
+  bll: string,
+  resolvers: Moss.Async.Resolvers,
+  layer: Moss.ReturnValue
+) => {
+  const bls = bll.split(",");
+  let res;
+  for (const _bl of bls) {
+    const bl = _bl.trim();
+    for (const resolverKey of Object.keys(resolvers).reverse()) {
+      try {
+        const { match, resolve } = resolvers[resolverKey];
+        if (match(bl)) {
+          let branch: any;
+          branch = await resolve(bl);
+          if (branch) {
+            const { graph, currentBranch } = layer.state;
+            graph.addNode(bl, branch);
+            graph.addDependency(currentBranch, bl);
+            graph.dependenciesOf(currentBranch);
+            layer.state.currentBranch = bl;
+            return branch;
+          }
         }
+      } catch (e) {
+        e.message = `${resolverKey} resolver failed importing ${bl} with Error: ${e.message}`;
+        // throw e;
+      }
     }
-    return res;
-}
+  }
+  return res;
+};
 
-export const getBranchSync = (urisString: string, resolvers: Moss.Sync.Resolvers, layer: Moss.ReturnValue) => {
-    const uris = urisString.split(',');
-    let res;
-    for (const uri of uris) {
-        for (const resolverKey of Object.keys(resolvers).reverse()) {
-            const { match, resolve } = resolvers[resolverKey];
-            const trimmedUri = uri.trim();
-            if (match(trimmedUri)) {
-                let branch: any;
-                try {
-                    branch = resolve(trimmedUri);
-                } catch (e) {
-                    e.message = `${resolverKey} resolver failed importing ${trimmedUri} with Error: ${e.message}`;
-                    throw e;
-                }
-
-                if (branch) {
-                    const { graph, currentBranch } = layer.state;
-
-                    graph.addNode(trimmedUri, branch);
-                    graph.addDependency(currentBranch, trimmedUri);
-
-                    layer.state.currentBranch = trimmedUri;
-                }
-                return branch;
-            }
+export const getBranchSync = (
+  bll: string,
+  resolvers: Moss.Sync.Resolvers,
+  layer: Moss.ReturnValue
+) => {
+  const bls = bll.split(",");
+  let res;
+  for (const _bl of bls) {
+    const bl = _bl.trim();
+    for (const resolverKey of Object.keys(resolvers).reverse()) {
+      try {
+        const { match, resolve } = resolvers[resolverKey];
+        if (match(bl)) {
+          let branch: any;
+          branch = resolve(bl);
+          if (branch) {
+            const { graph, currentBranch } = layer.state;
+            graph.addNode(bl, branch);
+            graph.addDependency(currentBranch, bl);
+            graph.dependenciesOf(currentBranch);
+            layer.state.currentBranch = bl;
+            return branch;
+          }
         }
+      } catch (e) {
+        e.message = `${resolverKey} resolver failed importing ${bl} with Error: ${e.message}`;
+        // throw e;
+      }
     }
-    return res;
-}
+  }
+  return res;
+};

@@ -1,4 +1,4 @@
 config:
   hello: ^hello
 expect:
-  hello: world!
+  hello: hello world!

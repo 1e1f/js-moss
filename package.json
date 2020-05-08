@@ -1,55 +1,82 @@
 {
-    "name": "js-moss",
-    "description": "moss is a set of parsing rules for yaml and json",
-    "version": "0.17.10",
-    "homepage": "https://github.com/1e1f/js-moss",
-    "author": {
-        "name": "Leif Shackelford",
-        "email": "structuresound@gmail.com"
-    },
-    "engines": {
-        "node": ">= 6"
-    },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/1e1f/js-moss.git"
-    },
-    "bugs": {
-        "url": "https://github.com/1e1f/js-moss/issues"
-    },
-    "licenses": [
-        {
-            "type": "MIT",
-            "url": "https://github.com/1e1f/js-moss/blob/master/LICENSE-MIT"
-        }
-    ],
-    "main": "lib/index.js",
-    "types": "interfaces/index.d.ts",
-    "scripts": {
-        "build": "tsc",
-        "test": "NODE_ENV=test mocha --recursive --compilers ts:ts-node/register --bail",
-        "cover": "NODE_ENV=test nyc --report-dir coverage npm t",
-        "travis": "npm run build && npm run cover"
-    },
-    "Keywords": [],
-    "devDependencies": {
-        "@types/js-yaml": "^3.12",
-        "@types/mathjs": "^5",
-        "@types/mocha": "^5",
-        "@types/node": "^10",
-        "@types/shelljs": "^0.8",
-        "@types/chai": "^4.1.7",
-        "chai": "^4.2",
-        "coveralls": "^3.0",
-        "mocha": "^5.2",
-        "nyc": "^13.2",
-        "shelljs": "^0.8",
-        "ts-node": "^8.0",
-        "typescript": "3.2.2",
-        "nearley": "^2.16.0"
-    },
-    "dependencies": {
-        "js-yaml": "^3.12",
-        "typed-json-transform": "^0.24.3"
+  "name": "js-moss",
+  "description": "moss is a set of parsing rules for yaml and json",
+  "version": "0.17.12",
+  "homepage": "https://github.com/1e1f/js-moss",
+  "author": {
+    "name": "Leif Shackelford",
+    "email": "structuresound@gmail.com"
+  },
+  "engines": {
+    "node": ">= 6"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/1e1f/js-moss.git"
+  },
+  "bugs": {
+    "url": "https://github.com/1e1f/js-moss/issues"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/1e1f/js-moss/blob/master/LICENSE-MIT"
     }
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "NODE_ENV=test mocha --recursive --require ts-node/register \"test/**/*.ts\" --bail",
+    "cover": "NODE_ENV=test nyc --report-dir coverage npm t",
+    "docs": "jsdoc -c config/jsdoc.json -R README.md --verbose --pedantic",
+    "travis": "npm run build && npm run cover"
+  },
+  "Keywords": [],
+  "devDependencies": {
+    "@types/js-yaml": "^3.12",
+    "@types/mathjs": "^5",
+    "@types/mocha": "^5",
+    "@types/node": "^10",
+    "@types/shelljs": "^0.8",
+    "@types/chai": "^4.1.7",
+    "chai": "^4.2",
+    "coveralls": "^3.0",
+    "jaguarjs-jsdoc": "github:dcodeIO/jaguarjs-jsdoc",
+    "jsdoc": "^3.6.3",
+    "mocha": "^5.2",
+    "nyc": "^13.2",
+    "shelljs": "^0.8",
+    "ts-node": "^8.0",
+    "typescript": "3.2.2",
+    "nearley": "^2.16.0"
+  },
+  "cliDependencies": [
+    "jsdoc"
+  ],
+  "dependencies": {
+    "js-yaml": "^3.13",
+    "typed-json-transform": "^0.24"
+  },
+  "nyc": {
+    "include": [
+      "src/*.ts"
+    ],
+    "exclude": [
+      "**/*.d.ts",
+      "node_modules"
+    ],
+    "extension": [
+      ".ts"
+    ],
+    "require": [
+      "ts-node/register"
+    ],
+    "reporter": [
+      "json",
+      "html",
+      "lcov"
+    ],
+    "all": true
+  }
 }
