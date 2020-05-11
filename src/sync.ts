@@ -220,7 +220,7 @@ addResolvers({
   hello: {
     match: (bl: string) => bl == "hello",
     resolve: (bl: string) => ({
-      orgPath: "test",
+      organizationSegment: "test",
       path: bl,
       data: "hello world!",
     }),

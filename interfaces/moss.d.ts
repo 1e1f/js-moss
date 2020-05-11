@@ -41,9 +41,9 @@ declare namespace Moss {
 
   interface Branch {
     context?: string;
-    orgPath: string;
-    projectPath?: string;
-    path: string;
+    organizationSegment: string;
+    projectSegment?: string;
+    pathSegment: string;
     kind?: string;
     version?: string;
     text?: string;

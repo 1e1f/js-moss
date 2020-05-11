@@ -231,8 +231,8 @@ addResolvers({
   hello: {
     match: (bl: string) => bl == "hello",
     resolve: async (bl: string) => ({
-      orgPath: "test",
-      path: bl,
+      organizationSegment: "test",
+      pathSegment: bl,
       data: "hello world!",
     }),
   },

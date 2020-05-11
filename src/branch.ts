@@ -1,62 +1,62 @@
 import { join } from "path";
 
-export const splitBranchUri = (uri: string) => {
-  const parts = uri.split(":");
+export const splitBranchLocator = (bl: string) => {
+  const parts = bl.split(":");
   switch (parts.length) {
     case 3: {
       return {
         context: parts[0],
-        fullPath: parts[1],
+        path: parts[1],
         version: parts[2],
       };
     }
     case 2: {
       if (parts[0].indexOf("/") != -1) {
-        // first part is path, context was omitted
+        // first part is locator path, context was omitted
         return {
           path: parts[0],
           version: parts[1],
         };
       } else if (parts[1].indexOf("/") != -1) {
-        // second part is path, version was omitted
+        // second part is locator path, version was omitted
         return {
           context: parts[0],
-          fullPath: parts[1],
+          path: parts[1],
         };
       } else {
-        throw new Error(`bad 2 part uri ${uri}`);
+        throw new Error(`bad 2 part in branch locator: ${bl}`);
       }
     }
     case 1: {
       return {
-        fullPath: parts[0],
+        path: parts[0],
       };
     }
     default:
-      throw new Error(`bad uri ${uri}`);
+      throw new Error(`bad branch locator: ${bl}`);
   }
 };
 
-export const getBranchPathComponents = (path: string) => {
-  const parts = path.split("/");
+export const pathToSegments = (locatorPath: string) => {
+  const parts = locatorPath.split("/");
   if (parts.length > 1) {
     return {
-      projectPath: parts.slice(0, parts.length - 1).join("/"),
-      path: parts.slice(-1)[0],
+      projectSegment: parts.slice(0, parts.length - 1).join("/"),
+      pathSegment: parts.slice(-1)[0],
     };
   }
-  return { projectPath: "", path };
+  return { projectSegment: "", pathSegment: locatorPath }; // path is only a segment
 };
 
 export const decodeBranchLocator = (bl: string): Moss.Branch => {
-  const { fullPath, ...parts } = splitBranchUri(bl);
-  const [orgPath, ...branchParts] = fullPath.split("/");
-  const { projectPath, path } = getBranchPathComponents(branchParts.join("/"));
+  const { path: locatorPath, ...parts } = splitBranchLocator(bl);
+  const [organizationSegment, ...branchParts] = locatorPath.split("/");
+  const { projectSegment, pathSegment } = pathToSegments(branchParts.join("/"));
   return {
     ...parts,
-    orgPath,
-    projectPath,
-    path,
+    organizationSegment,
+    projectSegment,
+    pathSegment,
   };
 };
 
@@ -65,9 +65,17 @@ export const encodeBranchLocator = (
   options?: { includeContextFragment?: boolean; urlSafe?: boolean }
 ) => {
   if (!bl) throw new Error("falsy branch locator");
-  const { context, projectPath, orgPath, path, version } = bl;
-  const withProject = projectPath ? join(projectPath, path) : path;
-  const withOrg = join(orgPath, withProject);
+  const {
+    context,
+    projectSegment,
+    organizationSegment,
+    pathSegment,
+    version,
+  } = bl;
+  const withProject = projectSegment
+    ? join(projectSegment, pathSegment)
+    : pathSegment;
+  const withOrg = join(organizationSegment, withProject);
   let contextPart = "";
   const versionPart = version ? ":" + version : "";
   if (options && options.includeContextFragment !== false)
@@ -80,9 +88,17 @@ export const slugifyBranchLocator = (
   options?: { includeContextFragment?: boolean; urlSafe?: boolean }
 ) => {
   if (!bl) throw new Error("falsy branch locator");
-  const { context, projectPath, orgPath, path, version } = bl;
-  const withProject = projectPath ? `${projectPath}-${path}` : path;
-  const withOrg = `${orgPath}-${withProject}`;
+  const {
+    context,
+    projectSegment,
+    organizationSegment,
+    pathSegment,
+    version,
+  } = bl;
+  const withProject = projectSegment
+    ? `${projectSegment}-${pathSegment}`
+    : pathSegment;
+  const withOrg = `${organizationSegment}-${withProject}`;
   let contextPart = "";
   const versionPart = version ? ":" + version : "";
   if (options && options.includeContextFragment !== false)
