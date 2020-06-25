@@ -1,4 +1,4 @@
-/// <reference path="../interfaces/moss.d.ts" />
+import { Moss, Merge, Expand } from './types';
 
 import { interpolateAsync as __interpolate } from "./interpolate";
 import { cascadeAsync as _cascade } from "./cascade";

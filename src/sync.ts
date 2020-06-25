@@ -1,4 +1,4 @@
-/// <reference path="../interfaces/moss.d.ts" />
+import { Moss, Merge, Expand } from './types';
 
 import {
   map,

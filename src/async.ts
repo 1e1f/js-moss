@@ -1,5 +1,3 @@
-/// <reference path="../interfaces/moss.d.ts" />
-
 import {
   merge,
   mergeArray,
@@ -42,6 +40,8 @@ import {
   pushErrorPath,
   popErrorPath,
 } from "./state";
+
+import { Moss, Merge, Expand } from './types';
 
 import { handleError } from "./util";
 import { dereference as dereferenceSync } from "./sync";

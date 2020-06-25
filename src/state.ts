@@ -1,4 +1,4 @@
-/// <reference path="../interfaces/moss.d.ts" />
+import { Moss } from './types';
 
 import { clone, Graph } from "typed-json-transform";
 import { encodeBranchLocator } from "./branch";
@@ -16,7 +16,7 @@ export const newState = (branch?: Moss.Branch): Moss.State => {
   const path = branch ? encodeBranchLocator(branch) : "root";
   // const contentHash = jsonStableHash(branch ? branch.data : {});
 
-  const pathGraph = new Graph();
+  const pathGraph = new Graph<Moss.Branch>();
   pathGraph.addNode(path, branch);
 
   // const contentHashGraph = new Graph<null>();

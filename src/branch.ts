@@ -1,4 +1,5 @@
 import { join } from "path";
+import { Moss } from './types';
 
 export const splitBranchLocator = (bl: string) => {
   const parts = bl.split(":");

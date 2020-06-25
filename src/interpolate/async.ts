@@ -1,4 +1,5 @@
 import { check } from 'typed-json-transform';
+import { Expand } from '../types';
 const expression = require('../../compiled/expression');
 
 import { newState, parse, reduce, append as _append, pop } from './shared';

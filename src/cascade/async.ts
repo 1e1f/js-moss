@@ -1,3 +1,4 @@
+import { Moss, Merge } from '../types';
 import { parseSelectors, select } from './shared';
 
 interface Options {

@@ -1,6 +1,6 @@
-/// <reference path="../../interfaces/interpolate.d.ts" />
 
 import { check, valueForKeyPath } from 'typed-json-transform';
+import { Expand } from '../types';
 
 export const chunk = (txt: string, brackets: string | string[]) => {
   var parts = txt.split(brackets[0]);

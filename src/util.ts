@@ -1,4 +1,4 @@
-/// <reference path="../interfaces/moss.d.ts" />
+import { Moss, MossError } from './types';
 
 var errorReporter: Moss.ErrorReporter;
 export function getErrorReporter() {
@@ -9,15 +9,6 @@ export function setErrorReporter(reporter: Moss.ErrorReporter) {
     errorReporter = reporter;
 }
 
-export function MossError(error: Moss.Error) {
-    const { message, source, stack, errorPaths } = error;
-    this.name = "MossError";
-    this.message = (message || "");
-    this.stack = stack;
-    this.source = source;
-    this.errorPaths = errorPaths;
-}
-MossError.prototype = Error.prototype;
 
 const formatPaths = (paths: Moss.ErrorPath[]) => {
     const res = [];
