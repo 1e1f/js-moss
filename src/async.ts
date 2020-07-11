@@ -52,6 +52,24 @@ export const continueWithNewFrame = async (
 
 export const next = continueWithNewFrame;
 
+export const parseFunctions = async (current: Moss.ReturnValue) => {
+  const { state, data } = current;
+  const source: any = clone(data);
+  for (const _key of Object.keys(source)) {
+    if (_key && _key[_key.length - 1] === "<") {
+      const fn = _key.slice(0, _key.length - 1);
+      if (functions[fn]) {
+        await functions[fn](current, source[_key]);
+      } else {
+        throw {
+          message: `no known function ${fn}`,
+          errorPaths: state.errorPaths,
+        };
+      }
+    }
+  }
+}
+
 export const parseObject = async (current: Moss.ReturnValue) => {
   const { state } = current;
   const source: any = clone(current.data);
@@ -70,7 +88,7 @@ export const parseObject = async (current: Moss.ReturnValue) => {
       res = source[_key];
     } else {
       if (_key[_key.length - 1] === "<") {
-        const fn = _key.slice(0, key.length - 1);
+        const fn = _key.slice(0, _key.length - 1);
         if (functions[fn]) {
           await functions[fn](current, source[_key]);
         } else {
@@ -145,8 +163,8 @@ export const parseNextStructure = async (
       return await parseArray(layer, input);
     } else if (check(input, Object)) {
       if (shouldConstruct(input)) {
-        const { state: cascadeState } = await parseObject({ data: input, state });
-        return await cascade({ data: input, state: cascadeState });
+        await parseFunctions({ data: input, state });
+        return await cascade({ data: input, state });
       }
       return await parseObject({ data: input, state });
     } else {

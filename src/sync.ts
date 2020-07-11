@@ -50,6 +50,24 @@ export const continueWithNewFrame = (
 
 export const next = continueWithNewFrame;
 
+export const parseFunctions = (current: Moss.ReturnValue) => {
+  const { state, data } = current;
+  const source: any = clone(data);
+  for (const _key of Object.keys(source)) {
+    if (_key && _key[_key.length - 1] === "<") {
+      const fn = _key.slice(0, _key.length - 1);
+      if (functions[fn]) {
+        functions[fn](current, source[_key]);
+      } else {
+        throw {
+          message: `no known function ${fn}`,
+          errorPaths: state.errorPaths,
+        };
+      }
+    }
+  }
+}
+
 export const parseObject = (current: Moss.ReturnValue) => {
   const { state } = current;
   const source: any = clone(current.data);
@@ -141,6 +159,7 @@ export const parseNextStructure = (
       return parseArray(layer, input);
     } else if (check(input, Object)) {
       if (shouldConstruct(input)) {
+        parseFunctions({ data: input, state });
         return cascade({ data: input, state });
       }
       return parseObject({ data: input, state });

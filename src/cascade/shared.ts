@@ -71,6 +71,6 @@ export const shouldConstruct = (data: any): any => {
         }
     }
     if (implicit) {
-        throw new Error('using constructors <+ or <- without base definition <=')
+        throw new Error('when using merge operators +: or -: please also start with a =:')
     }
 }
