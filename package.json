@@ -1,14 +1,14 @@
 {
   "name": "js-moss",
   "description": "moss is a set of parsing rules for yaml and json",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "homepage": "https://github.com/1e1f/js-moss",
   "author": {
     "name": "Leif Shackelford",
     "email": "structuresound@gmail.com"
   },
   "engines": {
-    "node": ">= 6"
+    "node": ">= 8"
   },
   "repository": {
     "type": "git",
@@ -56,7 +56,7 @@
   ],
   "dependencies": {
     "js-yaml": "^3.14",
-    "typed-json-transform": "^0.25.6"
+    "typed-json-transform": "^0.25.7"
   },
   "nyc": {
     "include": [

@@ -6,3 +6,5 @@ export * from "./state";
 import * as Async from "./async";
 import * as Sync from "./sync";
 export { Async, Sync };
+
+export { Moss } from './types';

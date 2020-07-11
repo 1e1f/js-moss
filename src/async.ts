@@ -1,7 +1,5 @@
 import {
-  merge,
   mergeArray,
-  mergeObject,
   amap as map,
   aokmap as okmap,
   arrayify,
@@ -9,15 +7,10 @@ import {
   check,
   clone,
   each,
-  union,
-  difference,
   sum,
   valueForKeyPath,
   all,
   isEqual,
-  unflatten,
-  flatObject,
-  unsetKeyPath,
   setValueForKeyPath,
   mergeOrReturnAssignment,
 } from "typed-json-transform";
@@ -152,7 +145,8 @@ export const parseNextStructure = async (
       return await parseArray(layer, input);
     } else if (check(input, Object)) {
       if (shouldConstruct(input)) {
-        return await cascade({ data: input, state });
+        const { state: cascadeState } = await parseObject({ data: input, state });
+        return await cascade({ data: input, state: cascadeState });
       }
       return await parseObject({ data: input, state });
     } else {

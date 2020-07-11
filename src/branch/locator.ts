@@ -1,5 +1,5 @@
 import { join } from "path";
-import { Moss } from './types';
+import { Moss } from '../types';
 
 export const splitBranchLocator = (bl: string) => {
   const parts = bl.split(":");
@@ -63,7 +63,7 @@ export const decodeBranchLocator = (bl: string): Moss.Branch => {
 
 export const encodeBranchLocator = (
   bl: Moss.Branch,
-  options?: { includeContextFragment?: boolean; urlSafe?: boolean }
+  options?: { includeContextFragment?: boolean; urlSafe?: boolean, stripVersion?: boolean }
 ) => {
   if (!bl) throw new Error("falsy branch locator");
   const {
@@ -81,7 +81,7 @@ export const encodeBranchLocator = (
   const versionPart = version ? ":" + version : "";
   if (options && options.includeContextFragment !== false)
     contextPart = context + ":";
-  return `${contextPart}${withOrg}${versionPart}`;
+  return `${contextPart}${withOrg}${options && options.stripVersion ? '' : versionPart}`;
 };
 
 export const slugifyBranchLocator = (

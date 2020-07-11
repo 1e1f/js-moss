@@ -1,5 +1,4 @@
-import { Graph } from 'typed-json-transform/esm/graph';
-import { Merge } from 'typed-json-transform/esm/types';
+import { Graph, Merge } from 'typed-json-transform';
 
 export { Merge, Graph };
 
