@@ -17,7 +17,7 @@ export const encodeVersionLine = (branch: Moss.Branch) =>
 
 export const parseVersionLine = (versionLine: string) => {
   if (versionLine.indexOf(versionPrefix) == 0) {
-    return decodeBranchLocator(versionLine.slice(2));
+    return decodeBranchLocator(versionLine.slice(versionPrefix.length));
   } else {
     // console.log({ firstLine });
     throw new Error("bad version line: " + versionLine);
