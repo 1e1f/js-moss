@@ -10,18 +10,19 @@ export const withoutVersion = (branch: Moss.Branch | string) => {
   return encodeBranchLocator(withoutVersion);
 };
 
+export const versionPrefix = "^";
+
 export const encodeVersionLine = (branch: Moss.Branch) =>
-  "#^" + encodeBranchLocator(branch) + "\n";
+  versionPrefix + encodeBranchLocator(branch) + "\n";
 
 export const parseVersionLine = (versionLine: string) => {
-  if (versionLine.indexOf("#^") == 0) {
+  if (versionLine.indexOf(versionPrefix) == 0) {
     return decodeBranchLocator(versionLine.slice(2));
   } else {
     // console.log({ firstLine });
     throw new Error("bad version line: " + versionLine);
   }
 }
-
 export const parseEditorText = (text: string) => {
   const [firstLine, ...body] = text.split("\n");
   const metaData = parseVersionLine(firstLine);
