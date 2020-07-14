@@ -1,5 +1,5 @@
 config:
-  $<:
+  <:
     weather:
       seattle:
         type: rain
@@ -33,7 +33,7 @@ config:
       with>: =memo * value
       memo: 1
   sumArray:
-    $<:
+    <:
       assign: var
       $assign: 15
     sum<: [10, $var, -30]

@@ -24,8 +24,8 @@ const formatPaths = (paths: Moss.ErrorPath[]) => {
     return res;
 }
 
-export const handleError = (e: MossError, layer: Moss.ReturnValue, input?: Moss.BranchData) => {
-    let error: MossError;
+export const handleError = (e: Moss.Error, layer: Moss.ReturnValue, input?: Moss.BranchData) => {
+    let error: Moss.Error;
     const { errorPaths } = layer.state;
     const stack = formatPaths(errorPaths);
     const at = stack[stack.length - 1];

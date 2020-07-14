@@ -13,6 +13,7 @@ import {
   isEqual,
   setValueForKeyPath,
   mergeOrReturnAssignment,
+  contains,
 } from "typed-json-transform";
 import { interpolateAsync as __interpolate } from "./interpolate";
 import {
@@ -55,18 +56,56 @@ export const next = continueWithNewFrame;
 export const parseFunctions = async (current: Moss.ReturnValue) => {
   const { state, data } = current;
   const source: any = clone(data);
+  const target = state.target || current.data;
   for (const _key of Object.keys(source)) {
-    if (_key && _key[_key.length - 1] === "<") {
-      const fn = _key.slice(0, _key.length - 1);
-      if (functions[fn]) {
-        await functions[fn](current, source[_key]);
-      } else {
-        throw {
-          message: `no known function ${fn}`,
-          errorPaths: state.errorPaths,
-        };
+    if (_key[0] === "<" || _key[_key.length - 1] === "<") {
+      await parseFunction(current, state, source, target, _key);
+    }
+  }
+}
+
+export const parseFunction = async (
+  current: Moss.ReturnValue,
+  state: any,
+  source: any,
+  target: any,
+  _key: string,
+  setKey?: (key: string) => void,
+  setRes?: (res: any) => void) => {
+  if (_key.length == 1) {
+    await functions.closure(current, source[_key]);
+  } else if (contains(mergeOperators, _key[1])) {
+    const operator = _key[1];
+    if (functions[operator]) {
+      await functions[operator](current, source[_key]);
+    } else {
+      const { selectors } = parseSelectors(state.selectors);
+      const precedence = select(selectors, _key.slice(2));
+      if (target != current.data)
+        throw { message: "not targeting current object..." };
+      if (precedence > (state.merge.precedence[operator] || 0)) {
+        state.merge.precedence[operator] = precedence;
+        setKey && setKey(_key[0] + _key[1]);
+        setRes && setRes((await continueWithNewFrame(current, source[_key])).data);
       }
     }
+  }
+  else {
+    let fn;
+    if (_key[_key.length - 1] === "<") {
+      fn = _key.slice(0, _key.length - 1);
+    } else {
+      fn = _key.slice(1);
+    }
+    if (functions[fn]) {
+      await functions[fn](current, source[_key]);
+    } else {
+      throw {
+        message: `no known function ${fn}`,
+        errorPaths: state.errorPaths,
+      };
+    }
+
   }
 }
 
@@ -74,9 +113,8 @@ export const parseObject = async (current: Moss.ReturnValue) => {
   const { state } = current;
   const source: any = clone(current.data);
   const target = state.target || current.data;
-
-  let res;
   for (const _key of Object.keys(source)) {
+    let res;
     if (!_key) {
       continue;
     }
@@ -87,27 +125,8 @@ export const parseObject = async (current: Moss.ReturnValue) => {
       key = _key.slice(0, _key.length - 1);
       res = source[_key];
     } else {
-      if (_key[_key.length - 1] === "<") {
-        const fn = _key.slice(0, _key.length - 1);
-        if (functions[fn]) {
-          await functions[fn](current, source[_key]);
-        } else {
-          throw {
-            message: `no known function ${fn}`,
-            errorPaths: state.errorPaths,
-          };
-        }
-      } else if (_key[0] === "<") {
-        const operator = _key[1];
-        const { selectors } = parseSelectors(state.selectors);
-        const precedence = select(selectors, _key.slice(2));
-        if (target != current.data)
-          throw { message: "not targeting current object..." };
-        if (precedence > (state.merge.precedence[operator] || 0)) {
-          state.merge.precedence[operator] = precedence;
-          key = _key[0] + _key[1];
-          res = (await continueWithNewFrame(current, source[_key])).data;
-        }
+      if (_key[0] === "<" || _key[_key.length - 1] === "<") {
+        await parseFunction(current, state, source, target, _key, (s) => key = s, (r) => res = r);
       } else {
         let val = source[_key];
         if (_key[0] === "$") {
@@ -250,6 +269,21 @@ addResolvers({
   },
 });
 
+const stack = async (current: Moss.ReturnValue, args: any) => {
+  const { data, state: _state } = current;
+  const state = clone(_state);
+  state.locked = true;
+  state.target = state.stack;
+  await parseNextStructure(
+    {
+      data,
+      state,
+    },
+    args
+  );
+  _state.stack = state.stack;
+};
+
 addFunctions({
   select: async (current: Moss.ReturnValue, args: any) => {
     const { data, state: _state } = current;
@@ -265,21 +299,9 @@ addFunctions({
     );
     _state.selectors = state.selectors;
   },
-  stack: async (current: Moss.ReturnValue, args: any) => {
-    const { data, state: _state } = current;
-    const state = clone(_state);
-    state.locked = true;
-    state.target = state.stack;
-    await parseNextStructure(
-      {
-        data,
-        state,
-      },
-      args
-    );
-    _state.stack = state.stack;
-  },
-  $: async (current: Moss.ReturnValue, args: any) => {
+  stack: stack,
+  $: stack,
+  closure: async (current: Moss.ReturnValue, args: any) => {
     await parseNextStructure(current, args);
   },
   extend: async (parent: Moss.ReturnValue, args: any) => {

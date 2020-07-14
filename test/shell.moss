@@ -1,5 +1,5 @@
 config:
-  $<:
+  <:
     localVar: testSuccess
   a: $(echo ${localVar})
 expect:

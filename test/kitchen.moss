@@ -12,7 +12,7 @@ config:
     useCustomLibrary:
       =: false
       =ios: true
-  $<:
+  <:
     # compiler>: &compiler
     #   cc: $host.compiler
     host:
@@ -39,7 +39,7 @@ config:
         +ios simulator:
           - 'simulator.c'
       defines:
-        $<:
+        <:
           LE: 4321
           BE: 1234
         TARGET_ENDIANNESS: ${${endianness}}
@@ -60,7 +60,7 @@ config:
             endianness: LE
         =ios !linux:
           device:
-            $<>:
+            <>:
               arch: arm
               endianness: BE
           simulator:
@@ -73,7 +73,7 @@ config:
     colors:
       =:
         purple: rgb(184, 0, 142)
-        $<:
+        <:
           r: 184 
           g: 0
           b: 142

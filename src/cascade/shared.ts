@@ -6,6 +6,9 @@ export function startsWith(string: string, s: string) {
 
 export function replaceAll(str: string, find: string, rep: string) {
     const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (!str) {
+        return str;
+    }
     return str.replace(new RegExp(escaped, 'g'), rep);
 }
 

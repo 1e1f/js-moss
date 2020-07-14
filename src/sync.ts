@@ -1,6 +1,7 @@
 import { Moss, Merge, Expand } from './types';
 
 import {
+  contains,
   map,
   okmap,
   arrayify,
@@ -26,6 +27,7 @@ import {
 import * as yaml from "js-yaml";
 
 import { getBranchSync as getBranch } from "./resolvers";
+import { encodeBranchLocator } from "./branch";
 
 import {
   newLayer,
@@ -53,18 +55,56 @@ export const next = continueWithNewFrame;
 export const parseFunctions = (current: Moss.ReturnValue) => {
   const { state, data } = current;
   const source: any = clone(data);
+  const target = state.target || current.data;
   for (const _key of Object.keys(source)) {
-    if (_key && _key[_key.length - 1] === "<") {
-      const fn = _key.slice(0, _key.length - 1);
-      if (functions[fn]) {
-        functions[fn](current, source[_key]);
-      } else {
-        throw {
-          message: `no known function ${fn}`,
-          errorPaths: state.errorPaths,
-        };
+    if (_key[0] === "<" || _key[_key.length - 1] === "<") {
+      parseFunction(current, state, source, target, _key);
+    }
+  }
+}
+
+export const parseFunction = (
+  current: Moss.ReturnValue,
+  state: any,
+  source: any,
+  target: any,
+  _key: string,
+  setKey?: (key: string) => void,
+  setRes?: (res: any) => void) => {
+  if (_key.length == 1) {
+    functions.closure(current, source[_key]);
+  } else if (contains(mergeOperators, _key[1])) {
+    const operator = _key[1];
+    if (functions[operator]) {
+      functions[operator](current, source[_key]);
+    } else {
+      const { selectors } = parseSelectors(state.selectors);
+      const precedence = select(selectors, _key.slice(2));
+      if (target != current.data)
+        throw { message: "not targeting current object..." };
+      if (precedence > (state.merge.precedence[operator] || 0)) {
+        state.merge.precedence[operator] = precedence;
+        setKey && setKey(_key[0] + _key[1]);
+        setRes && setRes((continueWithNewFrame(current, source[_key])).data);
       }
     }
+  }
+  else {
+    let fn;
+    if (_key[_key.length - 1] === "<") {
+      fn = _key.slice(0, _key.length - 1);
+    } else {
+      fn = _key.slice(1);
+    }
+    if (functions[fn]) {
+      functions[fn](current, source[_key]);
+    } else {
+      throw {
+        message: `no known function ${fn}`,
+        errorPaths: state.errorPaths,
+      };
+    }
+
   }
 }
 
@@ -72,9 +112,8 @@ export const parseObject = (current: Moss.ReturnValue) => {
   const { state } = current;
   const source: any = clone(current.data);
   const target = state.target || current.data;
-
-  let res;
   for (const _key of Object.keys(source)) {
+    let res;
     if (!_key) {
       continue;
     }
@@ -85,31 +124,12 @@ export const parseObject = (current: Moss.ReturnValue) => {
       key = _key.slice(0, _key.length - 1);
       res = source[_key];
     } else {
-      if (_key[_key.length - 1] === "<") {
-        const fn = _key.slice(0, key.length - 1);
-        if (functions[fn]) {
-          functions[fn](current, source[_key]);
-        } else {
-          throw {
-            message: `no known function ${fn}`,
-            errorPaths: state.errorPaths,
-          };
-        }
-      } else if (_key[0] === "<") {
-        const operator = _key[1];
-        const { selectors } = parseSelectors(state.selectors);
-        const precedence = select(selectors, _key.slice(2));
-        if (target != current.data)
-          throw { message: "not targeting current object..." };
-        if (precedence > (state.merge.precedence[operator] || 0)) {
-          state.merge.precedence[operator] = precedence;
-          key = _key[0] + _key[1];
-          res = continueWithNewFrame(current, source[_key]).data;
-        }
+      if (_key[0] === "<" || _key[_key.length - 1] === "<") {
+        parseFunction(current, state, source, target, _key, (s) => key = s, (r) => res = r);
       } else {
         let val = source[_key];
         if (_key[0] === "$") {
-          key = <any>interpolate(current, _key).data;
+          key = <any>(interpolate(current, _key)).data;
         } else if (_key[0] == "\\") {
           key = key.slice(1);
         } else if (_key.indexOf(".") != -1) {
@@ -120,7 +140,7 @@ export const parseObject = (current: Moss.ReturnValue) => {
         } else {
           key = _key;
         }
-        res = continueWithNewFrame(current, val).data;
+        res = (continueWithNewFrame(current, val)).data;
       }
     }
     if (key) {
@@ -133,14 +153,16 @@ export const parseObject = (current: Moss.ReturnValue) => {
   return current;
 };
 
-export const parseArray = (layer: Moss.ReturnValue, input: Moss.BranchData) => {
+export const parseArray = (
+  layer: Moss.ReturnValue,
+  input: Moss.BranchData
+) => {
   const { state } = layer;
   return {
     data: map(input, (item: any, index) => {
       currentErrorPath(state).path.push(`${index}`);
-      const res: Moss.ReturnValue = continueWithNewFrame(
-        { data: input, state },
-        item
+      const res: Moss.ReturnValue = (
+        continueWithNewFrame({ data: input, state }, item)
       ).data;
       currentErrorPath(state).path.pop();
       return res;
@@ -180,7 +202,7 @@ export const onMatch = (
   let { state, data: lhs } = rv;
   currentErrorPath(state).path.push(key);
   state.merge.operator = operator;
-  const rhs = continueWithNewFrame({ data: {}, state }, setter).data;
+  const rhs = (continueWithNewFrame({ data: {}, state }, setter)).data;
   if (check(lhs, Array)) {
     mergeArray(rv, rhs);
   } else if (check(lhs, Object)) {
@@ -246,6 +268,21 @@ addResolvers({
   },
 });
 
+const stack = (current: Moss.ReturnValue, args: any) => {
+  const { data, state: _state } = current;
+  const state = clone(_state);
+  state.locked = true;
+  state.target = state.stack;
+  parseNextStructure(
+    {
+      data,
+      state,
+    },
+    args
+  );
+  _state.stack = state.stack;
+};
+
 addFunctions({
   select: (current: Moss.ReturnValue, args: any) => {
     const { data, state: _state } = current;
@@ -261,21 +298,9 @@ addFunctions({
     );
     _state.selectors = state.selectors;
   },
-  stack: (current: Moss.ReturnValue, args: any) => {
-    const { data, state: _state } = current;
-    const state = clone(_state);
-    state.locked = true;
-    state.target = state.stack;
-    parseNextStructure(
-      {
-        data,
-        state,
-      },
-      args
-    );
-    _state.stack = state.stack;
-  },
-  $: (current: Moss.ReturnValue, args: any) => {
+  stack: stack,
+  $: stack,
+  closure: (current: Moss.ReturnValue, args: any) => {
     parseNextStructure(current, args);
   },
   extend: (parent: Moss.ReturnValue, args: any) => {
@@ -380,7 +405,7 @@ addFunctions({
       nextLayer.state.auto.value = item;
       nextLayer.state.auto.key = key;
       i++;
-      return parseNextStructure(nextLayer, clone(to)).data;
+      return (parseNextStructure(nextLayer, clone(to))).data;
     });
   },
   remap: (parent: Moss.ReturnValue, args: any) => {
@@ -416,7 +441,7 @@ addFunctions({
       nextLayer.state.auto.value = item;
       nextLayer.state.auto.memo = key;
       i++;
-      return parseNextStructure(nextLayer, clone(to)).data;
+      return (parseNextStructure(nextLayer, clone(to))).data;
     });
   },
   reduce: (parent: Moss.ReturnValue, args: any) => {
@@ -452,7 +477,7 @@ addFunctions({
           nextLayer.state.auto.index = i;
           nextLayer.state.auto.value = val;
           nextLayer.state.auto.memo = res;
-          res = parseNextStructure(nextLayer, data.with).data;
+          res = (parseNextStructure(nextLayer, data.with)).data;
         }
       }
       parent.data = res;
@@ -468,7 +493,8 @@ addFunctions({
         i++;
         state.auto.key = key;
         state.auto.value = val;
-        const res = parseNextStructure(nextLayer, clone(data.with)).data;
+        const res = (parseNextStructure(nextLayer, clone(data.with)))
+          .data;
         if (check(res, Object)) {
           extend(nextLayer.state.auto.memo, res);
         } else state.auto.memo = res;
@@ -477,7 +503,7 @@ addFunctions({
     }
   },
   compare: (parent: Moss.ReturnValue, _args: any) => {
-    const args = continueWithNewFrame(parent, _args).data;
+    const args = (continueWithNewFrame(parent, _args)).data;
     const [first, ...rest] = args;
     const res = all(rest, (arg) => {
       return isEqual(arg, first);
@@ -541,7 +567,11 @@ export const dereference = (
   return res;
 };
 
-function _interpolate(layer: Moss.ReturnValue, input: any, dictionary: any) {
+function _interpolate(
+  layer: Moss.ReturnValue,
+  input: any,
+  dictionary: any
+) {
   let popAll = 0;
   const options = {
     ...{
@@ -563,36 +593,51 @@ function _interpolate(layer: Moss.ReturnValue, input: any, dictionary: any) {
         // call method
         const keys = Object.keys(obj);
         if (!(keys && keys.length)) return "";
-        const nextLayer: Moss.ReturnValue = parseNextStructure(layer, obj);
+        const nextLayer: Moss.ReturnValue = parseNextStructure(
+          layer,
+          obj
+        );
         const res = nextLayer.data;
         return res;
       },
-      fetch: (uris: string, sourceMap: any) => {
+      fetch: (bl: string, sourceMap: any) => {
         popAll++;
         pushErrorPath(layer.state, {
           path: sourceMap,
           rhs: true,
         });
-        const b = getBranch(uris, resolvers, layer);
-        if (!b) {
+        let resolvedBranch;
+        try {
+          resolvedBranch = getBranch(bl, resolvers, layer);
+        } catch (e) {
           throw {
-            message: `Can't resolve ${uris}\nNone of the available resolvers found a match.\n[${map(
-              resolvers,
-              (r) => r.name
-            )
+            message: `Failed resolve ${bl}\n ${e.message}`,
+          };
+        }
+        if (!resolvedBranch) {
+          throw {
+            message: `No results @:\n[${(map(resolvers, (r) => r.name))
               .filter((e) => e)
               .join(", ")}] `,
           };
         }
-        if (b.data) {
+        if (resolvedBranch.data) {
           popAll++;
-          pushErrorPath(layer.state, { path: ["^" + b.path] });
-          const res: Moss.ReturnValue = parseNextStructure(layer, b.data);
+          pushErrorPath(layer.state, {
+            path: ["^" + encodeBranchLocator(resolvedBranch)],
+          });
+          const res: Moss.ReturnValue = parseNextStructure(
+            layer,
+            resolvedBranch.data
+          );
           const {
             data,
             state: { auto, stack, selectors, merge },
           } = res;
-          b.intermediate = { data, state: { auto, stack, selectors, merge } };
+          resolvedBranch.intermediate = {
+            data,
+            state: { auto, stack, selectors, merge },
+          };
           return data;
         }
       },
@@ -640,12 +685,15 @@ export function startBranch(branch: Moss.Branch) {
   return res;
 }
 
-export function parse(trunk: Moss.BranchData, baseParser?: Moss.BranchData) {
+export function parse(
+  trunk: Moss.BranchData,
+  baseParser?: Moss.BranchData
+) {
   if (baseParser) {
     const layer = parseNextStructure(newLayer(), baseParser);
-    return parseNextStructure(layer, trunk).data;
+    return (parseNextStructure(layer, trunk)).data;
   }
-  return start(trunk).data;
+  return (start(trunk)).data;
 }
 
 export function fromJSON(config: string, baseParser?: string) {
@@ -655,22 +703,13 @@ export function fromJSON(config: string, baseParser?: string) {
   return parse(JSON.parse(config));
 }
 
-/**
- * Loads one or multiple .moss files.
- * @param {string|string[]} config One or multiple files to load
- * @param {baseParser} baseParser context / stack vars, defaults to create a new one if omitted.
- * @returns {any}
- * @see {@link Root#load}
- */
 export function load(config: string, baseParser?: string) {
   if (baseParser) {
-    const root = yaml.load(config);
-    return parse(clone(root), yaml.load(baseParser));
+    return parse(yaml.load(config), yaml.load(baseParser));
   }
   return parse(yaml.load(config));
 }
 
 export function transform(config: string, baseParser?: string) {
-  const ast = load(config, baseParser);
-  return yaml.dump(ast);
+  return yaml.dump(load(config, baseParser));
 }

@@ -1,8 +1,8 @@
 config:
-  $<:
+  <:
     a: pass
-    select<:
-      $<:
+    <select:
+      <:
         levelTwoVar: 1
       $a: $levelTwoVar
     pass:

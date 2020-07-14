@@ -1744,10 +1744,10 @@ type-detect@^4.0.0, type-detect@^4.0.5:
   resolved "https://registry.yarnpkg.com/type-detect/-/type-detect-4.0.8.tgz#7646fb5f18871cfbb7749e69bd39a6388eb7450c"
   integrity sha512-0fr/mIH1dlO+x7TlcMy+bIDqKPsw/70tVyeHW787goQjhmqaZe10uwLujubK9q9Lg6Fiho1KUKDYz0Z7k7g5/g==
 
-typed-json-transform@^0.25.6:
-  version "0.25.6"
-  resolved "https://registry.yarnpkg.com/typed-json-transform/-/typed-json-transform-0.25.6.tgz#1b34f01c1cde5fb98758e71ae70d2121a175316a"
-  integrity sha512-rFAjWqxuw9nsWpZoHuiiAkGwVoWmCEdJVd0Nhme/aoAyuO2UrEhLOTqaY3PObQ1TKpNNA9qz0mNYk7WtTWQ4Qw==
+typed-json-transform@^0.25.7:
+  version "0.25.7"
+  resolved "https://registry.yarnpkg.com/typed-json-transform/-/typed-json-transform-0.25.7.tgz#dd08069f44de0cc0c590c771f653cc2d47a25449"
+  integrity sha512-fpbRKjQT0csLSLKZNOnnm3H8qM6EQlphyzBAWp1BIrkBCbOujxh610/lXhhKSi0R3R8y4WK+AD+2l7J1X4cgVg==
 
 typescript@3.2.2:
   version "3.2.2"

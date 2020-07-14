@@ -12,8 +12,9 @@ export function MossError(error: Moss.Error) {
 }
 MossError.prototype = Error.prototype;
 
-export declare namespace Moss {
+// export declare type MossError = Error & Moss.Error;
 
+export declare namespace Moss {
   interface ErrorPath {
     path: any[];
     rhs?: boolean;
