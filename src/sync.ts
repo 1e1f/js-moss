@@ -72,7 +72,7 @@ export const parseFunction = (
   setKey?: (key: string) => void,
   setRes?: (res: any) => void) => {
   if (_key.length == 1) {
-    functions.closure(current, source[_key]);
+    functions._closure(current, source[_key]);
   } else if (contains(mergeOperators, _key[1])) {
     const operator = _key[1];
     if (functions[operator]) {
@@ -300,7 +300,7 @@ addFunctions({
   },
   stack: stack,
   $: stack,
-  closure: (current: Moss.ReturnValue, args: any) => {
+  _closure: (current: Moss.ReturnValue, args: any) => {
     parseNextStructure(current, args);
   },
   extend: (parent: Moss.ReturnValue, args: any) => {

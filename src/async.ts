@@ -73,7 +73,7 @@ export const parseFunction = async (
   setKey?: (key: string) => void,
   setRes?: (res: any) => void) => {
   if (_key.length == 1) {
-    await functions.closure(current, source[_key]);
+    await functions._closure(current, source[_key]);
   } else if (contains(mergeOperators, _key[1])) {
     const operator = _key[1];
     if (functions[operator]) {
@@ -301,7 +301,7 @@ addFunctions({
   },
   stack: stack,
   $: stack,
-  closure: async (current: Moss.ReturnValue, args: any) => {
+  _closure: async (current: Moss.ReturnValue, args: any) => {
     await parseNextStructure(current, args);
   },
   extend: async (parent: Moss.ReturnValue, args: any) => {

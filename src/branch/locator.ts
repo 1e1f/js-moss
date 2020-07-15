@@ -73,10 +73,15 @@ export const encodeBranchLocator = (
     pathSegment,
     version,
   } = bl;
-  const withProject = projectSegment
-    ? join(projectSegment, pathSegment)
-    : pathSegment;
-  const withOrg = join(organizationSegment, withProject);
+  let withProject = pathSegment;
+  if (projectSegment) {
+    if (pathSegment) {
+      withProject = join(projectSegment, pathSegment)
+    } else {
+      withProject = projectSegment;
+    }
+  }
+  const withOrg = withProject ? join(organizationSegment, withProject) : organizationSegment;
   let contextPart = "";
   const versionPart = version ? ":" + version : "";
   if (options && options.includeContextFragment !== false)
