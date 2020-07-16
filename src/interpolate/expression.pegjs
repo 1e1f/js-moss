@@ -16,26 +16,45 @@ Simplifiy = _ expr:ReEntry+ _  {
 
 ReEntry = StringComparison / Comparison;
 
-StringComparison = head:((MemberOperator / String) _ Keyword) tail:(_ Comparison)* {
-      return tail.reduce(function([result], element) {
-      	const method = head[2];
-     	const arg = element[1];
-        //throw new Error(result)
-        if (typeof arg == 'string'){
-        	if (method == "contains" || method == "includes"){
-              return result.indexOf(arg) != -1;
-          }
-          	else if (method == "startsWith"){
-              return result.startsWith(arg);
-          }
-          	else if (method == "endsWith"){
-              return result.endsWith(arg);
-          }
-        } else {
- 			throw new Error("bad string comp: " + arg);
+StringComparison = head:((MemberOperator / String / Array) _ ("!")* Keyword) tail:(_ Comparison)* {
+  return tail.reduce(function ([lhs], element) {
+    const method = head[3];
+    const negated = head[2] == "!";
+    const arg = element[1];
+    // throw new Error(negated)
+    let boolean;
+    if (typeof lhs == "string") {
+      if (method == "contains" || method == "includes") {
+        boolean = lhs.indexOf(arg) != -1;
+      } else if (method == "startsWith") {
+        boolean = lhs.startsWith(arg);
+      } else if (method == "endsWith") {
+        boolean = lhs.endsWith(arg);
+      }
+    } else if (Array.isArray(lhs)) {
+      if (method == "contains" || method == "includes") {
+        boolean = lhs.indexOf(arg) != -1;
+      } else if (method == "startsWith") {
+        //throw new Error(lhs[0])
+        boolean = lhs[0] == arg;
+      } else if (method == "endsWith") {
+        boolean = lhs.length && lhs[lhs.length - 1] == arg;
+      } else if (method == "hasKey") {
+      	if (isNumeric(arg)){
+      		boolean = lhs.length > arg;
         }
-      }, head);
+      }
+    } else if (typeof lhs == "object") {
+      if (method == "hasKey") {
+      	boolean = lhs.hasOwnProperty(arg)
+      }
+    } else {
+      throw new Error("bad string comp: " + lhs + method + rhs);
     }
+    if (negated) return !boolean;
+    return boolean;
+  }, head);
+}
 
 Comparison = head:AddOp tail:(_ (">=" / "<=" / "==" / "!=" / ">" / "<"   / "= ") _ AddOp)* {
       return tail.reduce(function(result, element) {
@@ -150,7 +169,7 @@ ArrayItem = item:(("," _ ReEntry) / _ ReEntry) {
 
 Chunk = (Any / Space)
 Any = MemberOperator / StackReference / Array / Identifier / Number
-Keyword = "contains" / "startsWith" / "endsWith" / "includes"
+Keyword = "contains" / "startsWith" / "endsWith" / "includes" / "hasKey"
 
 Identifier = Word
 Word =  left:[_a-zA-Z] right:[_a-zA-Z0-9]* { return left + right.join('') }
