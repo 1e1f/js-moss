@@ -16,7 +16,7 @@ const formatPaths = (paths: Moss.ErrorPath[]) => {
         if (e.rhs) {
             const start = e.path[0];
             const end = start + e.path[1];
-            res[res.length - 1] += `.${start}-${end}`
+            res[res.length - 1] += `:${start}-${end}`
         } else {
             res.push(e.path.join('.'));
         }
@@ -29,6 +29,7 @@ export const handleError = (e: Moss.Error, layer: Moss.ReturnValue, input?: Moss
     const { errorPaths } = layer.state;
     const stack = formatPaths(errorPaths);
     const at = stack[stack.length - 1];
+    console.log('handle error', e);
     error = {
         name: 'MossError',
         message: `${e.message || 'unexpected error'}`,
