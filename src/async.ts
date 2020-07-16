@@ -23,6 +23,7 @@ import {
   parseSelectors,
 } from "./cascade";
 import * as yaml from "js-yaml";
+const expression = require('../compiled/expression');
 
 import { getBranchAsync as getBranch } from "./resolvers";
 import { encodeBranchLocator } from "./branch";
@@ -320,6 +321,31 @@ addFunctions({
       res = extend(res, ir.data);
     }
     return res;
+  },
+  match: async (parent: Moss.ReturnValue, args: any) => {
+    const base = currentErrorPath(parent.state).path.join(".");
+    // currentErrorPath(parent.state).path.push("from");
+    const iterable = args && Object.keys(args);
+
+    const nextLayer = pushState(parent);
+    const heap = (kp: string) => {
+      if (kp.split('.')[0] == 'stack') {
+        return valueForKeyPath(kp, nextLayer.state)
+      }
+      return valueForKeyPath(kp, nextLayer.state.auto)
+    }
+    for (const k of iterable) {
+      if (k == "default") {
+        parent.data = args[k];
+      } else {
+        const data = expression(heap).parse(k);
+        // const { data } = await interpolate(nextLayer, '=' + k);
+        if ((data == true) || (data == 1)) {
+          parent.data = args[k];
+          return;
+        }
+      }
+    }
   },
   log: async (current: Moss.ReturnValue, args: any) => {
     each(arrayify(args), (i) => {

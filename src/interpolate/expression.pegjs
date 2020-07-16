@@ -1,5 +1,5 @@
-{ 
-  const vars = { testArray:[{y: 3}, {y: 5}], x: { y: 5, ref: 'y' } , z: 0};
+{
+  const vars = { n: 3, g: "\$", stringA: "hello", stringB: "hell", c: {l: "lo"}, testArray:[{y: 3}, {y: 5}], x: { y: 5, ref: 'y' } , z: 0};
   const heap = (x) => vars[x];
   function isNumeric(n) {
     return !n.length && !isNaN(parseFloat(n)) && isFinite(n);
@@ -10,12 +10,69 @@
 }
 
 Start = Simplifiy
-Simplifiy = _ expr:Expression+ _  {
+Simplifiy = _ expr:ReEntry+ _  {
   return expr && (expr.length > 1 ? expr.join('') : expr[0]);
 }
 
+ReEntry = StringComparison / Comparison;
 
-Expression = head:Term tail:(_ ("+" / "-") _ Term)* {
+StringComparison = head:((MemberOperator / String) _ Keyword) tail:(_ Comparison)* {
+      return tail.reduce(function([result], element) {
+      	const method = head[2];
+     	const arg = element[1];
+        //throw new Error(result)
+        if (typeof arg == 'string'){
+        	if (method == "contains" || method == "includes"){
+              return result.indexOf(arg) != -1;
+          }
+          	else if (method == "startsWith"){
+              return result.startsWith(arg);
+          }
+          	else if (method == "endsWith"){
+              return result.endsWith(arg);
+          }
+        } else {
+ 			throw new Error("bad string comp: " + arg);
+        }
+      }, head);
+    }
+
+Comparison = head:AddOp tail:(_ (">=" / "<=" / "==" / "!=" / ">" / "<"   / "= ") _ AddOp)* {
+      return tail.reduce(function(result, element) {
+      	let cmp;
+        const scope = element[1][0] == "!" ? "=" : element[1][0];
+        const mode = element[1].length > 1 ? scope == "=" ? element[1][0] : element[1][1] : '';
+
+		//throw new Error(element[1] + ' ' + scope + ' ' + mode)
+        switch (scope) {
+          case '<': {
+          	if (mode == "="){
+            	cmp = (a,b) => a <= b;
+            }
+          	 else cmp = (a,b) => a < b;
+             break;
+            }
+          case '>': {
+          	if (mode == "="){
+            	cmp = (a,b) => a >= b;
+            }
+          	 else cmp = (a,b) => a > b;
+             break;
+            }
+          default: {
+          	if (mode == "!"){
+            	cmp = (a,b) => a != b;
+            }
+         	else cmp = (a,b) => a == b;
+            break;
+          }
+        }
+        return cmp(result, element[3]);
+      }, head);
+    }
+
+
+AddOp = head:MulOp tail:(_ ("+" / "-") _ MulOp)* {
       return tail.reduce(function(result, element) {
         if (!isScalar(result)){
           return { [element[1] === "+" ? 'add' : 'subtract']: [result, element[3]]}
@@ -25,7 +82,7 @@ Expression = head:Term tail:(_ ("+" / "-") _ Term)* {
       }, head);
     }
 
-Term = head:Factor tail:(_ ("*" / "/") _ Factor)* {
+MulOp = head:Factor tail:(_ ("*" / "/") _ Factor)* {
       return tail.reduce(function(result, element) {
         if (!isScalar(result)){
           return { [element[1] === "*" ? 'multiply' : 'divide']: [result, element[3]]}
@@ -35,20 +92,20 @@ Term = head:Factor tail:(_ ("*" / "/") _ Factor)* {
       }, head);
     }
 
-Factor = "(" _ expr:Expression _ ")" { return expr; } / Unary
+Factor = "(" _ expr:ReEntry _ ")" { return expr; } / Unary
 
 Unary = UnaryNot / UnaryNeg / Sequence
 
 UnaryNot = "!" c:Factor { return !c }
 UnaryNeg = "-" c:Number { return -c }
 
-Sequence = head:Chunk tail:(Chunk)* {
+Sequence = head:(Chunk) tail:(Chunk)* {
       return tail.reduce(function(result, element) {
-        return result + element[0];
+
+        return result + element;
       }, head);
     }
 
-Chunk = (Any / Space)
 //RecursiveExpression / StackExpression / StackReference
 //StackReference = variable:String { return heap(variable); }
 //StackExpression = "${" variable:Expression "}" { return heap(variable); }
@@ -64,15 +121,15 @@ Chunk = (Any / Space)
 //          return result[element[1]];
 //       }, head);
 //     }
-    
+
 MemberOperator = head:StackReference tail:("[" Any "]")* _ {
       return tail.reduce(function(result, element) {
          return result[element[1]];
       }, head);
     }
-    
-StackReference = head:String tail:("." String)* {
-    const lhs = heap(head);
+
+StackReference = head:Identifier tail:("." Identifier)* {
+    let lhs = heap(head);
     if (lhs === undefined){
       lhs = head;
     }
@@ -83,17 +140,23 @@ StackReference = head:String tail:("." String)* {
     }, lhs);
 }
 
-Array = "[" items:ArrayItem+ "]" _ { 
+Array = "[" items:ArrayItem+ "]" _ {
 	return items;
 }
 
-ArrayItem = item:(("," _ Factor) / _ Factor) {
+ArrayItem = item:(("," _ ReEntry) / _ ReEntry) {
 	return (item[0] && (item[0] == ',')) ? item[2] : item[1];
 }
 
-Any = MemberOperator / StackReference / Array / String / Number
-String = w:Char+ { return w.join(""); }
-Char = c:[a-zA-Z]
+Chunk = (Any / Space)
+Any = MemberOperator / StackReference / Array / Identifier / Number
+Keyword = "contains" / "startsWith" / "endsWith" / "includes"
+
+Identifier = Word
+Word =  left:[_a-zA-Z] right:[_a-zA-Z0-9]* { return left + right.join('') }
+String = "\"" s:Text "\""  { return s }
+Text = c:[a-zA-Z]* { return c.join('') }
+
 Number = Float / Integer
 Float "float" = left:[0-9]+ "." right:[0-9]+ _ { return parseFloat(left.join("") + "." + right.join("")); }
 Integer "integer" = [0-9]+ _ { return parseInt(text(), 10); }
