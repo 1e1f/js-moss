@@ -1,4 +1,4 @@
-// Generated automatically by nearley, version 2.16.0
+// Generated automatically by nearley, version 2.19.5
 // http://github.com/Hardmath123/nearley
 // Bypasses TS6133. Allow declared but unused functions.
 // @ts-ignore
@@ -8,31 +8,40 @@ import { clone, mapToObject } from 'typed-json-transform';
 import { lexer, any, indent, dedent, eol, sol, eof, sof, startRule, space } from './lexer';
 import { expectedScopeOperator } from './post/errors';
 import {
-	addPairToMap, addListToMap, pairToMap, listToMap,
-	kvcToPair, statementToPair, nuller,
-	join, fork, operate, unaryOperate, singleWord } from './post/ast';
+  nuller, addPair, addPairToMap,
+  join, singleWord, unaryOperate, operate,
+	fork
+} from './post/ast';
 
-export interface Token { value: any; [key: string]: any };
-
-export interface Lexer {
-  reset: (chunk: string, info: any) => void;
-  next: () => Token | undefined;
-  save: () => any;
-  formatError: (token: Token) => string;
-  has: (tokenType: string) => boolean
+interface NearleyToken {  value: any;
+  [key: string]: any;
 };
 
-export interface NearleyRule {
+interface NearleyLexer {
+  reset: (chunk: string, info: any) => void;
+  next: () => NearleyToken | undefined;
+  save: () => any;
+  formatError: (token: NearleyToken) => string;
+  has: (tokenType: string) => boolean;
+};
+
+interface NearleyRule {
   name: string;
   symbols: NearleySymbol[];
-  postprocess?: (d: any[], loc?: number, reject?: {}) => any
+  postprocess?: (d: any[], loc?: number, reject?: {}) => any;
 };
 
-export type NearleySymbol = string | { literal: any } | { test: (token: any) => boolean };
+type NearleySymbol = string | { literal: any } | { test: (token: any) => boolean };
 
-export var Lexer: Lexer | undefined = lexer;
+interface Grammar {
+  Lexer: NearleyLexer | undefined;
+  ParserRules: NearleyRule[];
+  ParserStart: string;
+};
 
-export var ParserRules: NearleyRule[] = [
+const grammar: Grammar = {
+  Lexer: lexer,
+  ParserRules: [
     {"name": "statement", "symbols": ["concat"], "postprocess": id},
     {"name": "concat", "symbols": ["concat", "space", "boolean"], "postprocess": fork},
     {"name": "concat", "symbols": ["boolean"], "postprocess": id},
@@ -53,9 +62,7 @@ export var ParserRules: NearleyRule[] = [
     {"name": "unaryPrefix", "symbols": [{"literal":"!"}, "group"], "postprocess": unaryOperate},
     {"name": "unaryPrefix", "symbols": ["group"], "postprocess": id},
     {"name": "group", "symbols": [{"literal":"("}, "concat", {"literal":")"}], "postprocess": ([_, g]) => g},
-    {"name": "group", "symbols": ["pair"], "postprocess": id},
-    {"name": "pair", "symbols": ["context", "literal"], "postprocess": ([c, [r, r_]]) => [r, {...r_, ...c}]},
-    {"name": "pair", "symbols": ["literal"], "postprocess": id},
+    {"name": "group", "symbols": ["literal"], "postprocess": id},
     {"name": "literal", "symbols": ["string"], "postprocess": ([v]) => [v, {string: true}]},
     {"name": "literal", "symbols": ["singleWord"], "postprocess": ([v]) => [v, {string: true}]},
     {"name": "literal", "symbols": ["uri"], "postprocess": ([v]) => [v, {uri: true}]},
@@ -213,36 +220,20 @@ export var ParserRules: NearleyRule[] = [
     {"name": "rootScope", "symbols": ["map"], "postprocess": id},
     {"name": "scope", "symbols": ["map"], "postprocess": id},
     {"name": "map", "symbols": ["map", "mapPairConstructor"], "postprocess": addPairToMap},
-    {"name": "map", "symbols": ["map", "mapList"], "postprocess": addListToMap},
-    {"name": "map", "symbols": ["mapPairConstructor"], "postprocess": pairToMap},
-    {"name": "map", "symbols": ["mapList"], "postprocess": listToMap},
-    {"name": "mapList$ebnf$1", "symbols": ["context"], "postprocess": id},
-    {"name": "mapList$ebnf$1", "symbols": [], "postprocess": () => null},
-    {"name": "mapList", "symbols": ["sol", "mapList$ebnf$1", {"literal":"-<"}, "endLine", "list", {"literal":"/-<"}], "postprocess": ([prefix, context, rule, dedent, list]) => context ? [list, context] : [ list ]},
-    {"name": "mapPairConstructor", "symbols": ["key", "pushTypedScope", "scope", "popScope"], "postprocess":  ([key, c, s]) => {
-        	return kvcToPair(key, s, c)
+    {"name": "map", "symbols": ["mapPairConstructor"], "postprocess": id},
+    {"name": "mapPairConstructor", "symbols": ["key", "pushScope", "scope", "popScope"], "postprocess":  ([key, b, s]) => {
+        	return [key, s]
         } },
-    {"name": "mapPairConstructor", "symbols": ["key", "inlineContext", {"literal":"{"}, "scope", {"literal":"}"}, "endLine"], "postprocess":  ([key, context, bracket, scope]) => {
-          return kvcToPair(key, scope, context)
+    {"name": "mapPairConstructor", "symbols": ["key", "space", {"literal":"{"}, "scope", {"literal":"}"}, "endLine"], "postprocess":  ([key, bracket, scope]) => {
+          return [key, scope]
         } },
-    {"name": "mapPairConstructor", "symbols": ["key", "inlineContext", "statement", "mapTerminator"], "postprocess": ([key, c, s]) => kvcToPair(key, s, c)},
-    {"name": "mapPairConstructor$subexpression$1", "symbols": ["sol"]},
-    {"name": "mapPairConstructor$subexpression$1", "symbols": ["space"]},
-    {"name": "mapPairConstructor", "symbols": ["mapPairConstructor$subexpression$1", "statement", "mapTerminator"], "postprocess": ([_, s]) => statementToPair(s)},
+    {"name": "mapPairConstructor", "symbols": ["key", "space", "statement", "mapTerminator"], "postprocess": ([key, s, val]) => [key, val]},
     {"name": "mapPairConstructor", "symbols": ["sol", "eol"], "postprocess": nuller},
     {"name": "mapPairConstructor", "symbols": ["sol", "comment"], "postprocess": nuller},
     {"name": "mapPairConstructor", "symbols": ["literal", "pushScope", "scope"], "postprocess": expectedScopeOperator},
-    {"name": "inlineContext", "symbols": ["space", "context"], "postprocess":  ([_, d]) => {
-        	return d;
-        } },
-    {"name": "inlineContext", "symbols": ["space"], "postprocess": nuller},
-    {"name": "mapTerminator$subexpression$1", "symbols": [{"literal":" "}]},
     {"name": "mapTerminator$subexpression$1", "symbols": [{"literal":","}]},
     {"name": "mapTerminator$subexpression$1", "symbols": ["endLine"]},
     {"name": "mapTerminator", "symbols": ["mapTerminator$subexpression$1"], "postprocess": id},
-    {"name": "listTerminator$subexpression$1", "symbols": [{"literal":","}]},
-    {"name": "listTerminator$subexpression$1", "symbols": ["endLine"]},
-    {"name": "listTerminator", "symbols": ["listTerminator$subexpression$1"], "postprocess": id},
     {"name": "list", "symbols": ["list", "listConstructor"], "postprocess":  ([array, item]) => {
         	if (item){
         		return [...array, item];
@@ -252,37 +243,23 @@ export var ParserRules: NearleyRule[] = [
     {"name": "list", "symbols": ["listConstructor"], "postprocess":  ([item]) => {
         	return [ item ];
         } },
-    {"name": "listConstructor", "symbols": ["key", "pushTypedScope", "scope", "popScope"], "postprocess":  ([key, context, scope]) => {
+    {"name": "listConstructor", "symbols": [{"literal":"-"}, "space", "statement", "endLine"], "postprocess":  ([key, scope]) => {
         	  return scope
         } },
-    {"name": "listConstructor$subexpression$1$subexpression$1", "symbols": ["space", "context"]},
-    {"name": "listConstructor$subexpression$1", "symbols": ["listConstructor$subexpression$1$subexpression$1"]},
-    {"name": "listConstructor$subexpression$1", "symbols": ["space"]},
-    {"name": "listConstructor", "symbols": ["key", "listConstructor$subexpression$1", {"literal":"{"}, "scope", {"literal":"}"}, "endLine"], "postprocess":  ([key, context, bracket, scope]) => {
+    {"name": "listConstructor", "symbols": ["key", "space", {"literal":"["}, "scope", {"literal":"]"}, "endLine"], "postprocess":  ([key, space, bracket, scope]) => {
         	return scope
         } },
-    {"name": "listConstructor$subexpression$2$subexpression$1", "symbols": ["space", "context"]},
-    {"name": "listConstructor$subexpression$2", "symbols": ["listConstructor$subexpression$2$subexpression$1"]},
-    {"name": "listConstructor$subexpression$2", "symbols": ["space"]},
-    {"name": "listConstructor", "symbols": ["key", "listConstructor$subexpression$2", "statement", "listTerminator"], "postprocess":  ([key, context, statement]) => {
-        	return statement
-        } },
-    {"name": "listConstructor$subexpression$3", "symbols": ["sol"]},
-    {"name": "listConstructor$subexpression$3", "symbols": ["space"]},
-    {"name": "listConstructor$ebnf$1$subexpression$1", "symbols": ["context"]},
-    {"name": "listConstructor$ebnf$1", "symbols": ["listConstructor$ebnf$1$subexpression$1"], "postprocess": id},
-    {"name": "listConstructor$ebnf$1", "symbols": [], "postprocess": () => null},
-    {"name": "listConstructor", "symbols": ["listConstructor$subexpression$3", "listConstructor$ebnf$1", "statement", "listTerminator"], "postprocess":  ([prefix, c_, [r, r_]]) => {
-        	return [r, {...r_, ...c_}];
-        }},
     {"name": "listConstructor", "symbols": ["sol", "eol"], "postprocess": nuller},
     {"name": "listConstructor", "symbols": ["sol", "comment"], "postprocess": nuller},
+    {"name": "listTerminator$subexpression$1", "symbols": [{"literal":","}]},
+    {"name": "listTerminator$subexpression$1", "symbols": ["endLine"]},
+    {"name": "listTerminator", "symbols": ["listTerminator$subexpression$1"], "postprocess": id},
     {"name": "multilineString$ebnf$1", "symbols": []},
     {"name": "multilineString$ebnf$1", "symbols": ["multilineString$ebnf$1", "stringLine"], "postprocess": (d) => d[0].concat([d[1]])},
     {"name": "multilineString", "symbols": ["stringLine", "multilineString$ebnf$1"], "postprocess":  ([head, tail]) => {
         	const [startIndent, mls] = head;
         	if (tail.length){
-        		const res = tail.map(([indent, line]) => {
+        		const res = tail.map(([indent, line]: any) => {
         				let margin = '';
         				if (indent > startIndent){
         					for (let i = 0; i < indent - startIndent; i++){
@@ -298,7 +275,9 @@ export var ParserRules: NearleyRule[] = [
         	}
         	return mls;
         } },
-    {"name": "stringLine", "symbols": ["indent", "multilineString", "dedent"], "postprocess":  ([indent, mls]) => {
+    {"name": "stringLine$subexpression$1", "symbols": [{"literal":"|"}]},
+    {"name": "stringLine$subexpression$1", "symbols": [{"literal":"<"}]},
+    {"name": "stringLine", "symbols": ["stringLine$subexpression$1", "indent", "multilineString", "dedent"], "postprocess":  ([indent, mls]) => {
         	return [indent.indent, mls];
         } },
     {"name": "stringLine$ebnf$1", "symbols": ["_escapedString"], "postprocess": id},
@@ -306,24 +285,13 @@ export var ParserRules: NearleyRule[] = [
     {"name": "stringLine", "symbols": ["sol", "stringLine$ebnf$1", "eol"], "postprocess":  ([sol, string]) => {
         	return [sol.indent, string];
         } },
-    {"name": "pushTypedScope", "symbols": ["space", "context", "indent"], "postprocess": ([space, context]) => context},
-    {"name": "pushTypedScope", "symbols": ["pushScope"], "postprocess": nuller},
-    {"name": "context", "symbols": ["context", "constraint"], "postprocess": addPairToMap},
-    {"name": "context", "symbols": ["constraint"], "postprocess": pairToMap},
-    {"name": "constraint$subexpression$1", "symbols": ["space"]},
-    {"name": "constraint$subexpression$1", "symbols": ["endLine"]},
-    {"name": "constraint", "symbols": [{"literal":"\\"}, {"literal":"{"}, "nestedScope", "sol", {"literal":"}"}, "constraint$subexpression$1"], "postprocess": ([directive, bracket, scope]) => scope},
-    {"name": "constraint$subexpression$2", "symbols": ["space"]},
-    {"name": "constraint$subexpression$2", "symbols": ["endLine"]},
-    {"name": "constraint", "symbols": [{"literal":"\\"}, "literal", {"literal":"{"}, "map", {"literal":"}"}, "constraint$subexpression$2"], "postprocess":  ([directive, key, bracket, map]) => {
-        	return [key, map]
-        } },
-    {"name": "constraint$subexpression$3", "symbols": ["space"]},
-    {"name": "constraint$subexpression$3", "symbols": ["endLine"]},
-    {"name": "constraint", "symbols": [{"literal":"\\"}, "literal", "constraint$subexpression$3"], "postprocess": ([directive, property]) => statementToPair(property)},
+    {"name": "pushScope", "symbols": ["space", "indent"], "postprocess": ([space]) => {}},
+    {"name": "pushScope", "symbols": ["pushScope"], "postprocess": nuller},
     {"name": "key$subexpression$1", "symbols": ["sol"]},
     {"name": "key$subexpression$1", "symbols": ["literal"]},
     {"name": "key", "symbols": ["key$subexpression$1", "literal", {"literal":":"}], "postprocess": ([_, k]) => k}
-];
+  ],
+  ParserStart: "start",
+};
 
-export var ParserStart: string = "start";
+export default grammar;

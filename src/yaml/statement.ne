@@ -29,10 +29,6 @@ unaryPrefix
 
 group
 	-> "(" concat ")" {% ([_, g]) => g %}
-	| pair {% id %}
-
-pair
-	-> context literal {% ([c, [r, r_]]) => [r, {...r_, ...c}] %}
 	| literal {% id %}
 
 literal

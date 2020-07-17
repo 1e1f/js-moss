@@ -1,8 +1,10 @@
 import { Parser, Grammar } from 'nearley';
-const grammar = require('./nearley');
+const grammar = require('./compiled').default;
+
+const compiled = Grammar.fromCompiled(grammar);
 
 export const parse = (text: string) => {
-    const parser = new Parser(Grammar.fromCompiled(grammar))
+    const parser = new Parser(compiled);
     return parser.feed(text);
 }
 
