@@ -347,6 +347,10 @@ addFunctions({
       }
     }
   },
+  schema: async (current: Moss.ReturnValue, args: any) => {
+    const { data } = await continueWithNewFrame(current, args);
+    console.log('schema', data);
+  },
   log: async (current: Moss.ReturnValue, args: any) => {
     each(arrayify(args), (i) => {
       let kp = i;
