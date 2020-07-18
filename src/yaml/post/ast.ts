@@ -5,10 +5,12 @@ export const nuller = (): void => null;
 export const addPairToMap = ([m, p]: any) => {
     if (!p) return m;
     let [[k, kc], v] = p;
-    if (k == '-'){
-        console.log('add incremented key to map')
-        k = m[1].listLength;
-        m[1].listLength++;
+    if (k == '-') {
+        const n = m[1].sequenceLength;
+        console.log(`add incremented key ${n} to map`)
+        console.log('has value', v)
+        k = n;
+        m[1].sequenceLength = n + 1;
     }
     if (m[0][k]) {
         throw new Error(`duplicate key ${k}`);
@@ -25,29 +27,51 @@ export const createMap = ([pair]: any) => {
     }
     console.log('createMap', pair);
 
-    const map = [{}, { this: 'mapping', keys: {}, listLength: 0 }];
+    const map = [{}, { this: 'mapping', keys: {}, sequenceLength: 0 }];
     const res = addPairToMap([map, pair]);
     return res;
 }
 
-export function join(list: string[]) {
-    // console.log('join', list)
-    if (list.length == 1) {
-        return list[0];
+export const appendToSequence = ([sequence, item]: any) => {
+    if (!item) return sequence;
+    let [i, ic] = item;
+    console.log("append to sequence", sequence);
+    sequence[0].push(i);
+    sequence[1].items.push(ic);
+    return sequence;
+}
+
+export const createSequence = ([item]: any, sequenceKind: 'flowSequence' | 'blockSequence') => {
+    if (item.length != 1) {
+        throw new Error('bad item' + JSON.stringify(item, null, 2));
+    }
+    const sequence: any[] = [[], { this: sequenceKind, items: [] }];
+    const res = appendToSequence([sequence, item]);
+    return res;
+}
+
+export const createFlowSequence = (args: any) => createSequence(args, 'flowSequence');
+export const createBlockSequence = (args: any) => createSequence(args, 'blockSequence');
+
+
+export function join(sequence: string[]) {
+    // console.log('join', sequence)
+    if (sequence.length == 1) {
+        return sequence[0];
     }
     let memo = '';
-    for (const item of list) {
+    for (const item of sequence) {
         memo = memo + item;
     }
     return memo;
 }
 
 const char = (t: Token) => t.text;
-const chars = (list: Token[]) => list.map(char).join('');
+const chars = (sequence: Token[]) => sequence.map(char).join('');
 
-export function singleWord(list: Token[]) {
-    const head: Token = list[0];
-    const tail = <any>list[1] as Token[];
+export function singleWord(sequence: Token[]) {
+    const head: Token = sequence[0];
+    const tail = <any>sequence[1] as Token[];
 
     let data;
     if (tail && tail.length) {

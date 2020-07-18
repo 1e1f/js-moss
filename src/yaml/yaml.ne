@@ -16,7 +16,7 @@ import { expectedScopeOperator } from './post/errors';
 import {
   nuller, createMap, addPairToMap,
   join, singleWord, unaryOperate, operate,
-	fork
+	fork, createFlowSequence, createBlockSequence, appendToSequence
 } from './post/ast';
 %}
 

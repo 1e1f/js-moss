@@ -3,18 +3,18 @@ flowPushScope
   | disregardedIndentPushScope {% id %}
 
 inlinePushScope
-	-> "{" space:* {% ([indent, space]) => {
+	-> ("{") space:* {% ([indent, space]) => {
 		return indent
   } %}
 
 disregardedIndentPushScope
-  -> "{" pushScope sol {% ([indent, ignoredIndent]) => {
+  -> ("{") pushScope sol {% ([indent, ignoredIndent]) => {
 		return indent
 	} %}
 
 flowPopScope
-	-> (endLine dedent):? sol "}" {% ([eol, ignoredDedent, sol, dedent]) => null %}
-  | space:* "}" {% ([sp, dedent]) => null %}
+	-> (endLine dedent):? sol ("}") {% ([eol, ignoredDedent, sol, dedent]) => null %}
+  | space:* ("}") {% ([sp, dedent]) => null %}
 
 blockToFlowScope
   -> flowNestedScope {% id %}
@@ -47,23 +47,46 @@ flowSep
   -> space:* {% nuller %}
 	# | endLine {% nuller %}
 
-flowListScope
-	-> flowListScope flowListConstructor
-		{% ([array, item]) => {
-			if (item){
-				return [...array, item];
-			}
-			return array;
-		} %}
-	| flowListConstructor
-		{% ([item]) => {
-			return [ item ];
+flowPushSequence
+  -> inlinePushSequence {% id %}
+  | disregardedIndentedSequence {% id %}
+
+inlinePushSequence
+	-> ("[") space:* {% ([indent, space]) => {
+		return indent
+  } %}
+
+disregardedIndentedSequence
+  -> ("[") pushScope sol {% ([indent, ignoredIndent]) => {
+		return indent
+	} %}
+
+flowPopSequence
+	-> (endLine dedent):? sol ("]") {% ([eol, ignoredDedent, sol, dedent]) => null %}
+  | space:* ("]") {% ([sp, dedent]) => null %}
+
+blockToFlowSequence
+  -> flowNestedSequence {% id %}
+
+flowNestedSequence
+  -> flowPushSequence flowSequenceScope flowPopSequence {% ([push, scope]) => {
+		return scope
 		} %}
 
-flowListConstructor
-	-> flowKey statement
-  		{% ([key, scope]) => {
-			  return scope
+flowSequenceScope
+  -> flowSequenceScope flowSequenceConstructor {% appendToSequence %}
+  | flowSequenceConstructor {% createFlowSequence %}
+
+sequenceToBlockMapping
+  -> flowKey flowSep flowToBlockScope {% ([key, sep, scope]) => {
+    console.log('sequenceToBlockMapping', key);
+		return createMap([key, scope])
+		} %}
+
+flowSequenceConstructor
+	-> ("," space:*):? (literal | flowNestedScope | sequenceToBlockMapping)
+  		{% ([key, sequenceStatement]) => {
+          return sequenceStatement
 		} %}
 
 flowKey

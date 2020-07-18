@@ -1,7 +1,7 @@
 
 
 flowToBlockScope
-	-> blockNestedScope  {% id %}
+	-> blockNestedScope {% id %}
 
 blockNestedScope
 	-> pushScope blockScope popScope {% ([push, scope]) => {
@@ -9,6 +9,10 @@ blockNestedScope
 		} %}
 
 blockScope
+  -> blockMapping {% id %}
+  | blockSequence {% id %}
+
+blockMapping
 	-> blockScope blockPairConstructor {% addPairToMap %}
 	| blockPairConstructor {% createMap %}
 
@@ -34,19 +38,35 @@ blockPairConstructor
 				return [key, flow]
 			} %}
 
-	| bullet listStatement
-    {% ([key, listStatement]) => {
-        console.log('indexed pair', listStatement);
-				return [['-', {type: 'bullet'}], listStatement]
+	| blockKey blockSep blockToFlowSequence endLine
+  		{% ([key, sep, flow]) => {
+        console.log('block => flow sequence', key[0], flow);
+				return [key, flow]
 			} %}
+
+	| blockSequenceConstructor
+    {% id %}
+
 	| sol eol {% nuller %}
 	| sol comment {% nuller %}
 
-listStatement
-  -> statement endLine
-  		{% ([key, statement]) => {
-        statement
+blockSequence
+	-> blockSequence blockSequenceConstructor {% appendToSequence %}
+	| blockSequenceConstructor {% createBlockSequence %}
+
+blockSequenceConstructor
+	-> bullet sequenceStatement
+    {% ([key, sequenceStatement]) => {
+        console.log('indexed pair', sequenceStatement);
+				return [['-', {type: 'bullet'}], sequenceStatement]
 			} %}
+
+sequenceStatement
+  -> statement endLine
+  		{% ([statement]) => {
+        return statement
+			} %}
+  | blockNestedScope {% id %}
   | blockScope {% id %}
 
 blockSep

@@ -10,7 +10,7 @@ import { expectedScopeOperator } from './post/errors';
 import {
   nuller, createMap, addPairToMap,
   join, singleWord, unaryOperate, operate,
-	fork
+	fork, createFlowSequence, createBlockSequence, appendToSequence
 } from './post/ast';
 
 interface NearleyToken {  value: any;
@@ -221,8 +221,10 @@ const grammar: Grammar = {
     {"name": "blockNestedScope", "symbols": ["pushScope", "blockScope", "popScope"], "postprocess":  ([push, scope]) => {
         return scope
         } },
-    {"name": "blockScope", "symbols": ["blockScope", "blockPairConstructor"], "postprocess": addPairToMap},
-    {"name": "blockScope", "symbols": ["blockPairConstructor"], "postprocess": createMap},
+    {"name": "blockScope", "symbols": ["blockMapping"], "postprocess": id},
+    {"name": "blockScope", "symbols": ["blockSequence"], "postprocess": id},
+    {"name": "blockMapping", "symbols": ["blockScope", "blockPairConstructor"], "postprocess": addPairToMap},
+    {"name": "blockMapping", "symbols": ["blockPairConstructor"], "postprocess": createMap},
     {"name": "blockPairConstructor", "symbols": ["blockKey", "blockSep", "blockNestedScope"], "postprocess":  ([key, sep, scope]) => {
         	console.log('nestedBlockScope', key, scope);
         	return [key, scope];
@@ -235,16 +237,24 @@ const grammar: Grammar = {
                 console.log('block => flow pair', key[0], flow);
         	return [key, flow]
         } },
-    {"name": "blockPairConstructor", "symbols": ["bullet", "listStatement"], "postprocess":  ([key, listStatement]) => {
-                console.log('indexed pair', listStatement);
-        	return [['-', {type: 'bullet'}], listStatement]
+    {"name": "blockPairConstructor", "symbols": ["blockKey", "blockSep", "blockToFlowSequence", "endLine"], "postprocess":  ([key, sep, flow]) => {
+                console.log('block => flow sequence', key[0], flow);
+        	return [key, flow]
         } },
+    {"name": "blockPairConstructor", "symbols": ["blockSequenceConstructor"], "postprocess": id},
     {"name": "blockPairConstructor", "symbols": ["sol", "eol"], "postprocess": nuller},
     {"name": "blockPairConstructor", "symbols": ["sol", "comment"], "postprocess": nuller},
-    {"name": "listStatement", "symbols": ["statement", "endLine"], "postprocess":  ([key, statement]) => {
-                statement
+    {"name": "blockSequence", "symbols": ["blockSequence", "blockSequenceConstructor"], "postprocess": appendToSequence},
+    {"name": "blockSequence", "symbols": ["blockSequenceConstructor"], "postprocess": createBlockSequence},
+    {"name": "blockSequenceConstructor", "symbols": ["bullet", "sequenceStatement"], "postprocess":  ([key, sequenceStatement]) => {
+                console.log('indexed pair', sequenceStatement);
+        	return [['-', {type: 'bullet'}], sequenceStatement]
         } },
-    {"name": "listStatement", "symbols": ["blockScope"], "postprocess": id},
+    {"name": "sequenceStatement", "symbols": ["statement", "endLine"], "postprocess":  ([statement]) => {
+                return statement
+        } },
+    {"name": "sequenceStatement", "symbols": ["blockNestedScope"], "postprocess": id},
+    {"name": "sequenceStatement", "symbols": ["blockScope"], "postprocess": id},
     {"name": "blockSep$ebnf$1", "symbols": []},
     {"name": "blockSep$ebnf$1", "symbols": ["blockSep$ebnf$1", "space"], "postprocess": (d) => d[0].concat([d[1]])},
     {"name": "blockSep", "symbols": ["blockSep$ebnf$1"], "postprocess": nuller},
@@ -256,21 +266,25 @@ const grammar: Grammar = {
     {"name": "bullet", "symbols": ["bullet$ebnf$1", {"literal":"-"}, "space"], "postprocess": ([sol, key, sep]) => key},
     {"name": "flowPushScope", "symbols": ["inlinePushScope"], "postprocess": id},
     {"name": "flowPushScope", "symbols": ["disregardedIndentPushScope"], "postprocess": id},
+    {"name": "inlinePushScope$subexpression$1", "symbols": [{"literal":"{"}]},
     {"name": "inlinePushScope$ebnf$1", "symbols": []},
     {"name": "inlinePushScope$ebnf$1", "symbols": ["inlinePushScope$ebnf$1", "space"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "inlinePushScope", "symbols": [{"literal":"{"}, "inlinePushScope$ebnf$1"], "postprocess":  ([indent, space]) => {
+    {"name": "inlinePushScope", "symbols": ["inlinePushScope$subexpression$1", "inlinePushScope$ebnf$1"], "postprocess":  ([indent, space]) => {
         return indent
           } },
-    {"name": "disregardedIndentPushScope", "symbols": [{"literal":"{"}, "pushScope", "sol"], "postprocess":  ([indent, ignoredIndent]) => {
+    {"name": "disregardedIndentPushScope$subexpression$1", "symbols": [{"literal":"{"}]},
+    {"name": "disregardedIndentPushScope", "symbols": ["disregardedIndentPushScope$subexpression$1", "pushScope", "sol"], "postprocess":  ([indent, ignoredIndent]) => {
         	return indent
         } },
     {"name": "flowPopScope$ebnf$1$subexpression$1", "symbols": ["endLine", "dedent"]},
     {"name": "flowPopScope$ebnf$1", "symbols": ["flowPopScope$ebnf$1$subexpression$1"], "postprocess": id},
     {"name": "flowPopScope$ebnf$1", "symbols": [], "postprocess": () => null},
-    {"name": "flowPopScope", "symbols": ["flowPopScope$ebnf$1", "sol", {"literal":"}"}], "postprocess": ([eol, ignoredDedent, sol, dedent]) => null},
+    {"name": "flowPopScope$subexpression$1", "symbols": [{"literal":"}"}]},
+    {"name": "flowPopScope", "symbols": ["flowPopScope$ebnf$1", "sol", "flowPopScope$subexpression$1"], "postprocess": ([eol, ignoredDedent, sol, dedent]) => null},
     {"name": "flowPopScope$ebnf$2", "symbols": []},
     {"name": "flowPopScope$ebnf$2", "symbols": ["flowPopScope$ebnf$2", "space"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "flowPopScope", "symbols": ["flowPopScope$ebnf$2", {"literal":"}"}], "postprocess": ([sp, dedent]) => null},
+    {"name": "flowPopScope$subexpression$2", "symbols": [{"literal":"}"}]},
+    {"name": "flowPopScope", "symbols": ["flowPopScope$ebnf$2", "flowPopScope$subexpression$2"], "postprocess": ([sp, dedent]) => null},
     {"name": "blockToFlowScope", "symbols": ["flowNestedScope"], "postprocess": id},
     {"name": "flowNestedScope", "symbols": ["flowPushScope", "flowMappingScope", "flowPopScope"], "postprocess":  ([push, scope]) => {
         return scope
@@ -288,17 +302,47 @@ const grammar: Grammar = {
     {"name": "flowSep$ebnf$1", "symbols": []},
     {"name": "flowSep$ebnf$1", "symbols": ["flowSep$ebnf$1", "space"], "postprocess": (d) => d[0].concat([d[1]])},
     {"name": "flowSep", "symbols": ["flowSep$ebnf$1"], "postprocess": nuller},
-    {"name": "flowListScope", "symbols": ["flowListScope", "flowListConstructor"], "postprocess":  ([array, item]) => {
-        	if (item){
-        		return [...array, item];
-        	}
-        	return array;
+    {"name": "flowPushSequence", "symbols": ["inlinePushSequence"], "postprocess": id},
+    {"name": "flowPushSequence", "symbols": ["disregardedIndentedSequence"], "postprocess": id},
+    {"name": "inlinePushSequence$subexpression$1", "symbols": [{"literal":"["}]},
+    {"name": "inlinePushSequence$ebnf$1", "symbols": []},
+    {"name": "inlinePushSequence$ebnf$1", "symbols": ["inlinePushSequence$ebnf$1", "space"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "inlinePushSequence", "symbols": ["inlinePushSequence$subexpression$1", "inlinePushSequence$ebnf$1"], "postprocess":  ([indent, space]) => {
+        return indent
+          } },
+    {"name": "disregardedIndentedSequence$subexpression$1", "symbols": [{"literal":"["}]},
+    {"name": "disregardedIndentedSequence", "symbols": ["disregardedIndentedSequence$subexpression$1", "pushScope", "sol"], "postprocess":  ([indent, ignoredIndent]) => {
+        	return indent
         } },
-    {"name": "flowListScope", "symbols": ["flowListConstructor"], "postprocess":  ([item]) => {
-        	return [ item ];
+    {"name": "flowPopSequence$ebnf$1$subexpression$1", "symbols": ["endLine", "dedent"]},
+    {"name": "flowPopSequence$ebnf$1", "symbols": ["flowPopSequence$ebnf$1$subexpression$1"], "postprocess": id},
+    {"name": "flowPopSequence$ebnf$1", "symbols": [], "postprocess": () => null},
+    {"name": "flowPopSequence$subexpression$1", "symbols": [{"literal":"]"}]},
+    {"name": "flowPopSequence", "symbols": ["flowPopSequence$ebnf$1", "sol", "flowPopSequence$subexpression$1"], "postprocess": ([eol, ignoredDedent, sol, dedent]) => null},
+    {"name": "flowPopSequence$ebnf$2", "symbols": []},
+    {"name": "flowPopSequence$ebnf$2", "symbols": ["flowPopSequence$ebnf$2", "space"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "flowPopSequence$subexpression$2", "symbols": [{"literal":"]"}]},
+    {"name": "flowPopSequence", "symbols": ["flowPopSequence$ebnf$2", "flowPopSequence$subexpression$2"], "postprocess": ([sp, dedent]) => null},
+    {"name": "blockToFlowSequence", "symbols": ["flowNestedSequence"], "postprocess": id},
+    {"name": "flowNestedSequence", "symbols": ["flowPushSequence", "flowSequenceScope", "flowPopSequence"], "postprocess":  ([push, scope]) => {
+        return scope
         } },
-    {"name": "flowListConstructor", "symbols": ["flowKey", "statement"], "postprocess":  ([key, scope]) => {
-        	  return scope
+    {"name": "flowSequenceScope", "symbols": ["flowSequenceScope", "flowSequenceConstructor"], "postprocess": appendToSequence},
+    {"name": "flowSequenceScope", "symbols": ["flowSequenceConstructor"], "postprocess": createFlowSequence},
+    {"name": "sequenceToBlockMapping", "symbols": ["flowKey", "flowSep", "flowToBlockScope"], "postprocess":  ([key, sep, scope]) => {
+            console.log('sequenceToBlockMapping', key);
+        return createMap([key, scope])
+        } },
+    {"name": "flowSequenceConstructor$ebnf$1$subexpression$1$ebnf$1", "symbols": []},
+    {"name": "flowSequenceConstructor$ebnf$1$subexpression$1$ebnf$1", "symbols": ["flowSequenceConstructor$ebnf$1$subexpression$1$ebnf$1", "space"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "flowSequenceConstructor$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "flowSequenceConstructor$ebnf$1$subexpression$1$ebnf$1"]},
+    {"name": "flowSequenceConstructor$ebnf$1", "symbols": ["flowSequenceConstructor$ebnf$1$subexpression$1"], "postprocess": id},
+    {"name": "flowSequenceConstructor$ebnf$1", "symbols": [], "postprocess": () => null},
+    {"name": "flowSequenceConstructor$subexpression$1", "symbols": ["literal"]},
+    {"name": "flowSequenceConstructor$subexpression$1", "symbols": ["flowNestedScope"]},
+    {"name": "flowSequenceConstructor$subexpression$1", "symbols": ["sequenceToBlockMapping"]},
+    {"name": "flowSequenceConstructor", "symbols": ["flowSequenceConstructor$ebnf$1", "flowSequenceConstructor$subexpression$1"], "postprocess":  ([key, sequenceStatement]) => {
+                  return sequenceStatement
         } },
     {"name": "flowKey$ebnf$1$subexpression$1$ebnf$1", "symbols": []},
     {"name": "flowKey$ebnf$1$subexpression$1$ebnf$1", "symbols": ["flowKey$ebnf$1$subexpression$1$ebnf$1", "space"], "postprocess": (d) => d[0].concat([d[1]])},
