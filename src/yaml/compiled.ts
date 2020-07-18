@@ -235,19 +235,25 @@ const grammar: Grammar = {
                 console.log('block => flow pair', key[0], flow);
         	return [key, flow]
         } },
+    {"name": "blockPairConstructor", "symbols": ["bullet", "listStatement"], "postprocess":  ([key, listStatement]) => {
+                console.log('indexed pair', listStatement);
+        	return [['-', {type: 'bullet'}], listStatement]
+        } },
     {"name": "blockPairConstructor", "symbols": ["sol", "eol"], "postprocess": nuller},
     {"name": "blockPairConstructor", "symbols": ["sol", "comment"], "postprocess": nuller},
+    {"name": "listStatement", "symbols": ["statement", "endLine"], "postprocess":  ([key, statement]) => {
+                statement
+        } },
+    {"name": "listStatement", "symbols": ["blockScope"], "postprocess": id},
     {"name": "blockSep$ebnf$1", "symbols": []},
     {"name": "blockSep$ebnf$1", "symbols": ["blockSep$ebnf$1", "space"], "postprocess": (d) => d[0].concat([d[1]])},
     {"name": "blockSep", "symbols": ["blockSep$ebnf$1"], "postprocess": nuller},
     {"name": "blockKey$ebnf$1", "symbols": ["sol"], "postprocess": id},
     {"name": "blockKey$ebnf$1", "symbols": [], "postprocess": () => null},
     {"name": "blockKey", "symbols": ["blockKey$ebnf$1", "literal", {"literal":":"}], "postprocess": ([sol, key, sep]) => key},
-    {"name": "blockListConstructor", "symbols": [{"literal":"-"}, "space", "statement", "endLine"], "postprocess":  ([key, scope]) => {
-        	  return scope
-        } },
-    {"name": "blockListConstructor", "symbols": ["sol", "eol"], "postprocess": nuller},
-    {"name": "blockListConstructor", "symbols": ["sol", "comment"], "postprocess": nuller},
+    {"name": "bullet$ebnf$1", "symbols": ["sol"], "postprocess": id},
+    {"name": "bullet$ebnf$1", "symbols": [], "postprocess": () => null},
+    {"name": "bullet", "symbols": ["bullet$ebnf$1", {"literal":"-"}, "space"], "postprocess": ([sol, key, sep]) => key},
     {"name": "flowPushScope", "symbols": ["inlinePushScope"], "postprocess": id},
     {"name": "flowPushScope", "symbols": ["disregardedIndentPushScope"], "postprocess": id},
     {"name": "inlinePushScope$ebnf$1", "symbols": []},

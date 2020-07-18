@@ -34,8 +34,20 @@ blockPairConstructor
 				return [key, flow]
 			} %}
 
+	| bullet listStatement
+    {% ([key, listStatement]) => {
+        console.log('indexed pair', listStatement);
+				return [['-', {type: 'bullet'}], listStatement]
+			} %}
 	| sol eol {% nuller %}
 	| sol comment {% nuller %}
+
+listStatement
+  -> statement endLine
+  		{% ([key, statement]) => {
+        statement
+			} %}
+  | blockScope {% id %}
 
 blockSep
   -> space:* {% nuller %}
@@ -43,11 +55,5 @@ blockSep
 blockKey
 	-> sol:? literal ":" {% ([sol, key, sep]) => key %}
 
-blockListConstructor
-	-> "-" space statement endLine
-  		{% ([key, scope]) => {
-			  return scope
-		} %}
-
-	| sol eol {% nuller %}
-	| sol comment {% nuller %}
+bullet
+	-> sol:? "-" space {% ([sol, key, sep]) => key %}

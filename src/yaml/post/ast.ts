@@ -4,7 +4,12 @@ export const nuller = (): void => null;
 
 export const addPairToMap = ([m, p]: any) => {
     if (!p) return m;
-    const [[k, kc], v] = p;
+    let [[k, kc], v] = p;
+    if (k == '-'){
+        console.log('add incremented key to map')
+        k = m[1].listLength;
+        m[1].listLength++;
+    }
     if (m[0][k]) {
         throw new Error(`duplicate key ${k}`);
     }
@@ -20,7 +25,7 @@ export const createMap = ([pair]: any) => {
     }
     console.log('createMap', pair);
 
-    const map = [{}, { this: 'mapping', keys: {} }];
+    const map = [{}, { this: 'mapping', keys: {}, listLength: 0 }];
     const res = addPairToMap([map, pair]);
     return res;
 }
