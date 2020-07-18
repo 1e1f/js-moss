@@ -32,7 +32,7 @@ group
 	| literal {% id %}
 
 literal
-	-> string {% ([v]) => [v, {string: true}] %}
+  -> number {% ([v]) => [v, {number: true}] %}
 	| singleWord {% ([v]) => [v, {string: true}] %}
-	| uri {% ([v]) => [v, {uri: true}] %}
-	| number {% ([v]) => [v, {number: true}] %}
+	# | string {% ([v]) => [v, {string: true}] %}
+	# | uri {% ([v]) => [v, {uri: true}] %}

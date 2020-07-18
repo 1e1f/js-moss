@@ -1,19 +1,16 @@
 # Formatting
-nestedScope
-	-> pushScope scope popScope {% ([push, scope]) => scope %}
-
 pushScope
-	-> (inlineComment | eol) indent {% id %}
+	-> endLine indent {% ([eol, indent]) => {
+		console.log('indent', indent)
+		return indent;
+	 } %}
 
 popScope
 	-> dedent {% id %}
-	
-endLine
-	-> inlineComment {% id %}
-	| eol {% id %}
 
-inlineComment
-	-> space comment {% id %}
+endLine
+	-> space:* comment {% id %}
+	| space:* eol {% id %}
 
 comment
 	-> "#" _escapedString:? %eol {% ([operator, comment]) => (comment) %}

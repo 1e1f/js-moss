@@ -1,23 +1,32 @@
-
-import { clone, mapToObject } from 'typed-json-transform';
 import { TokenList, Token } from './types';
-
 
 export const nuller = (): void => null;
 
-export const addPairToMap = (args: any) => {
-    console.log(args);
+export const addPairToMap = ([m, p]: any) => {
+    if (!p) return m;
+    const [[k, kc], v] = p;
+    if (m[0][k]) {
+        throw new Error(`duplicate key ${k}`);
+    }
+    m[0][k] = v;
+    m[1].keys[k] = kc;
+    console.log('addPairToMap', m);
+    return m;
 }
 
-export const addPair = (args: any) => {
-    console.log(args);
-    // if (l[k]) {
-    //     throw new Error(`duplicate key ${k}`);
-    // }
-    // l[k] = r;
+export const createMap = ([pair]: any) => {
+    if (pair.length != 2) {
+        throw new Error('bad pair' + JSON.stringify(pair, null, 2));
+    }
+    console.log('createMap', pair);
+
+    const map = [{}, { this: 'mapping', keys: {} }];
+    const res = addPairToMap([map, pair]);
+    return res;
 }
 
 export function join(list: string[]) {
+    // console.log('join', list)
     if (list.length == 1) {
         return list[0];
     }

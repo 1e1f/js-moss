@@ -21,7 +21,7 @@ const makeDedent = (sourceMap: SourceMap, indent: number) =>
     makeToken('dedent', 'dedent', sourceMap, indent)
 
 const makeSof = () => makeToken('sof', 'sof', { line: 0, col: 0 }, -1);
-const makeEof = () => makeToken('eof', 'eof', { line: -1, col: -1 }, -1);
+const makeEof = () => makeToken('eof', 'eof', { line: 0, col: 0 }, -1);
 
 const doDedent = (ruleMap: any, indent: number, nextIndent: number, sourceMap: any) => {
     const tokens = [makeEol(sourceMap, indent)];
@@ -105,7 +105,7 @@ function* indented(lexer: any, source: any, info?: any) {
         indent = nextIndent;
     }
 
-    yield makeEol({ line: -1, col: -1 }, indent);
+    yield makeEol({ line: 0, col: 0 }, indent);
     const ruleToken = ruleMap.get(0);
     if (ruleToken) {
         yield makeToken('stopRule', `/${ruleToken.text}`);
@@ -165,14 +165,13 @@ const rules = {
 
 const printToken = (t: Token) => {
     switch (t.type) {
-        case "eol": return "}";
-        case "eol": return "}";
+        case "eol": return ">";
         case "space": return " ";
         case "indent": return "->";
         case "dedent": return "<-";
-        case "eof": return "</>";
-        case "sof": return "<>";
-        case "sol": return "{";
+        case "eof": return "eof";
+        case "sof": return "sof";
+        case "sol": return "<";
         default: return t.text;
     }
 }
@@ -222,6 +221,7 @@ class StreamLexer {
     }
 
     formatError = function (token: Token) {
+        if (token.col < 0) token.col = 0;
         return this.lexer.formatError(token);
     }
 
