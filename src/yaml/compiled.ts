@@ -8,9 +8,9 @@ import { clone, mapToObject } from 'typed-json-transform';
 import { lexer, any, indent, dedent, eol, sol, eof, sof, startRule, space } from './lexer';
 import { expectedScopeOperator } from './post/errors';
 import {
-  nuller, createMap, addPairToMap,
-  join, singleWord, unaryOperate, operate,
-	fork, createFlowSequence, createBlockSequence, appendToSequence
+  nuller, first, second, secondInList, createMap, addPairToMap,
+  join, singleWord, unaryOperate, operate, appendToSequence,
+	fork, createFlowSequence, createBlockSequence
 } from './post/ast';
 
 interface NearleyToken {  value: any;
@@ -42,144 +42,46 @@ interface Grammar {
 const grammar: Grammar = {
   Lexer: lexer,
   ParserRules: [
-    {"name": "statement", "symbols": ["concat"], "postprocess": id},
-    {"name": "concat", "symbols": ["concat", "space", "boolean"], "postprocess": fork},
-    {"name": "concat", "symbols": ["boolean"], "postprocess": id},
-    {"name": "boolean$subexpression$1", "symbols": [{"literal":"n"}]},
-    {"name": "boolean$subexpression$1", "symbols": [{"literal":"|"}]},
-    {"name": "boolean", "symbols": ["boolean", "space", "boolean$subexpression$1", "space", "add"], "postprocess": operate},
-    {"name": "boolean", "symbols": ["add"], "postprocess": id},
-    {"name": "add$subexpression$1", "symbols": [{"literal":"+"}]},
-    {"name": "add$subexpression$1", "symbols": [{"literal":"-"}]},
-    {"name": "add", "symbols": ["add", "space", "add$subexpression$1", "space", "multiply"], "postprocess": operate},
-    {"name": "add", "symbols": ["multiply"], "postprocess": id},
-    {"name": "multiply$subexpression$1", "symbols": [{"literal":"*"}]},
-    {"name": "multiply$subexpression$1", "symbols": [{"literal":"/"}]},
-    {"name": "multiply", "symbols": ["multiply", "space", "multiply$subexpression$1", "space", "unaryPrefix"], "postprocess": operate},
-    {"name": "multiply", "symbols": ["unaryPrefix"], "postprocess": id},
-    {"name": "unaryPrefix", "symbols": [{"literal":"+"}, "group"], "postprocess": unaryOperate},
-    {"name": "unaryPrefix", "symbols": [{"literal":"-"}, "group"], "postprocess": unaryOperate},
-    {"name": "unaryPrefix", "symbols": [{"literal":"!"}, "group"], "postprocess": unaryOperate},
-    {"name": "unaryPrefix", "symbols": ["group"], "postprocess": id},
-    {"name": "group", "symbols": [{"literal":"("}, "concat", {"literal":")"}], "postprocess": ([_, g]) => g},
-    {"name": "group", "symbols": ["literal"], "postprocess": id},
-    {"name": "literal", "symbols": ["number"], "postprocess": ([v]) => [v, {number: true}]},
-    {"name": "literal", "symbols": ["singleWord"], "postprocess": ([v]) => [v, {string: true}]},
-    {"name": "uri", "symbols": ["url"], "postprocess": id},
-    {"name": "uri", "symbols": ["authority"], "postprocess": id},
-    {"name": "url", "symbols": ["urlDomainScheme", "authority"], "postprocess": join},
-    {"name": "url", "symbols": ["urlScheme", "uriPathComponent"], "postprocess": join},
-    {"name": "url", "symbols": ["urlScheme", "urlPath"], "postprocess": join},
-    {"name": "urlDomainScheme", "symbols": ["urlScheme", {"literal":"/"}, {"literal":"/"}], "postprocess": join},
-    {"name": "urlSchemes", "symbols": ["urlSchemes", "urlScheme"], "postprocess": join},
-    {"name": "urlSchemes", "symbols": ["urlScheme"], "postprocess": id},
-    {"name": "urlScheme", "symbols": ["domainComponent", {"literal":":"}], "postprocess": join},
-    {"name": "authority", "symbols": ["urlCredentials", {"literal":"@"}, "_authority"], "postprocess": join},
-    {"name": "authority", "symbols": ["_authority"], "postprocess": join},
-    {"name": "_authority$ebnf$1", "symbols": ["uriPathComponent"], "postprocess": id},
-    {"name": "_authority$ebnf$1", "symbols": [], "postprocess": () => null},
-    {"name": "_authority$ebnf$2", "symbols": ["uriQueries"], "postprocess": id},
-    {"name": "_authority$ebnf$2", "symbols": [], "postprocess": () => null},
-    {"name": "_authority$ebnf$3", "symbols": ["uriFragment"], "postprocess": id},
-    {"name": "_authority$ebnf$3", "symbols": [], "postprocess": () => null},
-    {"name": "_authority", "symbols": ["uriDomainComponent", "_authority$ebnf$1", "_authority$ebnf$2", "_authority$ebnf$3"], "postprocess": join},
-    {"name": "uriQueries", "symbols": ["uriQueries", "uriQuery"], "postprocess": join},
-    {"name": "uriQueries", "symbols": ["uriQuery"], "postprocess": id},
-    {"name": "uriPathComponent", "symbols": [{"literal":"/"}, "urlPath"], "postprocess": join},
-    {"name": "uriPathComponent", "symbols": [{"literal":"/"}], "postprocess": ([tok]) => tok.value},
-    {"name": "urlCredentials", "symbols": ["urlCredentials", {"literal":":"}, "password"], "postprocess": join},
-    {"name": "urlCredentials", "symbols": ["email"], "postprocess": id},
-    {"name": "urlCredentials", "symbols": ["subdomain"], "postprocess": id},
-    {"name": "urlPath", "symbols": ["urlPath", {"literal":"/"}, "urlPathName"], "postprocess": join},
-    {"name": "urlPath", "symbols": ["urlPath", {"literal":"/"}], "postprocess": join},
-    {"name": "urlPath", "symbols": ["urlPathName"], "postprocess": id},
-    {"name": "urlPathName", "symbols": ["urlPathName", {"literal":"."}, "urlPathWord"], "postprocess": join},
-    {"name": "urlPathName", "symbols": ["urlPathWord"], "postprocess": id},
-    {"name": "urlPathWord", "symbols": ["urlPathWord", "urlPathChar"], "postprocess": join},
-    {"name": "urlPathWord", "symbols": ["urlPathChar"], "postprocess": id},
-    {"name": "urlPathChar", "symbols": [/[^ ^\/^.^?^;]/], "postprocess": ([tok]) => tok.value},
-    {"name": "filePath", "symbols": ["filePath", {"literal":"/"}, "fileName"], "postprocess": join},
-    {"name": "filePath", "symbols": ["fileName"], "postprocess": id},
-    {"name": "fileName", "symbols": ["fileName", {"literal":"."}, "fileWord"], "postprocess": join},
-    {"name": "fileName", "symbols": ["fileWord"], "postprocess": id},
-    {"name": "fileWord", "symbols": ["fileWord", "fileChar"], "postprocess": join},
-    {"name": "fileWord", "symbols": ["fileChar"], "postprocess": id},
-    {"name": "fileChar", "symbols": [/[^ ^\/^.]/], "postprocess": ([tok]) => tok.value},
-    {"name": "password", "symbols": ["urlSafePlusEncoded"], "postprocess": join},
-    {"name": "email", "symbols": ["subdomain", {"literal":"@"}, "domain"], "postprocess": join},
-    {"name": "uriDomainComponent", "symbols": ["uriDomainComponent", "uriPortComponent"], "postprocess": join},
-    {"name": "uriDomainComponent", "symbols": ["domain"], "postprocess": join},
-    {"name": "uriDomainComponent", "symbols": [{"literal":"["}, "ipv6", {"literal":"]"}], "postprocess": join},
-    {"name": "uriDomainComponent", "symbols": ["ipv4"], "postprocess": id},
-    {"name": "ipv6$macrocall$2", "symbols": ["ipv6Group"]},
-    {"name": "ipv6$macrocall$1", "symbols": ["ipv6$macrocall$2", "ipv6$macrocall$2", "ipv6$macrocall$2", "ipv6$macrocall$2", "ipv6$macrocall$2", "ipv6$macrocall$2", "ipv6$macrocall$2"], "postprocess": join},
-    {"name": "ipv6", "symbols": ["ipv6$macrocall$1", "ipv6Number"], "postprocess": join},
-    {"name": "ipv6$macrocall$4", "symbols": ["ipv6Group"]},
-    {"name": "ipv6$macrocall$3", "symbols": ["ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4"], "postprocess": join},
-    {"name": "ipv6$macrocall$3", "symbols": ["ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4"], "postprocess": join},
-    {"name": "ipv6$macrocall$3", "symbols": ["ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4"], "postprocess": join},
-    {"name": "ipv6$macrocall$3", "symbols": ["ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4"], "postprocess": join},
-    {"name": "ipv6$macrocall$3", "symbols": ["ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4"], "postprocess": join},
-    {"name": "ipv6$macrocall$3", "symbols": ["ipv6$macrocall$4", "ipv6$macrocall$4", "ipv6$macrocall$4"], "postprocess": join},
-    {"name": "ipv6$macrocall$3", "symbols": ["ipv6$macrocall$4", "ipv6$macrocall$4"], "postprocess": join},
-    {"name": "ipv6$macrocall$3", "symbols": ["ipv6$macrocall$4"], "postprocess": join},
-    {"name": "ipv6", "symbols": ["ipv6$macrocall$3", {"literal":":"}, "ipv6Number"], "postprocess": join},
-    {"name": "ipv6Group", "symbols": ["ipv6Number", {"literal":":"}], "postprocess": join},
-    {"name": "ipv6Number$macrocall$2", "symbols": ["hexDigit"]},
-    {"name": "ipv6Number$macrocall$1", "symbols": ["ipv6Number$macrocall$2", "ipv6Number$macrocall$2", "ipv6Number$macrocall$2", "ipv6Number$macrocall$2"], "postprocess": join},
-    {"name": "ipv6Number$macrocall$1", "symbols": ["ipv6Number$macrocall$2", "ipv6Number$macrocall$2", "ipv6Number$macrocall$2"], "postprocess": join},
-    {"name": "ipv6Number$macrocall$1", "symbols": ["ipv6Number$macrocall$2", "ipv6Number$macrocall$2"], "postprocess": join},
-    {"name": "ipv6Number$macrocall$1", "symbols": ["ipv6Number$macrocall$2"], "postprocess": join},
-    {"name": "ipv6Number", "symbols": ["ipv6Number$macrocall$1"]},
-    {"name": "ipv4", "symbols": ["ipv4Group", {"literal":"."}, "ipv4Group", {"literal":"."}, "ipv4Group", {"literal":"."}, "ipv4Group"]},
-    {"name": "ipv4Group", "symbols": ["d2", "d5", "d0_5"], "postprocess": join},
-    {"name": "ipv4Group", "symbols": ["d2", "d0_4", "d0_9"], "postprocess": join},
-    {"name": "ipv4Group", "symbols": ["d1", "d0_9", "d0_9"], "postprocess": join},
-    {"name": "ipv4Group", "symbols": ["d0_9", "d0_9"], "postprocess": join},
-    {"name": "ipv4Group", "symbols": ["d0_9"], "postprocess": id},
-    {"name": "d1", "symbols": [{"literal":"1"}], "postprocess": ([tok]) => tok},
-    {"name": "d2", "symbols": [{"literal":"2"}], "postprocess": ([tok]) => tok},
-    {"name": "d5", "symbols": [{"literal":"5"}], "postprocess": ([tok]) => tok},
-    {"name": "d0_4", "symbols": [/[0-4]/], "postprocess": ([tok]) => tok},
-    {"name": "d0_5", "symbols": [/[0-5]/], "postprocess": ([tok]) => tok},
-    {"name": "d0_9", "symbols": [/[0-9]/], "postprocess": ([tok]) => tok},
-    {"name": "domain", "symbols": ["subdomain", {"literal":"."}, "domainComponent"], "postprocess": join},
-    {"name": "uriPortComponent", "symbols": [{"literal":":"}, "number"], "postprocess": join},
-    {"name": "subdomain", "symbols": ["domainComponent", {"literal":"."}, "subdomain"], "postprocess": join},
-    {"name": "subdomain", "symbols": ["domainComponent"], "postprocess": id},
-    {"name": "uriQuery", "symbols": [{"literal":"?"}, "queryList"], "postprocess": join},
-    {"name": "queryList", "symbols": ["queryList", {"literal":"&"}, "queryFragment"], "postprocess": join},
-    {"name": "queryList", "symbols": ["queryFragment"], "postprocess": id},
-    {"name": "queryFragment", "symbols": ["queryFragment", {"literal":"="}, "urlSafePlusEncoded"], "postprocess": join},
-    {"name": "queryFragment", "symbols": ["urlSafePlusEncoded"], "postprocess": id},
-    {"name": "uriFragment", "symbols": [{"literal":"#"}, "queryList"], "postprocess": join},
-    {"name": "domainComponent$ebnf$1", "symbols": []},
-    {"name": "domainComponent$ebnf$1", "symbols": ["domainComponent$ebnf$1", /[a-zA-Z0-9\-]/], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "domainComponent", "symbols": [/[a-zA-Z]/, "domainComponent$ebnf$1"], "postprocess": singleWord},
-    {"name": "number", "symbols": ["_number"], "postprocess":  ([n]) => {
-        console.log('number', n); return parseFloat(n) } },
-    {"name": "_number", "symbols": ["_float", {"literal":"e"}, "digit"], "postprocess": join},
-    {"name": "_number", "symbols": ["_float"], "postprocess": id},
-    {"name": "_float", "symbols": ["digit", {"literal":"."}, "digit"], "postprocess": join},
-    {"name": "_float", "symbols": ["digit"], "postprocess": id},
-    {"name": "digit", "symbols": ["digit", /[0-9]/], "postprocess": join},
-    {"name": "digit", "symbols": [/[0-9]/], "postprocess": ([tok]) => tok.text},
+    {"name": "scalar$ebnf$1", "symbols": [{"literal":"&"}], "postprocess": id},
+    {"name": "scalar$ebnf$1", "symbols": [], "postprocess": () => null},
+    {"name": "scalar", "symbols": ["scalar$ebnf$1", "_scalar"], "postprocess":  ([anchor, scalar]) => {
+        	if (anchor){
+        		scalar[1].isAnchor = true;
+        	}
+        	return scalar;
+        }
+        		},
+    {"name": "_scalar", "symbols": ["number"], "postprocess": ([v]) => [v, {number: true}]},
+    {"name": "_scalar", "symbols": ["chunkSequence"], "postprocess":  ([str]) => {
+        	return [str, {scalar: true}]
+        } },
+    {"name": "chunkSequence$ebnf$1", "symbols": ["chunkSequenceElement"]},
+    {"name": "chunkSequence$ebnf$1", "symbols": ["chunkSequence$ebnf$1", "chunkSequenceElement"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "chunkSequence", "symbols": ["chunk", "chunkSequence$ebnf$1"], "postprocess": ([head, tail]) => [head, ...tail].join('')},
+    {"name": "chunkSequence", "symbols": ["chunk"], "postprocess": id},
+    {"name": "chunkSequenceElement", "symbols": ["__", "chunk"], "postprocess": join},
+    {"name": "chunk$ebnf$1", "symbols": []},
+    {"name": "chunk$ebnf$1", "symbols": ["chunk$ebnf$1", "continueChunk"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "chunk", "symbols": ["startChunk", "chunk$ebnf$1", "stopChunk"], "postprocess":  ([head, middle, tail]) => {
+        // console.log({head, middle, tail});
+        return [head, ...middle, tail].join('');
+        } },
+    {"name": "chunk", "symbols": ["startChunk"], "postprocess": id},
+    {"name": "startChunk", "symbols": [/[a-zA-Z$_<>]/], "postprocess": ([tok]) => tok.value},
+    {"name": "continueChunk", "symbols": [any], "postprocess": ([tok]) => tok.value},
+    {"name": "stopChunk", "symbols": [/[^: ]/], "postprocess": id},
+    {"name": "unquotedChar", "symbols": [any], "postprocess": ([tok]) => tok.value},
     {"name": "urlSafePlusEncoded", "symbols": ["urlSafePlusEncoded", "urlSafePlusEncodedChars"], "postprocess": join},
     {"name": "urlSafePlusEncoded", "symbols": ["urlSafePlusEncodedChars"], "postprocess": id},
     {"name": "urlSafePlusEncodedChars", "symbols": [{"literal":"%"}, "hexDigit", "hexDigit"], "postprocess": join},
     {"name": "urlSafePlusEncodedChars", "symbols": [{"literal":"&"}, {"literal":"a"}, {"literal":"m"}, {"literal":"p"}, {"literal":";"}], "postprocess": join},
     {"name": "urlSafePlusEncodedChars", "symbols": ["urlSafeChar"], "postprocess": id},
-    {"name": "singleWord$ebnf$1", "symbols": []},
-    {"name": "singleWord$ebnf$1", "symbols": ["singleWord$ebnf$1", /[a-zA-Z0-9$_]/], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "singleWord", "symbols": [/[a-zA-Z$_]/, "singleWord$ebnf$1"], "postprocess": singleWord},
     {"name": "word", "symbols": ["word", "wordSafeChar"], "postprocess": join},
     {"name": "word", "symbols": ["wordStartChar"], "postprocess": id},
     {"name": "wordSafeChar", "symbols": ["wordStartChar"], "postprocess": id},
     {"name": "wordSafeChar", "symbols": [/[0-9]/], "postprocess": ([tok]) => tok.value},
     {"name": "wordStartChar", "symbols": [/[a-zA-Z$_]/], "postprocess": ([tok]) => tok.value},
-    {"name": "string$ebnf$1", "symbols": [{"literal":"`"}], "postprocess": id},
-    {"name": "string$ebnf$1", "symbols": [], "postprocess": () => null},
-    {"name": "string", "symbols": [{"literal":"`"}, "_escapedString", "string$ebnf$1"], "postprocess": ([quote, string]) => string},
+    {"name": "string", "symbols": [{"literal":"`"}, "_escapedString", {"literal":"`"}], "postprocess": ([quote, string]) => string},
     {"name": "_string", "symbols": [], "postprocess": function() {return ""; }},
     {"name": "_string", "symbols": ["_string", "_stringchar"], "postprocess": ([lhs, rhs]) => lhs + rhs},
     {"name": "_stringchar", "symbols": [/[^\\"]/], "postprocess": id},
@@ -192,84 +94,122 @@ const grammar: Grammar = {
     {"name": "_escapedString", "symbols": ["escapedChar"], "postprocess": id},
     {"name": "escapedChar", "symbols": [space], "postprocess": ([tok]) => tok.value},
     {"name": "escapedChar", "symbols": [any], "postprocess": ([tok]) => tok.value},
+    {"name": "number", "symbols": ["_number"], "postprocess":  ([n]) => {
+        console.log('number', n); return parseFloat(n) } },
+    {"name": "_number", "symbols": ["_float", {"literal":"e"}, "digit"], "postprocess": join},
+    {"name": "_number", "symbols": ["_float"], "postprocess": id},
+    {"name": "_float", "symbols": ["digit", {"literal":"."}, "digit"], "postprocess": join},
+    {"name": "_float", "symbols": ["digit"], "postprocess": id},
+    {"name": "digit", "symbols": ["digit", /[0-9]/], "postprocess": join},
+    {"name": "digit", "symbols": [/[0-9]/], "postprocess": ([tok]) => tok.text},
     {"name": "pushScope", "symbols": ["endLine", "indent"], "postprocess":  ([eol, indent]) => {
-        console.log('indent', indent)
         return indent;
         	 } },
-    {"name": "popScope", "symbols": ["dedent"], "postprocess": id},
-    {"name": "endLine$ebnf$1", "symbols": []},
-    {"name": "endLine$ebnf$1", "symbols": ["endLine$ebnf$1", "space"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "endLine", "symbols": ["endLine$ebnf$1", "comment"], "postprocess": id},
-    {"name": "endLine$ebnf$2", "symbols": []},
-    {"name": "endLine$ebnf$2", "symbols": ["endLine$ebnf$2", "space"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "endLine", "symbols": ["endLine$ebnf$2", "eol"], "postprocess": id},
+    {"name": "popScope", "symbols": ["dedent"], "postprocess": null},
+    {"name": "endLine", "symbols": ["__", "comment"], "postprocess": second},
+    {"name": "endLine", "symbols": ["_", "eol"], "postprocess": nuller},
     {"name": "comment$ebnf$1", "symbols": ["_escapedString"], "postprocess": id},
     {"name": "comment$ebnf$1", "symbols": [], "postprocess": () => null},
-    {"name": "comment", "symbols": [{"literal":"#"}, "comment$ebnf$1", eol], "postprocess": ([operator, comment]) => (comment)},
+    {"name": "comment", "symbols": [{"literal":"#"}, "comment$ebnf$1", eol], "postprocess": 
+        ([hash, comment]) => {
+        	console.log({comment});
+        	 return [comment || '', {isComment: true}]
+        } },
     {"name": "sof", "symbols": [sof], "postprocess": ([tok]) => tok.value},
     {"name": "eof", "symbols": [eof], "postprocess": ([tok]) => tok.value},
     {"name": "sol", "symbols": [sol], "postprocess": ([tok]) => tok},
-    {"name": "eol", "symbols": ["_", eol], "postprocess": ([ws, tok]) => tok},
+    {"name": "eol", "symbols": [eol], "postprocess": ([ws, tok]) => tok},
     {"name": "indent", "symbols": [indent], "postprocess": ([tok]) => tok},
     {"name": "dedent", "symbols": [dedent], "postprocess": ([tok]) => tok},
     {"name": "space", "symbols": [space], "postprocess": ([tok]) => tok.value},
-    {"name": "_", "symbols": ["_", "space"], "postprocess":  ([e]) => {
-        	return e ? e + ' ': '';
+    {"name": "__$ebnf$1", "symbols": [space]},
+    {"name": "__$ebnf$1", "symbols": ["__$ebnf$1", space], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "__", "symbols": ["__$ebnf$1"], "postprocess":  ([tokens]) => {
+        	let spaces = '';
+        	for (const i of tokens){
+        		spaces += ' ';
+        	}
+        	return spaces;
         } },
-    {"name": "_", "symbols": [], "postprocess": () => ''},
+    {"name": "_", "symbols": ["_", "space"], "postprocess":  ([e]) => {
+        	return e ? e + ' ': null;
+        } },
+    {"name": "_", "symbols": [], "postprocess": () => null},
     {"name": "flowToBlockScope", "symbols": ["blockNestedScope"], "postprocess": id},
     {"name": "blockNestedScope", "symbols": ["pushScope", "blockScope", "popScope"], "postprocess":  ([push, scope]) => {
         return scope
         } },
     {"name": "blockScope", "symbols": ["blockMapping"], "postprocess": id},
     {"name": "blockScope", "symbols": ["blockSequence"], "postprocess": id},
-    {"name": "blockMapping", "symbols": ["blockScope", "blockPairConstructor"], "postprocess": addPairToMap},
-    {"name": "blockMapping", "symbols": ["blockPairConstructor"], "postprocess": createMap},
-    {"name": "blockPairConstructor", "symbols": ["blockKey", "blockSep", "blockNestedScope"], "postprocess":  ([key, sep, scope]) => {
-        	console.log('nestedBlockScope', key, scope);
+    {"name": "blockScope", "symbols": ["sol", "statement"], "postprocess": second},
+    {"name": "blockMapping$ebnf$1", "symbols": []},
+    {"name": "blockMapping$ebnf$1$subexpression$1$ebnf$1", "symbols": []},
+    {"name": "blockMapping$ebnf$1$subexpression$1$ebnf$1", "symbols": ["blockMapping$ebnf$1$subexpression$1$ebnf$1", "lineBreak"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "blockMapping$ebnf$1$subexpression$1", "symbols": ["blockMapping$ebnf$1$subexpression$1$ebnf$1", "sol", "kvPair"]},
+    {"name": "blockMapping$ebnf$1", "symbols": ["blockMapping$ebnf$1", "blockMapping$ebnf$1$subexpression$1"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "blockMapping", "symbols": ["sol", "kvPair", "blockMapping$ebnf$1"], "postprocess":  ([sol, head, tail]) => {
+        	if (tail && tail.length){
+        		return addPairToMap([head, tail.map(([br, sol, i]: any) => i)]);
+        	}
+        		return createMap([[head]]);
+        } },
+    {"name": "blockSequence$ebnf$1", "symbols": []},
+    {"name": "blockSequence$ebnf$1$subexpression$1$ebnf$1", "symbols": []},
+    {"name": "blockSequence$ebnf$1$subexpression$1$ebnf$1", "symbols": ["blockSequence$ebnf$1$subexpression$1$ebnf$1", "lineBreak"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "blockSequence$ebnf$1$subexpression$1", "symbols": ["blockSequence$ebnf$1$subexpression$1$ebnf$1", "sol", "blockSequenceItem"]},
+    {"name": "blockSequence$ebnf$1", "symbols": ["blockSequence$ebnf$1", "blockSequence$ebnf$1$subexpression$1"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "blockSequence", "symbols": ["sol", "blockSequenceItem", "blockSequence$ebnf$1"], "postprocess":  ([sol, head, tail]) => {
+        	if (tail){
+        		return appendToSequence([head, tail.map(([br, sol, i]: any) => i)]);
+        	}
+        		return createBlockSequence([[head]]);
+        } },
+    {"name": "rhsNode", "symbols": ["statement"], "postprocess": id},
+    {"name": "statement", "symbols": ["scalar", "endLine"], "postprocess": first},
+    {"name": "kvPair", "symbols": ["blockKey", "blockNestedScope"], "postprocess":  ([key, scope]) => {
+        	console.log('k: block', key[0], scope);
         	return [key, scope];
         } },
-    {"name": "blockPairConstructor", "symbols": ["blockKey", "blockSep", "statement", "endLine"], "postprocess":  ([key, sep, statement]) => {
-        	console.log('block pair', [key[0], statement[0]]);
-        	return [key, statement]
+    {"name": "kvPair", "symbols": ["blockKey", "__", "scalar", "endLine"], "postprocess":  ([key, sep, scalar]) => {
+        	console.log('k: v', [key[0], scalar[0]]);
+        	return [key, scalar]
         } },
-    {"name": "blockPairConstructor", "symbols": ["blockKey", "blockSep", "blockToFlowScope", "endLine"], "postprocess":  ([key, sep, flow]) => {
-                console.log('block => flow pair', key[0], flow);
+    {"name": "kvPair", "symbols": ["blockKey", "nullOrNestedSequence"], "postprocess":  ([key, nullOrNestedSequence], ref) => {
+        	return [key, nullOrNestedSequence]
+        } },
+    {"name": "kvPair", "symbols": ["blockKey", "__", "blockToFlowScope", "endLine"], "postprocess":  ([key, sep, flow]) => {
+                console.log('k: {}', key[0], flow);
         	return [key, flow]
         } },
-    {"name": "blockPairConstructor", "symbols": ["blockKey", "blockSep", "blockToFlowSequence", "endLine"], "postprocess":  ([key, sep, flow]) => {
-                console.log('block => flow sequence', key[0], flow);
+    {"name": "kvPair", "symbols": ["blockKey", "__", "blockToFlowSequence", "endLine"], "postprocess":  ([key, sep, flow]) => {
+                console.log('k: <= []', key[0], flow);
         	return [key, flow]
         } },
-    {"name": "blockPairConstructor", "symbols": ["blockSequenceConstructor"], "postprocess": id},
-    {"name": "blockPairConstructor", "symbols": ["sol", "eol"], "postprocess": nuller},
-    {"name": "blockPairConstructor", "symbols": ["sol", "comment"], "postprocess": nuller},
-    {"name": "blockSequence", "symbols": ["blockSequence", "blockSequenceConstructor"], "postprocess": appendToSequence},
-    {"name": "blockSequence", "symbols": ["blockSequenceConstructor"], "postprocess": createBlockSequence},
-    {"name": "blockSequenceConstructor", "symbols": ["bullet", "sequenceStatement"], "postprocess":  ([key, sequenceStatement]) => {
-                console.log('indexed pair', sequenceStatement);
-        	return [['-', {type: 'bullet'}], sequenceStatement]
+    {"name": "lineBreak", "symbols": ["endLine"], "postprocess": nuller},
+    {"name": "lineBreak", "symbols": ["comment"], "postprocess": nuller},
+    {"name": "nullOrNestedSequence", "symbols": ["nullOrNestedSequence", "sol", "blockSequenceItem"], "postprocess":  ([list, sol, item], ref) => {
+        		const [ v, ctx ] = list;
+        		if (ctx.isIterable){
+        			return appendToSequence([list, item]);
+        		} else if (item) {
+        			return createBlockSequence([[item]]);
+        		}
         } },
-    {"name": "sequenceStatement", "symbols": ["statement", "endLine"], "postprocess":  ([statement]) => {
-                return statement
+    {"name": "nullOrNestedSequence", "symbols": ["endLine"], "postprocess":  ([endLine], ref, fail) => {
+        	const nullValue = [null, {empty: true}]
+        	return nullValue;
         } },
-    {"name": "sequenceStatement", "symbols": ["blockNestedScope"], "postprocess": id},
-    {"name": "sequenceStatement", "symbols": ["blockScope"], "postprocess": id},
-    {"name": "blockSep$ebnf$1", "symbols": []},
-    {"name": "blockSep$ebnf$1", "symbols": ["blockSep$ebnf$1", "space"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "blockSep", "symbols": ["blockSep$ebnf$1"], "postprocess": nuller},
-    {"name": "blockKey$ebnf$1", "symbols": ["sol"], "postprocess": id},
-    {"name": "blockKey$ebnf$1", "symbols": [], "postprocess": () => null},
-    {"name": "blockKey", "symbols": ["blockKey$ebnf$1", "literal", {"literal":":"}], "postprocess": ([sol, key, sep]) => key},
-    {"name": "bullet$ebnf$1", "symbols": ["sol"], "postprocess": id},
-    {"name": "bullet$ebnf$1", "symbols": [], "postprocess": () => null},
-    {"name": "bullet", "symbols": ["bullet$ebnf$1", {"literal":"-"}, "space"], "postprocess": ([sol, key, sep]) => key},
+    {"name": "blockSequenceItem", "symbols": ["bullet", "statement"], "postprocess":  ([key, rhsNode]) => {
+        	return rhsNode
+        } },
+    {"name": "blockSequenceItem", "symbols": ["comment"], "postprocess": id},
+    {"name": "blockSequenceItem", "symbols": ["eol"], "postprocess": nuller},
+    {"name": "blockKey", "symbols": ["scalar", {"literal":":"}], "postprocess": ([key, sep]) => key},
+    {"name": "bullet", "symbols": [{"literal":"-"}, "space"], "postprocess": first},
     {"name": "flowPushScope", "symbols": ["inlinePushScope"], "postprocess": id},
     {"name": "flowPushScope", "symbols": ["disregardedIndentPushScope"], "postprocess": id},
     {"name": "inlinePushScope$subexpression$1", "symbols": [{"literal":"{"}]},
-    {"name": "inlinePushScope$ebnf$1", "symbols": []},
-    {"name": "inlinePushScope$ebnf$1", "symbols": ["inlinePushScope$ebnf$1", "space"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "inlinePushScope", "symbols": ["inlinePushScope$subexpression$1", "inlinePushScope$ebnf$1"], "postprocess":  ([indent, space]) => {
+    {"name": "inlinePushScope", "symbols": ["inlinePushScope$subexpression$1", "_"], "postprocess":  ([indent, space]) => {
         return indent
           } },
     {"name": "disregardedIndentPushScope$subexpression$1", "symbols": [{"literal":"{"}]},
@@ -280,34 +220,27 @@ const grammar: Grammar = {
     {"name": "flowPopScope$ebnf$1", "symbols": ["flowPopScope$ebnf$1$subexpression$1"], "postprocess": id},
     {"name": "flowPopScope$ebnf$1", "symbols": [], "postprocess": () => null},
     {"name": "flowPopScope$subexpression$1", "symbols": [{"literal":"}"}]},
-    {"name": "flowPopScope", "symbols": ["flowPopScope$ebnf$1", "sol", "flowPopScope$subexpression$1"], "postprocess": ([eol, ignoredDedent, sol, dedent]) => null},
-    {"name": "flowPopScope$ebnf$2", "symbols": []},
-    {"name": "flowPopScope$ebnf$2", "symbols": ["flowPopScope$ebnf$2", "space"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "flowPopScope$subexpression$2", "symbols": [{"literal":"}"}]},
-    {"name": "flowPopScope", "symbols": ["flowPopScope$ebnf$2", "flowPopScope$subexpression$2"], "postprocess": ([sp, dedent]) => null},
+    {"name": "flowPopScope", "symbols": ["flowPopScope$ebnf$1", "sol", "flowPopScope$subexpression$1"], "postprocess": ([eol, ignoredDedent, sol, dedent]) => dedent},
+    {"name": "flowPopScope", "symbols": ["_", {"literal":"}"}], "postprocess": ([sp, dedent]) => dedent},
     {"name": "blockToFlowScope", "symbols": ["flowNestedScope"], "postprocess": id},
     {"name": "flowNestedScope", "symbols": ["flowPushScope", "flowMappingScope", "flowPopScope"], "postprocess":  ([push, scope]) => {
         return scope
         } },
-    {"name": "flowMappingScope", "symbols": ["flowMappingScope", "flowPairConstructor"], "postprocess": addPairToMap},
-    {"name": "flowMappingScope", "symbols": ["flowPairConstructor"], "postprocess": createMap},
-    {"name": "flowPairConstructor", "symbols": ["flowKey", "flowSep", "flowToBlockScope"], "postprocess":  ([key, sep, scope]) => {
+    {"name": "flowMappingScope$ebnf$1", "symbols": ["flowPairConstructor"]},
+    {"name": "flowMappingScope$ebnf$1", "symbols": ["flowMappingScope$ebnf$1", "flowPairConstructor"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "flowMappingScope", "symbols": ["flowMappingScope$ebnf$1"], "postprocess": createMap},
+    {"name": "flowPairConstructor", "symbols": ["flowKey", "_", "flowToBlockScope"], "postprocess":  ([key, sep, scope]) => {
         	console.log('flow => nestedBlockScope', key, scope);
         	return [key, scope];
         } },
-    {"name": "flowPairConstructor", "symbols": ["flowKey", "flowSep", "statement"], "postprocess":  ([key, sep, statement]) => {
-        	console.log('flow pair', [key[0], statement[0]]);
-        	return [key, statement]
+    {"name": "flowPairConstructor", "symbols": ["flowKey", "_", "scalar"], "postprocess":  ([key, sep, scalar]) => {
+        	console.log('flow pair', [key[0], scalar[0]]);
+        	return [key, scalar]
         } },
-    {"name": "flowSep$ebnf$1", "symbols": []},
-    {"name": "flowSep$ebnf$1", "symbols": ["flowSep$ebnf$1", "space"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "flowSep", "symbols": ["flowSep$ebnf$1"], "postprocess": nuller},
     {"name": "flowPushSequence", "symbols": ["inlinePushSequence"], "postprocess": id},
     {"name": "flowPushSequence", "symbols": ["disregardedIndentedSequence"], "postprocess": id},
     {"name": "inlinePushSequence$subexpression$1", "symbols": [{"literal":"["}]},
-    {"name": "inlinePushSequence$ebnf$1", "symbols": []},
-    {"name": "inlinePushSequence$ebnf$1", "symbols": ["inlinePushSequence$ebnf$1", "space"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "inlinePushSequence", "symbols": ["inlinePushSequence$subexpression$1", "inlinePushSequence$ebnf$1"], "postprocess":  ([indent, space]) => {
+    {"name": "inlinePushSequence", "symbols": ["inlinePushSequence$subexpression$1", "_"], "postprocess":  ([indent, space]) => {
         return indent
           } },
     {"name": "disregardedIndentedSequence$subexpression$1", "symbols": [{"literal":"["}]},
@@ -319,41 +252,34 @@ const grammar: Grammar = {
     {"name": "flowPopSequence$ebnf$1", "symbols": [], "postprocess": () => null},
     {"name": "flowPopSequence$subexpression$1", "symbols": [{"literal":"]"}]},
     {"name": "flowPopSequence", "symbols": ["flowPopSequence$ebnf$1", "sol", "flowPopSequence$subexpression$1"], "postprocess": ([eol, ignoredDedent, sol, dedent]) => null},
-    {"name": "flowPopSequence$ebnf$2", "symbols": []},
-    {"name": "flowPopSequence$ebnf$2", "symbols": ["flowPopSequence$ebnf$2", "space"], "postprocess": (d) => d[0].concat([d[1]])},
     {"name": "flowPopSequence$subexpression$2", "symbols": [{"literal":"]"}]},
-    {"name": "flowPopSequence", "symbols": ["flowPopSequence$ebnf$2", "flowPopSequence$subexpression$2"], "postprocess": ([sp, dedent]) => null},
+    {"name": "flowPopSequence", "symbols": ["_", "flowPopSequence$subexpression$2"], "postprocess": ([sp, dedent]) => null},
     {"name": "blockToFlowSequence", "symbols": ["flowNestedSequence"], "postprocess": id},
     {"name": "flowNestedSequence", "symbols": ["flowPushSequence", "flowSequenceScope", "flowPopSequence"], "postprocess":  ([push, scope]) => {
         return scope
         } },
-    {"name": "flowSequenceScope", "symbols": ["flowSequenceScope", "flowSequenceConstructor"], "postprocess": appendToSequence},
-    {"name": "flowSequenceScope", "symbols": ["flowSequenceConstructor"], "postprocess": createFlowSequence},
-    {"name": "sequenceToBlockMapping", "symbols": ["flowKey", "flowSep", "flowToBlockScope"], "postprocess":  ([key, sep, scope]) => {
+    {"name": "flowSequenceScope$ebnf$1", "symbols": ["flowSequenceConstructor"]},
+    {"name": "flowSequenceScope$ebnf$1", "symbols": ["flowSequenceScope$ebnf$1", "flowSequenceConstructor"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "flowSequenceScope", "symbols": ["flowSequenceScope$ebnf$1"], "postprocess": createFlowSequence},
+    {"name": "sequenceToBlockMapping", "symbols": ["flowKey", "_", "flowToBlockScope"], "postprocess":  ([key, sep, scope]) => {
             console.log('sequenceToBlockMapping', key);
         return createMap([key, scope])
         } },
-    {"name": "flowSequenceConstructor$ebnf$1$subexpression$1$ebnf$1", "symbols": []},
-    {"name": "flowSequenceConstructor$ebnf$1$subexpression$1$ebnf$1", "symbols": ["flowSequenceConstructor$ebnf$1$subexpression$1$ebnf$1", "space"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "flowSequenceConstructor$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "flowSequenceConstructor$ebnf$1$subexpression$1$ebnf$1"]},
+    {"name": "flowSequenceConstructor$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "_"]},
     {"name": "flowSequenceConstructor$ebnf$1", "symbols": ["flowSequenceConstructor$ebnf$1$subexpression$1"], "postprocess": id},
     {"name": "flowSequenceConstructor$ebnf$1", "symbols": [], "postprocess": () => null},
-    {"name": "flowSequenceConstructor$subexpression$1", "symbols": ["literal"]},
+    {"name": "flowSequenceConstructor$subexpression$1", "symbols": ["scalar"]},
     {"name": "flowSequenceConstructor$subexpression$1", "symbols": ["flowNestedScope"]},
+    {"name": "flowSequenceConstructor$subexpression$1", "symbols": ["flowNestedSequence"]},
     {"name": "flowSequenceConstructor$subexpression$1", "symbols": ["sequenceToBlockMapping"]},
     {"name": "flowSequenceConstructor", "symbols": ["flowSequenceConstructor$ebnf$1", "flowSequenceConstructor$subexpression$1"], "postprocess":  ([key, sequenceStatement]) => {
                   return sequenceStatement
         } },
-    {"name": "flowKey$ebnf$1$subexpression$1$ebnf$1", "symbols": []},
-    {"name": "flowKey$ebnf$1$subexpression$1$ebnf$1", "symbols": ["flowKey$ebnf$1$subexpression$1$ebnf$1", "space"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "flowKey$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "flowKey$ebnf$1$subexpression$1$ebnf$1"]},
+    {"name": "flowKey$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "_"]},
     {"name": "flowKey$ebnf$1", "symbols": ["flowKey$ebnf$1$subexpression$1"], "postprocess": id},
     {"name": "flowKey$ebnf$1", "symbols": [], "postprocess": () => null},
-    {"name": "flowKey$ebnf$2", "symbols": []},
-    {"name": "flowKey$ebnf$2", "symbols": ["flowKey$ebnf$2", "space"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "flowKey", "symbols": ["flowKey$ebnf$1", "literal", "flowKey$ebnf$2", {"literal":":"}], "postprocess": ([w, key, w2, sep]) => key},
-    {"name": "start", "symbols": ["sof", "rootScope", "eof"], "postprocess": ([sof, scope]) => scope},
-    {"name": "rootScope", "symbols": ["blockScope"], "postprocess": id}
+    {"name": "flowKey", "symbols": ["flowKey$ebnf$1", "scalar", "_", {"literal":":"}], "postprocess": ([w, key, w2, sep]) => key},
+    {"name": "start", "symbols": ["sof", "blockScope", "eof"], "postprocess": ([sof, scope]) => scope}
   ],
   ParserStart: "start",
 };

@@ -1,3 +1,46 @@
+scalar
+	-> "&":? _scalar {% ([anchor, scalar]) => {
+				if (anchor){
+					scalar[1].isAnchor = true;
+				}
+				return scalar;
+			}
+		%}
+
+_scalar
+  -> number {% ([v]) => [v, {number: true}] %}
+	| chunkSequence {% ([str]) => {
+		return [str, {scalar: true}]
+	} %}
+
+chunkSequence
+	-> chunk chunkSequenceElement:+ {% ([head, tail]) => [head, ...tail].join('') %}
+	| chunk {% id %}
+
+chunkSequenceElement
+	-> __ chunk {% join %}
+
+chunk
+	# -> chunk any {% join %}
+	# server yaml characters ? ! & *
+	-> startChunk continueChunk:* stopChunk {% ([head, middle, tail]) => {
+		// console.log({head, middle, tail});
+		return [head, ...middle, tail].join('');
+		} %}
+	| startChunk {% id %}
+
+startChunk
+	-> [a-zA-Z$_<>] {% ([tok]) => tok.value %}
+
+continueChunk
+	-> %any {% ([tok]) => tok.value %}
+
+stopChunk
+	-> [^: ] {% id %}
+
+unquotedChar
+	-> %any {% ([tok]) => tok.value %}
+
 urlSafePlusEncoded
 	-> urlSafePlusEncoded urlSafePlusEncodedChars {% join %}
 	| urlSafePlusEncodedChars {% id %}
@@ -6,10 +49,6 @@ urlSafePlusEncodedChars
 	-> "%" hexDigit hexDigit {% join %}
 	| "&" "a" "m" "p" ";" {% join %}
 	| urlSafeChar {% id %}
-
-singleWord
-	-> [a-zA-Z$_] [a-zA-Z0-9$_]:*
-		{% singleWord %}
 
 word
 	-> word wordSafeChar {% join %}
@@ -23,7 +62,7 @@ wordStartChar
 	-> [a-zA-Z$_] {% ([tok]) => tok.value %}
 
 string
-	-> "`" _escapedString "`":?
+	-> "`" _escapedString "`"
         {% ([quote, string]) => string %}
 
 _string

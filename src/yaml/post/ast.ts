@@ -1,8 +1,8 @@
 import { TokenList, Token } from './types';
 
-export const nuller = (): void => null;
 
 export const addPairToMap = ([m, p]: any) => {
+    //  console.log('m <=', p)
     if (!p) return m;
     let [[k, kc], v] = p;
     if (k == '-') {
@@ -17,43 +17,73 @@ export const addPairToMap = ([m, p]: any) => {
     }
     m[0][k] = v;
     m[1].keys[k] = kc;
-    console.log('addPairToMap', m);
     return m;
 }
 
-export const createMap = ([pair]: any) => {
-    if (pair.length != 2) {
-        throw new Error('bad pair' + JSON.stringify(pair, null, 2));
-    }
-    console.log('createMap', pair);
+export const createMap = ([pairs]: any) => {
+    // console.log('@m', { pairs })
+    const map = [{}, { this: 'mapping', keys: {}, comments: [], sequenceLength: 0 }];
 
-    const map = [{}, { this: 'mapping', keys: {}, sequenceLength: 0 }];
-    const res = addPairToMap([map, pair]);
-    return res;
+    for (const pair of pairs) {
+        if (pair) {
+            const [k, v] = pair;
+            const { isComment, ref, priority } = v[1];
+            if (isComment) {
+                map[1].comments.push(pair);
+            } else {
+                if (ref) {
+                    // const existingRef = map[1].refs[ref];
+                    // if (existingRef) {
+                    //     console.log('resolve ambiguity', existingRef)
+                    //     // console.log('resolve ambiguity', existingRef)
+                    //     // skip add
+                    // } else {
+                    // map[1].refs[ref] = pair;
+                    console.log('add ref', ref)
+                    addPairToMap([map, pair]);
+                    // }
+                } else {
+                    addPairToMap([map, pair]);
+                }
+            }
+        }
+    }
+    return map;
 }
 
 export const appendToSequence = ([sequence, item]: any) => {
     if (!item) return sequence;
-    let [i, ic] = item;
-    console.log("append to sequence", sequence);
-    sequence[0].push(i);
-    sequence[1].items.push(ic);
+    console.log("+", item[0]);
+    sequence[0].push(item);
     return sequence;
 }
 
-export const createSequence = ([item]: any, sequenceKind: 'flowSequence' | 'blockSequence') => {
-    if (item.length != 1) {
-        throw new Error('bad item' + JSON.stringify(item, null, 2));
+export const createSequence = ([items]: any, sequenceKind: 'flowSequence' | 'blockSequence') => {
+    const sequenceValues = [];
+    const comments: any = [];
+    if (items) {
+        for (const val of items) {
+            console.log('+item', val)
+            if (val[1].isComment) {
+                comments.push(val);
+            } else {
+                sequenceValues.push(val);
+            }
+        }
     }
-    const sequence: any[] = [[], { this: sequenceKind, items: [] }];
-    const res = appendToSequence([sequence, item]);
-    return res;
+    const sequence: any[] = [sequenceValues, { this: sequenceKind, isIterable: true, comments }];
+    return sequence;
 }
 
-export const createFlowSequence = (args: any) => createSequence(args, 'flowSequence');
-export const createBlockSequence = (args: any) => createSequence(args, 'blockSequence');
+export const createFlowSequence = (sequence: any) => createSequence(sequence, 'flowSequence');
+export const createBlockSequence = (sequence: any) => createSequence(sequence, 'blockSequence');
 
 
+export const nuller = (): void => null;
+export const first = ([f, s]: any) => f;
+export const second = ([f, s]: any) => s;
+export const secondInList = ([list]: any[]) => list.map(([first, second]: any) => second);
+export const third = ([f, s, t]: any) => t;
 export function join(sequence: string[]) {
     // console.log('join', sequence)
     if (sequence.length == 1) {

@@ -3,7 +3,7 @@ flowPushScope
   | disregardedIndentPushScope {% id %}
 
 inlinePushScope
-	-> ("{") space:* {% ([indent, space]) => {
+	-> ("{") _ {% ([indent, space]) => {
 		return indent
   } %}
 
@@ -13,8 +13,8 @@ disregardedIndentPushScope
 	} %}
 
 flowPopScope
-	-> (endLine dedent):? sol ("}") {% ([eol, ignoredDedent, sol, dedent]) => null %}
-  | space:* ("}") {% ([sp, dedent]) => null %}
+	-> (endLine dedent):? sol ("}") {% ([eol, ignoredDedent, sol, dedent]) => dedent %}
+  | _ "}" {% ([sp, dedent]) => dedent %}
 
 blockToFlowScope
   -> flowNestedScope {% id %}
@@ -24,35 +24,29 @@ flowNestedScope
 		return scope
 		} %}
 
-flowMappingScope
-  -> flowMappingScope flowPairConstructor {% addPairToMap %}
-	| flowPairConstructor {% createMap %}
+flowMappingScope -> flowPairConstructor:+ {% createMap %}
 
 flowPairConstructor
 	# nested block mapping
-	-> flowKey flowSep flowToBlockScope
+	-> flowKey _ flowToBlockScope
   		{% ([key, sep, scope]) => {
 			console.log('flow => nestedBlockScope', key, scope);
 			return [key, scope];
 		} %}
 
-	# default map pair, rhs is a statement
-	| flowKey flowSep statement
-  		{% ([key, sep, statement]) => {
-				console.log('flow pair', [key[0], statement[0]]);
-				return [key, statement]
+	# default map pair, rhs is a scalar
+	| flowKey _ scalar
+  		{% ([key, sep, scalar]) => {
+				console.log('flow pair', [key[0], scalar[0]]);
+				return [key, scalar]
 			} %}
-
-flowSep
-  -> space:* {% nuller %}
-	# | endLine {% nuller %}
 
 flowPushSequence
   -> inlinePushSequence {% id %}
   | disregardedIndentedSequence {% id %}
 
 inlinePushSequence
-	-> ("[") space:* {% ([indent, space]) => {
+	-> ("[") _ {% ([indent, space]) => {
 		return indent
   } %}
 
@@ -63,7 +57,7 @@ disregardedIndentedSequence
 
 flowPopSequence
 	-> (endLine dedent):? sol ("]") {% ([eol, ignoredDedent, sol, dedent]) => null %}
-  | space:* ("]") {% ([sp, dedent]) => null %}
+  | _ ("]") {% ([sp, dedent]) => null %}
 
 blockToFlowSequence
   -> flowNestedSequence {% id %}
@@ -73,21 +67,19 @@ flowNestedSequence
 		return scope
 		} %}
 
-flowSequenceScope
-  -> flowSequenceScope flowSequenceConstructor {% appendToSequence %}
-  | flowSequenceConstructor {% createFlowSequence %}
+flowSequenceScope -> flowSequenceConstructor:+ {% createFlowSequence %}
 
 sequenceToBlockMapping
-  -> flowKey flowSep flowToBlockScope {% ([key, sep, scope]) => {
+  -> flowKey _ flowToBlockScope {% ([key, sep, scope]) => {
     console.log('sequenceToBlockMapping', key);
 		return createMap([key, scope])
 		} %}
 
 flowSequenceConstructor
-	-> ("," space:*):? (literal | flowNestedScope | sequenceToBlockMapping)
+	-> ("," _):? (scalar | flowNestedScope | flowNestedSequence | sequenceToBlockMapping)
   		{% ([key, sequenceStatement]) => {
           return sequenceStatement
 		} %}
 
 flowKey
-	-> ("," space:*):? literal space:* ":" {% ([w, key, w2, sep]) => key %}
+	-> ("," _):? scalar _ ":" {% ([w, key, w2, sep]) => key %}

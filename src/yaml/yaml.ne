@@ -1,10 +1,8 @@
 @preprocessor typescript
 @lexer lexer
 
-@include "./statement.ne"
-@include "./uri.ne"
+@include "./scalar.ne"
 @include "./number.ne"
-@include "./string.ne"
 @include "./formatting.ne"
 @include "./block.ne"
 @include "./flow.ne"
@@ -14,14 +12,11 @@ import { clone, mapToObject } from 'typed-json-transform';
 import { lexer, any, indent, dedent, eol, sol, eof, sof, startRule, space } from './lexer';
 import { expectedScopeOperator } from './post/errors';
 import {
-  nuller, createMap, addPairToMap,
-  join, singleWord, unaryOperate, operate,
-	fork, createFlowSequence, createBlockSequence, appendToSequence
+  nuller, first, second, secondInList, createMap, addPairToMap,
+  join, singleWord, unaryOperate, operate, appendToSequence,
+	fork, createFlowSequence, createBlockSequence
 } from './post/ast';
 %}
 
 start
-	-> sof rootScope eof {% ([sof, scope]) => scope %}
-
-rootScope
-	-> blockScope {% id %}
+	-> sof blockScope eof {% ([sof, scope]) => scope %}

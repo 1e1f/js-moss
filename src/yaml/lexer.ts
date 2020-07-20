@@ -37,29 +37,46 @@ const doDedent = (ruleMap: any, indent: number, nextIndent: number, sourceMap: a
 
 function* indented(lexer: any, source: any, info?: any) {
     let iter = peekable(lexer.reset(source, info))
+    // const all = [];
+    // for (let tok: Token; tok = iter.next();) {
+    //     all.push(printToken(tok));
+    // }
+    // console.log(all.join(''));
+    // iter = peekable(lexer.reset(source, info))
+
     let stack = []
     let ruleMap = new Map();
 
     // absorb initial blank lines and indentation
-    let indent = iter.nextIndent()
+    let indent = iter.nextIndent();
 
     yield makeSof();
     yield makeSol(null, indent);
 
+
     for (let tok: Token; tok = iter.next();) {
         const sourceMap = { line: tok.line, col: tok.col };
-
         if (tok.type === 'eol' || tok.type === 'startRule') {
-            const newIndent = iter.nextIndent()
-            if (newIndent == null) {
+            const beforeSkip = iter.peek();
+            const newIndent = iter.nextIndent();
+            const afterIndent = iter.peek();
+            if (afterIndent) {
+                if (beforeSkip.offset != afterIndent.offset) {
+                    // console.log('skipped', afterIndent.offset - beforeSkip.offset);
+                    // console.log('from', beforeSkip.text, 'to', afterIndent.value);
+                }
+            }
+            if (newIndent === null) {
+                console.log('noChange');
                 break;
             }// eof
-            else if (newIndent === indent) {
+            else if (newIndent == indent) {
                 if (tok.type === 'startRule') {
                     const ruleToken = makeToken('startRule', tok.text.slice(0, tok.text.indexOf('<') + 1));
                     ruleMap.set(indent, ruleToken);
                     yield ruleToken;
                 }
+
                 yield makeEol(sourceMap, indent);
                 yield makeSol(sourceMap, indent);
             } else if (newIndent > indent) {
@@ -95,6 +112,7 @@ function* indented(lexer: any, source: any, info?: any) {
         }
     }
 
+
     // dedent remaining blocks at eof
     for (let i = stack.length; i--;) {
         const nextIndent = stack.pop() || 0;
@@ -116,38 +134,44 @@ function* indented(lexer: any, source: any, info?: any) {
 }
 
 function peekable(lexer: any) {
-    let here = lexer.next()
+    let here = lexer.next();
     return {
         next() {
-            const old = here
-            here = lexer.next()
-            return old
+            const old = here;
+            here = lexer.next();
+            return old;
         },
         peek() {
-            return here
+            return here;
         },
         nextIndent() {
+            const chewSpace = (indent: number): number => {
+                this.next();
+                const next = this.peek();
+                // console.log('ate', next.type)
+                if (!next) {
+                    return indent
+                }
+                if (next.type === 'eol') {
+                    // const next = this.next();
+                    return indent;
+                } else if (next.type === 'space') {
+                    return chewSpace(indent + 1);
+                }
+                return indent
+            }
+
             for (let tok; tok = this.peek();) {
+                const tokIndent = tok.col;
+                // console.log('peek', tok);
                 if (tok.type === 'eol') {
-                    this.next();
+                    // throw new Error('peeked eol');
+                    // this.next();
                 }
                 else if (tok.type === 'space') {
-                    // const indent = tok.value.length;
-                    const recur = (indent: number): number => {
-                        this.next()
-                        const next = this.peek()
-                        if (!next) return indent
-                        if (next.type === 'eol') {
-                            this.next()
-                            return indent
-                        } else if (next.type === 'space') {
-                            return recur(indent + 1);
-                        }
-                        return indent
-                    }
-                    return recur(1);
+                    return chewSpace(tokIndent);
                 }
-                return 0
+                return 0;
             }
         },
     }
@@ -216,7 +240,7 @@ class StreamLexer {
     }
 
     reset = function (source: string, info?: any) {
-        console.log('tokens', this.getTokenTypes(source))
+        console.log(this.getTokenTypes(source).join(''))
         this.generator = indented(this.lexer, source, info);
     }
 
@@ -241,7 +265,12 @@ export const any = { test: (tok: Token) => tok.type == 'any' };
 export const startRule = { test: (tok: Token) => tok.type == 'startRule' };
 export const indent = { test: (tok: Token) => tok.type == 'indent' };
 export const dedent = { test: (tok: Token) => tok.type == 'dedent' };
-export const sof = { test: (tok: Token) => { console.log('sof?', tok); return tok.type == 'sof' } };
+export const sof = {
+    test: (tok: Token) => {
+        // console.log('sof?', tok);
+        return tok.type == 'sof'
+    }
+};
 export const sol = { test: (tok: Token) => tok.type == 'sol' };
 export const eof = { test: (tok: Token) => tok.type == 'eof' };
 export const eol = { test: (tok: Token) => tok.type == 'eol' };

@@ -11,20 +11,14 @@
 import { clone, mapToObject } from 'typed-json-transform';
 import { lexer, any, indent, dedent, eol, sol, eof, sof, startRule, space } from './lexer';
 import { expectedScopeOperator } from './post/errors';
-import { 
-	addPairToMap, addListToMap, pairToMap, listToMap, 
+import {
+	addPairToMap, addListToMap, pairToMap, listToMap,
 	kvcToPair, statementToPair, nuller,
 	join, fork, operate, unaryOperate, singleWord } from './post/ast';
 %}
 
 start
-	-> sof rootScope eof {% ([sof, scope]) => scope %}
-	
-rootScope
-	-> map {% id %}
-
-scope
-	-> map {% id %}
+	-> sof map eof {% ([sof, scope]) => scope %}
 
 map
 	-> map mapPairConstructor {% addPairToMap %}
@@ -34,7 +28,7 @@ map
 
 mapList
 	-> sol context:? "-<" endLine list "\/-<" {% ([prefix, context, rule, dedent, list]) => context ? [list, context] : [ list ] %}
-		
+
 mapPairConstructor
 	# nested explicitly declared list
 	-> key inlineContext ("-<" pushScope) list "\/-<" popScope
@@ -50,13 +44,13 @@ mapPairConstructor
   		{% ([key, c, s]) => {
 			return kvcToPair(key, s, c)
 		} %}
-	
+
 	# explicit map pair, rhs is a map
 	| key inlineContext "{" scope "}" endLine
   		{% ([key, context, bracket, scope]) => {
 			  return kvcToPair(key, scope, context)
 			} %}
-			
+
 	# default map pair, rhs is a statement
 	| key inlineContext statement mapTerminator
   		{% ([key, c, s]) => kvcToPair(key, s, c) %}
@@ -101,31 +95,31 @@ listConstructor
 	# nested constrained scope
 	-> key pushTypedScope scope popScope
   		{% ([key, context, scope]) => {
-			  return scope		
+			  return scope
 		} %}
-		
+
 	| key ((space context) | space) "{" scope "}" endLine
   		{% ([key, context, bracket, scope]) => {
 				return scope
 			} %}
-			
+
 	# default map pair, rhs is a statement
 	| key ((space context) | space) statement listTerminator
   		{% ([key, context, statement]) => {
 				return statement
 			} %}
-	
+
 	# default simple value
 	| (sol | space) (context):? statement listTerminator
   		{% ([prefix, c_, [r, r_]]) => {
 			return [r, {...r_, ...c_}];
 		}%}
-		
+
 	| sol eol {% nuller %}
 	| sol comment {% nuller %}
 
 multilineString
-	-> stringLine stringLine:* {% ([head, tail]) => {
+	-> stringLine:+ {% ([head, ...tail]) => {
 		const [startIndent, mls] = head;
 		if (tail.length){
 			const res = tail.map(([indent, line]) => {
@@ -157,15 +151,13 @@ stringLine
 
 
 pushTypedScope
-	-> space context indent 
+	-> space context indent
 		{% ([space, context]) => context %}
 	| pushScope {% nuller %}
 
 
 context
-	-> context constraint
-		{% addPairToMap %}
-	| constraint
+	-> constraint:+
 		{% pairToMap %}
 
 constraint
@@ -173,7 +165,7 @@ constraint
 		{% ([directive, bracket, scope]) => scope %}
 	| "\\" literal "{" map "}" (space | endLine)
 		{% ([directive, key, bracket, map]) => {
-			return [key, map] 
+			return [key, map]
 		} %}
 	| "\\" literal (space | endLine)
 		{% ([directive, property]) => statementToPair(property) %}
