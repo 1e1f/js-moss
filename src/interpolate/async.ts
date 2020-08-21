@@ -55,11 +55,16 @@ export async function tokenize(str: string, options: Expand.Options) {
 
     const sub = async (fn: (s: string, location: any) => any, str: string, sourceMap?: number[]) => {
         let required = true;
+        let defer = false;
+        if (str && str[str.length - 1] == '>') {
+            defer = true;
+            str = str.slice(0, str.length - 1);
+        }
         if (str && str[str.length - 1] == '?') {
             required = false;
             str = str.slice(0, str.length - 1);
         }
-        const res = str && await fn(str, sourceMap);
+        const res = str && await fn(str, { defer, required, sourceMap });
         if (required && !(res || check(res, Number))) {
             throw {
                 message: `${str} doesn't exist, and is required.\nignore (non-strict) with: ${str}?`,
@@ -71,11 +76,16 @@ export async function tokenize(str: string, options: Expand.Options) {
 
     const subSync = (fn: (s: string, location: any) => any, str: string, sourceMap?: number[]) => {
         let required = true;
+        let defer = false;
+        if (str && str[str.length - 1] == '>') {
+            defer = true;
+            str = str.slice(0, str.length - 1);
+        }
         if (str && str[str.length - 1] == '?') {
             required = false;
             str = str.slice(0, str.length - 1);
         }
-        const res = str && fn(str, sourceMap);
+        const res = str && fn(str, { defer, required, sourceMap });
         if (required && !(res || check(res, Number))) {
             throw {
                 message: `${str} doesn't exist, and is required.\nignore (non-strict) with: ${str}?`,

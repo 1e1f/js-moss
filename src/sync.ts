@@ -28,6 +28,7 @@ import * as yaml from "js-yaml";
 
 import { getBranchSync as getBranch } from "./resolvers";
 import { encodeBranchLocator } from "./branch";
+const expression = require('../compiled/expression');
 
 import {
   newLayer,
@@ -41,6 +42,7 @@ import { handleError } from "./util";
 
 type Functions = Moss.Sync.Functions;
 type Resolvers = Moss.Sync.Resolvers;
+
 
 export const continueWithNewFrame = (
   current: Moss.ReturnValue,
@@ -320,6 +322,35 @@ addFunctions({
     }
     return res;
   },
+  match: (parent: Moss.ReturnValue, args: any) => {
+    const base = currentErrorPath(parent.state).path.join(".");
+    // currentErrorPath(parent.state).path.push("from");
+    const iterable = args && Object.keys(args);
+
+    const nextLayer = pushState(parent);
+    const heap = (kp: string) => {
+      if (kp.split('.')[0] == 'stack') {
+        return valueForKeyPath(kp, nextLayer.state)
+      }
+      return valueForKeyPath(kp, nextLayer.state.auto)
+    }
+    for (const k of iterable) {
+      if (k == "default") {
+        parent.data = args[k];
+      } else {
+        const data = expression(heap).parse(k);
+        // const { data } = interpolate(nextLayer, '=' + k);
+        if ((data == true) || (data == 1)) {
+          parent.data = args[k];
+          return;
+        }
+      }
+    }
+  },
+  schema: (current: Moss.ReturnValue, args: any) => {
+    const { data } = continueWithNewFrame(current, args);
+    console.log('schema', data);
+  },
   log: (current: Moss.ReturnValue, args: any) => {
     each(arrayify(args), (i) => {
       let kp = i;
@@ -537,7 +568,7 @@ export function setOptions(options: Expand.Options) {
 
 export const dereference = (
   str: string,
-  { layer, dictionary, popAll, sourceMap }: any
+  { layer, defer, dictionary, popAll, sourceMap }: any
 ) => {
   // replace from trie
   if (!str) return;
@@ -558,14 +589,19 @@ export const dereference = (
     pushErrorPath(layer.state, {
       path: [errorPath],
     });
+    const dereferenced = valueForKeyPath(str, dictionary);
+    if (defer) {
+      return dereferenced;
+    }
     const nextLayer: Moss.ReturnValue = parseNextStructure(
       layer,
-      valueForKeyPath(str, dictionary)
+      dereferenced
     );
     return nextLayer.data;
   }
   return res;
 };
+
 
 function _interpolate(
   layer: Moss.ReturnValue,
@@ -575,24 +611,29 @@ function _interpolate(
   let popAll = 0;
   const options = {
     ...{
-      dereferenceSync: (str: string, sourceMap: any) =>
+      dereferenceSync: (str: string, { defer, sourceMap }: Expand.FunctionArguments = {}) =>
         dereference(str, {
           sourceMap,
+          layer,
+          defer,
+          dictionary,
+          popAll: () => popAll++,
+        }),
+      dereference: (str: string, { defer, sourceMap }: Expand.FunctionArguments = {}) =>
+        dereference(str, {
+          sourceMap,
+          defer,
           layer,
           dictionary,
           popAll: () => popAll++,
         }),
-      dereference: (str: string, sourceMap: any) =>
-        dereference(str, {
-          sourceMap,
-          layer,
-          dictionary,
-          popAll: () => popAll++,
-        }),
-      call: (obj: Object, sourceMap: any) => {
+      call: (obj: Object, { defer, sourceMap }: Expand.FunctionArguments = {}) => {
         // call method
         const keys = Object.keys(obj);
         if (!(keys && keys.length)) return "";
+        if (defer) {
+          return obj;
+        }
         const nextLayer: Moss.ReturnValue = parseNextStructure(
           layer,
           obj
@@ -600,7 +641,7 @@ function _interpolate(
         const res = nextLayer.data;
         return res;
       },
-      fetch: (bl: string, sourceMap: any) => {
+      fetch: (bl: string, { defer, sourceMap }: Expand.FunctionArguments = {}) => {
         popAll++;
         pushErrorPath(layer.state, {
           path: sourceMap,
@@ -616,9 +657,7 @@ function _interpolate(
         }
         if (!resolvedBranch) {
           throw {
-            message: `No results @:\n[${(map(resolvers, (r) => r.name))
-              .filter((e) => e)
-              .join(", ")}] `,
+            message: `No results for ${bl}, in ${Object.keys(resolvers).length} resolvers @ ${yaml.safeDump(layer.data)}`,
           };
         }
         if (resolvedBranch.data) {
@@ -626,6 +665,9 @@ function _interpolate(
           pushErrorPath(layer.state, {
             path: ["^" + encodeBranchLocator(resolvedBranch)],
           });
+          if (defer) {
+            return resolvedBranch.data;
+          }
           const res: Moss.ReturnValue = parseNextStructure(
             layer,
             resolvedBranch.data

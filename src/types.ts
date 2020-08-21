@@ -130,12 +130,17 @@ export declare namespace Expand {
     subst: any[]
   }
 
+  export interface FunctionArguments {
+    defer?: boolean,
+    sourceMap?: number[]
+  }
+
   export interface Options {
-    dereferenceSync?: (sub: string, sourceMap?: number[]) => any
-    dereference?: (sub: string, sourceMap?: number[]) => any
-    call?: (sub: any, sourceMap?: number[]) => any
-    fetch?: (sub: any, sourceMap?: number[]) => any
-    shell?: (sub: string, sourceMap?: number[]) => string
+    dereferenceSync?: (sub: string, options?: FunctionArguments) => any
+    dereference?: (sub: string, options?: FunctionArguments) => any
+    call?: (sub: any, options?: FunctionArguments) => any
+    fetch?: (sub: any, options?: FunctionArguments) => any
+    shell?: (sub: string, options?: FunctionArguments) => string
     getStack?: any
     pushErrorState?: (state?: Moss.ErrorPath) => void
     pushErrorPath?: (s: string) => void

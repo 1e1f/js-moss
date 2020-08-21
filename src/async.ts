@@ -568,7 +568,7 @@ export function setOptions(options: Expand.Options) {
 
 export const dereference = async (
   str: string,
-  { layer, dictionary, popAll, sourceMap }: any
+  { layer, defer, dictionary, popAll, sourceMap }: any
 ) => {
   // replace from trie
   if (!str) return;
@@ -589,14 +589,19 @@ export const dereference = async (
     pushErrorPath(layer.state, {
       path: [errorPath],
     });
+    const dereferenced = valueForKeyPath(str, dictionary);
+    if (defer) {
+      return dereferenced;
+    }
     const nextLayer: Moss.ReturnValue = await parseNextStructure(
       layer,
-      valueForKeyPath(str, dictionary)
+      dereferenced
     );
     return nextLayer.data;
   }
   return res;
 };
+
 
 async function _interpolate(
   layer: Moss.ReturnValue,
@@ -606,24 +611,29 @@ async function _interpolate(
   let popAll = 0;
   const options = {
     ...{
-      dereferenceSync: (str: string, sourceMap: any) =>
+      dereferenceSync: (str: string, { defer, sourceMap }: Expand.FunctionArguments = {}) =>
         dereferenceSync(str, {
           sourceMap,
           layer,
+          defer,
           dictionary,
           popAll: () => popAll++,
         }),
-      dereference: async (str: string, sourceMap: any) =>
+      dereference: async (str: string, { defer, sourceMap }: Expand.FunctionArguments = {}) =>
         await dereference(str, {
           sourceMap,
+          defer,
           layer,
           dictionary,
           popAll: () => popAll++,
         }),
-      call: async (obj: Object, sourceMap: any) => {
+      call: async (obj: Object, { defer, sourceMap }: Expand.FunctionArguments = {}) => {
         // call method
         const keys = Object.keys(obj);
         if (!(keys && keys.length)) return "";
+        if (defer) {
+          return obj;
+        }
         const nextLayer: Moss.ReturnValue = await parseNextStructure(
           layer,
           obj
@@ -631,7 +641,7 @@ async function _interpolate(
         const res = nextLayer.data;
         return res;
       },
-      fetch: async (bl: string, sourceMap: any) => {
+      fetch: async (bl: string, { defer, sourceMap }: Expand.FunctionArguments = {}) => {
         popAll++;
         pushErrorPath(layer.state, {
           path: sourceMap,
@@ -647,9 +657,7 @@ async function _interpolate(
         }
         if (!resolvedBranch) {
           throw {
-            message: `No results @:\n[${(await map(resolvers, (r) => r.name))
-              .filter((e) => e)
-              .join(", ")}] `,
+            message: `No results for ${bl}, in ${Object.keys(resolvers).length} resolvers @ ${yaml.safeDump(layer.data)}`,
           };
         }
         if (resolvedBranch.data) {
@@ -657,6 +665,9 @@ async function _interpolate(
           pushErrorPath(layer.state, {
             path: ["^" + encodeBranchLocator(resolvedBranch)],
           });
+          if (defer) {
+            return resolvedBranch.data;
+          }
           const res: Moss.ReturnValue = await parseNextStructure(
             layer,
             resolvedBranch.data

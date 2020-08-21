@@ -55,11 +55,16 @@ export function tokenize(str: string, options: Expand.Options) {
 
     const sub = (fn: (s: string, location: any) => any, str: string, sourceMap?: number[]) => {
         let required = true;
+        let defer = false;
+        if (str && str[str.length - 1] == '>') {
+            defer = true;
+            str = str.slice(0, str.length - 1);
+        }
         if (str && str[str.length - 1] == '?') {
             required = false;
             str = str.slice(0, str.length - 1);
         }
-        const res = str && fn(str, sourceMap);
+        const res = str && fn(str, { defer, required, sourceMap });
         if (required && !(res || check(res, Number))) {
             throw {
                 message: `${str} doesn't exist, and is required.\nignore (non-strict) with: ${str}?`,
@@ -69,21 +74,7 @@ export function tokenize(str: string, options: Expand.Options) {
         return res;
     }
 
-    const subSync = (fn: (s: string, location: any) => any, str: string, sourceMap?: number[]) => {
-        let required = true;
-        if (str && str[str.length - 1] == '?') {
-            required = false;
-            str = str.slice(0, str.length - 1);
-        }
-        const res = str && fn(str, sourceMap);
-        if (required && !(res || check(res, Number))) {
-            throw {
-                message: `${str} doesn't exist, and is required.\nignore (non-strict) with: ${str}?`,
-                source: str
-            }
-        }
-        return res;
-    }
+    const subSync = sub;
 
     const close = () => {
         const op = ptr.state.op;
