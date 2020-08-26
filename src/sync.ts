@@ -114,6 +114,17 @@ export const parseObject = (current: Moss.ReturnValue) => {
   const { state } = current;
   const source: any = clone(current.data);
   const target = state.target || current.data;
+
+    // Expand has precedence
+  for (const _key of Object.keys(source)) {
+    if (_key[0] === '~' && _key.indexOf(".") != -1) {
+      const kp = _key.slice(1);
+      setValueForKeyPath(source[_key], kp, source);
+      delete source[_key];
+      delete target[_key];
+    }
+  }
+
   for (const _key of Object.keys(source)) {
     let res;
     if (!_key) {
@@ -133,9 +144,10 @@ export const parseObject = (current: Moss.ReturnValue) => {
         if (_key[0] === "$") {
           key = <any>(interpolate(current, _key)).data;
         } else if (_key[0] == "\\") {
-          key = key.slice(1);
-        } else if (_key.indexOf(".") != -1) {
-          const [first, ...kp] = _key.split(".");
+          key = _key.slice(1);
+        } else if (_key[0] === '~' && _key.indexOf(".") != -1) {
+          key = _key.slice(1);
+          const [first, ...kp] = key.split(".");
           key = first;
           val = {};
           setValueForKeyPath(source[_key], kp.join("."), val);
@@ -154,6 +166,19 @@ export const parseObject = (current: Moss.ReturnValue) => {
   }
   return current;
 };
+
+
+export const wrapFunction = (fn: Function, transformArgs?: (args: any) => any[]) => async (current: Moss.ReturnValue, args: Moss.BranchData, setRes: any) => {
+  const { data } = continueWithNewFrame(current, args);
+  let res;
+  if (transformArgs) {
+    res = fn(...transformArgs(data));
+  } else {
+    res = fn(data);
+  }
+  setRes ? setRes(res) : current.data = res;
+}
+
 
 export const parseArray = (
   layer: Moss.ReturnValue,

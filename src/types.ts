@@ -74,7 +74,7 @@ export declare namespace Moss {
 
   type ErrorReporter = (error: Error) => Error;
 
-  type Function<T> = (current: Moss.ReturnValue, args: any) => T;
+  type Function<T> = (current: Moss.ReturnValue, args: any, setter?: (...args: any[]) => void) => T;
   type Resolver<T> = {
     name?: string;
     match: (uri: string) => boolean;

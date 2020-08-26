@@ -106,7 +106,6 @@ export const parseFunction = async (
         errorPaths: state.errorPaths,
       };
     }
-
   }
 }
 
@@ -114,6 +113,17 @@ export const parseObject = async (current: Moss.ReturnValue) => {
   const { state } = current;
   const source: any = clone(current.data);
   const target = state.target || current.data;
+
+  // Expand has precedence
+  for (const _key of Object.keys(source)) {
+    if (_key[0] === '~' && _key.indexOf(".") != -1) {
+      const kp = _key.slice(1);
+      setValueForKeyPath(source[_key], kp, source);
+      delete source[_key];
+      delete target[_key];
+    }
+  }
+
   for (const _key of Object.keys(source)) {
     let res;
     if (!_key) {
@@ -133,12 +143,7 @@ export const parseObject = async (current: Moss.ReturnValue) => {
         if (_key[0] === "$") {
           key = <any>(await interpolate(current, _key)).data;
         } else if (_key[0] == "\\") {
-          key = key.slice(1);
-        } else if (_key.indexOf(".") != -1) {
-          const [first, ...kp] = _key.split(".");
-          key = first;
-          val = {};
-          setValueForKeyPath(source[_key], kp.join("."), val);
+          key = _key.slice(1);
         } else {
           key = _key;
         }
@@ -154,6 +159,17 @@ export const parseObject = async (current: Moss.ReturnValue) => {
   }
   return current;
 };
+
+export const wrapFunction = (fn: Function, transformArgs?: (args: any) => any[]) => async (current: Moss.ReturnValue, args: Moss.BranchData, setRes: any) => {
+  const { data } = await continueWithNewFrame(current, args);
+  let res;
+  if (transformArgs) {
+    res = await fn(...transformArgs(data));
+  } else {
+    res = await fn(data);
+  }
+  setRes ? await setRes(res) : current.data = res;
+}
 
 export const parseArray = async (
   layer: Moss.ReturnValue,
@@ -550,7 +566,7 @@ addFunctions({
     const layer = await continueWithNewFrame(parent, args);
     const { data } = layer;
     parent.data = sum(data, (v: any) => v);
-  },
+  }
 });
 
 async function interpolate(layer: Moss.ReturnValue, input: any) {

@@ -65,7 +65,7 @@ export async function tokenize(str: string, options: Expand.Options) {
             str = str.slice(0, str.length - 1);
         }
         const res = str && await fn(str, { defer, required, sourceMap });
-        if (required && !(res || check(res, Number))) {
+        if (required && res === undefined) {
             throw {
                 message: `${str} doesn't exist, and is required.\nignore (non-strict) with: ${str}?`,
                 source: str
@@ -86,7 +86,7 @@ export async function tokenize(str: string, options: Expand.Options) {
             str = str.slice(0, str.length - 1);
         }
         const res = str && fn(str, { defer, required, sourceMap });
-        if (required && !(res || check(res, Number))) {
+        if (required && res === undefined) {
             throw {
                 message: `${str} doesn't exist, and is required.\nignore (non-strict) with: ${str}?`,
                 source: str

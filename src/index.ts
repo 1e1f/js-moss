@@ -7,4 +7,6 @@ import * as Async from "./async";
 import * as Sync from "./sync";
 export { Async, Sync };
 
+import './moreFunctions';
+
 export { Moss } from './types';

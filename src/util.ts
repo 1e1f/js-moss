@@ -41,9 +41,7 @@ export const handleError = (e: Moss.Error, layer: Moss.ReturnValue, input?: Moss
     if (getErrorReporter()) {
         throw (getErrorReporter()(error));
     } else {
-        throw {
-            name: 'MossError',
-            ...error
-        }
+        console.error(error)
+        throw new Error(error.message);
     }
 }
