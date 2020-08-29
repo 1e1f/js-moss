@@ -1,5 +1,4 @@
 import {
-  mergeArray,
   amap as map,
   aokmap as okmap,
   arrayify,
@@ -12,8 +11,9 @@ import {
   all,
   isEqual,
   setValueForKeyPath,
-  mergeOrReturnAssignment,
   contains,
+  mergeLhsArray,
+  mergeLhsObject
 } from "typed-json-transform";
 import { interpolateAsync as __interpolate } from "./interpolate";
 import {
@@ -111,17 +111,23 @@ export const parseFunction = async (
 
 export const parseObject = async (current: Moss.ReturnValue) => {
   const { state } = current;
-  const source: any = clone(current.data);
+  let source: any = clone(current.data);
   const target = state.target || current.data;
 
   // Expand has precedence
+  let didExpand;
+  const expandedSource = {}
   for (const _key of Object.keys(source)) {
+    let kp = _key;
     if (_key[0] === '~' && _key.indexOf(".") != -1) {
-      const kp = _key.slice(1);
-      setValueForKeyPath(source[_key], kp, source);
-      delete source[_key];
       delete target[_key];
+      didExpand = true;
+      kp = _key.slice(1);
     }
+    setValueForKeyPath(source[_key], kp, expandedSource);
+  }
+  if (didExpand) {
+    source = expandedSource
   }
 
   for (const _key of Object.keys(source)) {
@@ -141,7 +147,11 @@ export const parseObject = async (current: Moss.ReturnValue) => {
       } else {
         let val = source[_key];
         if (_key[0] === "$") {
-          key = <any>(await interpolate(current, _key)).data;
+          try {
+            key = <any>(await interpolate(current, _key)).data;
+          } catch (e) {
+
+          }
         } else if (_key[0] == "\\") {
           key = _key.slice(1);
         } else {
@@ -222,9 +232,9 @@ export const onMatch = async (
   state.merge.operator = operator;
   const rhs = (await continueWithNewFrame({ data: {}, state }, setter)).data;
   if (check(lhs, Array)) {
-    mergeArray(rv, rhs);
+    mergeLhsArray(rv, rhs);
   } else if (check(lhs, Object)) {
-    mergeOrReturnAssignment(rv, rhs);
+    mergeLhsObject(rv, rhs);
   } else {
     rv.data = rhs;
   }
@@ -682,6 +692,10 @@ async function _interpolate(
             path: ["^" + encodeBranchLocator(resolvedBranch)],
           });
           if (defer) {
+            resolvedBranch.intermediate = {
+              data: resolvedBranch.data,
+              state: layer.state
+            };
             return resolvedBranch.data;
           }
           const res: Moss.ReturnValue = await parseNextStructure(

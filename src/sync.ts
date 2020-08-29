@@ -14,8 +14,8 @@ import {
   valueForKeyPath,
   all,
   isEqual,
-  mergeArray,
-  mergeOrReturnAssignment,
+  mergeLhsArray,
+  mergeLhsObject
 } from "typed-json-transform";
 import { interpolate as __interpolate } from "./interpolate";
 import {
@@ -112,17 +112,23 @@ export const parseFunction = (
 
 export const parseObject = (current: Moss.ReturnValue) => {
   const { state } = current;
-  const source: any = clone(current.data);
+  let source: any = clone(current.data);
   const target = state.target || current.data;
 
-    // Expand has precedence
+  // Expand has precedence
+  let didExpand;
+  const expandedSource = {}
   for (const _key of Object.keys(source)) {
+    let kp = _key;
     if (_key[0] === '~' && _key.indexOf(".") != -1) {
-      const kp = _key.slice(1);
-      setValueForKeyPath(source[_key], kp, source);
-      delete source[_key];
       delete target[_key];
+      didExpand = true;
+      kp = _key.slice(1);
     }
+    setValueForKeyPath(source[_key], kp, expandedSource);
+  }
+  if (didExpand) {
+    source = expandedSource
   }
 
   for (const _key of Object.keys(source)) {
@@ -168,16 +174,19 @@ export const parseObject = (current: Moss.ReturnValue) => {
 };
 
 
-export const wrapFunction = (fn: Function, transformArgs?: (args: any) => any[]) => async (current: Moss.ReturnValue, args: Moss.BranchData, setRes: any) => {
-  const { data } = continueWithNewFrame(current, args);
-  let res;
-  if (transformArgs) {
-    res = fn(...transformArgs(data));
-  } else {
-    res = fn(data);
+export const wrapFunction = (fn: Function,
+  transformArgs?: (args: any) => any[]) => (current: Moss.ReturnValue,
+    args: Moss.BranchData,
+    setRes: any) => {
+    const { data } = continueWithNewFrame(current, args);
+    let res;
+    if (transformArgs) {
+      res = fn(...transformArgs(data));
+    } else {
+      res = fn(data);
+    }
+    setRes ? setRes(res) : current.data = res;
   }
-  setRes ? setRes(res) : current.data = res;
-}
 
 
 export const parseArray = (
@@ -231,9 +240,9 @@ export const onMatch = (
   state.merge.operator = operator;
   const rhs = (continueWithNewFrame({ data: {}, state }, setter)).data;
   if (check(lhs, Array)) {
-    mergeArray(rv, rhs);
+    mergeLhsArray(rv, rhs);
   } else if (check(lhs, Object)) {
-    mergeOrReturnAssignment(rv, rhs);
+    mergeLhsObject(rv, rhs);
   } else {
     rv.data = rhs;
   }
@@ -691,6 +700,11 @@ function _interpolate(
             path: ["^" + encodeBranchLocator(resolvedBranch)],
           });
           if (defer) {
+            console.log("deferred", resolvedBranch)
+            resolvedBranch.intermediate = {
+              data: resolvedBranch.data,
+              state: layer.state
+            };
             return resolvedBranch.data;
           }
           const res: Moss.ReturnValue = parseNextStructure(
@@ -706,6 +720,10 @@ function _interpolate(
             state: { auto, stack, selectors, merge },
           };
           return data;
+        } else {
+          throw {
+            message: `${bl}, resolved a branch but that branch has no data`,
+          };
         }
       },
       shell: () => "no shell method supplied",
