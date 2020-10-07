@@ -1,22 +1,16 @@
 {
-  "include": [
-    "src/**/*.ts"
-  ],
+  "include": ["src/**/*.ts", "src/branch/parser/compiled.js"],
   "compilerOptions": {
     "rootDir": "src",
     "declaration": true,
-    // "declarationDir": ".",
     "outDir": "dist",
     "sourceMap": true,
-    "noImplicitAny": true,
+    "noImplicitAny": false,
     "module": "commonjs",
     "moduleResolution": "node",
     "target": "es5",
     "removeComments": false,
-    "lib": [
-      "esnext",
-      "dom"
-    ],
+    "lib": ["esnext", "dom"],
     "preserveConstEnums": true,
     "noEmitOnError": false
   }

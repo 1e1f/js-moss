@@ -1,14 +1,14 @@
 {
   "name": "js-moss",
   "description": "moss is a set of parsing rules for yaml and json",
-  "version": "0.18.16",
+  "version": "0.19.2",
   "homepage": "https://github.com/1e1f/js-moss",
   "author": {
     "name": "Leif Shackelford",
     "email": "structuresound@gmail.com"
   },
   "engines": {
-    "node": ">= 8"
+    "node": ">= 10"
   },
   "repository": {
     "type": "git",
@@ -27,6 +27,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "bl": "nearleyc src/branch/parser/parser.ne -o src/branch/parser/compiled.ts",
     "test": "NODE_ENV=test mocha --recursive --require ts-node/register \"test/**/*.ts\" --bail",
     "cover": "NODE_ENV=test nyc --report-dir coverage npm t",
     "docs": "jsdoc -c config/jsdoc.json -R README.md --verbose --pedantic",
@@ -47,9 +48,9 @@
     "mocha": "^5.2",
     "nyc": "^13.2",
     "shelljs": "^0.8",
-    "ts-node": "^8.0",
-    "typescript": "3.2.2",
-    "nearley": "^2.16.0"
+    "ts-node": "^9.0",
+    "typescript": "3.4.3",
+    "nearley": "^2.19.7"
   },
   "cliDependencies": [
     "jsdoc"
