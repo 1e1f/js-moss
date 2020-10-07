@@ -1,6 +1,17 @@
 import { join } from "path";
 import { Moss } from '../types';
 
+const full = 'signet::legendary|schema@chroma:1.2'
+const noNamespace = '::legendary|schema@chroma:1.2'
+
+const blReservedCharacters = {
+  // segment keys'
+  namespaceSegment: '::', // can be omitted if first element
+  organizationSegment: '@',
+  projectSegment: '|',
+  versionSegment: ':',
+}
+
 export const splitBranchLocator = (bl: string) => {
   const parts = bl.split(":");
   switch (parts.length) {

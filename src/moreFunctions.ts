@@ -58,6 +58,7 @@ addFunctions({
   capitalize: wrapFunction(capitalize, parseStringArgs),
   proper: wrapFunction(proper, parseStringArgs),
   plural: wrapFunction(pluralize, parseStringArgs),
+  linkBranch: wrapFunction((branch: any) => `^${encodeBranchLocator(branch)}`),
   toBranchLocator: wrapFunction(encodeBranchLocator),
   toBranch: wrapFunction(decodeBranchLocator)
 })
@@ -70,6 +71,7 @@ addSyncFunctions({
   capitalize: wrapSyncFunction(capitalize, parseStringArgs),
   proper: wrapSyncFunction(proper, parseStringArgs),
   plural: wrapSyncFunction(pluralize, parseStringArgs),
+  linkBranch: wrapSyncFunction((branch: any) => `^${encodeBranchLocator(branch)}`),
   toBranchLocator: wrapSyncFunction(encodeBranchLocator),
   toBranch: wrapSyncFunction(decodeBranchLocator)
 })
