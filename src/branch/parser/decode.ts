@@ -10,6 +10,8 @@ export const parse = (text: string) => {
 }
 
 export const decode = (text: string): Moss.Branch => {
-  const parsed = parse(text);
+  if ((text === undefined) || (text === null)) throw new Error("decoding " + text + " branch locator");
+  const parsed = parse(text + " ");
+  // console.log(parsed.results ? (parsed.results[0] || {}) : {})
   return parsed.results ? (parsed.results[0] || {}) : {};
 }

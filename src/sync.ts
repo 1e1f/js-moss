@@ -298,7 +298,7 @@ addResolvers({
     match: (bl: string) => bl == "hello",
     resolve: (bl: string) => ({
       organizationSegment: "test",
-      pathSegment: bl,
+      nameSegment: bl,
       data: "hello world!",
     }),
   },

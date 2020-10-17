@@ -67,7 +67,7 @@ export async function tokenize(str: string, options: Expand.Options) {
         const res = str && await fn(str, { defer, required, sourceMap });
         if (!!required && (res === undefined)) {
             throw {
-                message: `${str} doesn't exist, and is required. are you importing a branch in Sync mode? ignore (non-strict) with: ${str}?`,
+                message: `"${str}" doesn't exist, and is required. Did you forget to defer a section i.e "section>:"? If "${str}" is optionally blank, you can ignore this error with a '?' i.e. $${str}?`,
                 source: str
             }
         }
@@ -88,7 +88,7 @@ export async function tokenize(str: string, options: Expand.Options) {
         const res = str && fn(str, { defer, required, sourceMap });
         if (!!required && (res === undefined)) {
             throw {
-                message: `${str} doesn't exist, and is required. are you importing a branch in Sync mode? ignore (non-strict) with: ${str}?`,
+                message: `"${str}" doesn't exist, and is required. Did you forget to defer a section i.e "section>:"? If "${str}" is optionally blank, you can ignore this error with a '?' i.e. $${str}?`,
                 source: str
             }
         }

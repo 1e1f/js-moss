@@ -5,31 +5,34 @@ import { decodeBranchLocator, encodeBranchLocator } from '../src';
 const shouldPass = [
   {
     bl: '',
-    printWildcards: false,
     branch: {
     }
   },
   {
-    bl: '-::-|-@-:-',
-    printWildcards: true,
+    bl: '-::-@-~-:-',
     branch: {
+      contextSegment: '-',
+      nameSegment: '-',
+      projectSegment: '-',
+      organizationSegment: '-',
+      versionSegment: '-',
     }
   },
   {
-    bl: 'namespaceSegment::pathSegment|projectSegment@organizationSegment:versionSegment',
+    bl: 'contextSegment::nameSegment@organizationSegment~projectSegment:versionSegment',
     branch: {
-      namespaceSegment: 'namespaceSegment',
-      pathSegment: 'pathSegment',
+      contextSegment: 'contextSegment',
+      nameSegment: 'nameSegment',
       projectSegment: 'projectSegment',
       organizationSegment: 'organizationSegment',
       versionSegment: 'versionSegment'
     }
   }, {
     bl:
-      'example::product|forms@openCanna',
+      'example::product@openCanna~forms',
     branch: {
-      namespaceSegment: 'example',
-      pathSegment: 'product',
+      contextSegment: 'example',
+      nameSegment: 'product',
       projectSegment: 'forms',
       organizationSegment: 'openCanna'
     }
@@ -37,14 +40,14 @@ const shouldPass = [
   {
     bl: 'simple@chroma',
     branch: {
-      pathSegment: 'simple',
+      nameSegment: 'simple',
       organizationSegment: 'chroma'
     }
   },
   {
     bl: 'multiVersion@chroma:3:2:1',
     branch: {
-      pathSegment: 'multiVersion',
+      nameSegment: 'multiVersion',
       organizationSegment: 'chroma',
       versionSegment: '3',
       versionSegments: ['3', '2', '1']
@@ -53,15 +56,15 @@ const shouldPass = [
   {
     bl: 'multiOrg@chroma@openCanna',
     branch: {
-      pathSegment: 'multiOrg',
+      nameSegment: 'multiOrg',
       organizationSegment: 'chroma',
       organizationSegments: ['chroma', 'openCanna'],
     }
   },
   {
-    bl: 'multiMulti|projectA|projectB@org1@org2:3:2:1',
+    bl: 'multiMulti@org1@org2~projectA~projectB:3:2:1',
     branch: {
-      pathSegment: 'multiMulti',
+      nameSegment: 'multiMulti',
       projectSegment: 'projectA',
       projectSegments: ['projectA', 'projectB'],
       organizationSegment: 'org1',
@@ -73,14 +76,15 @@ const shouldPass = [
   {
     bl: 'product2@3m',
     branch: {
-      pathSegment: 'product2',
+      nameSegment: 'product2',
       organizationSegment: '3m',
     }
   },
   {
-    bl: 'has space|has/slash@has-hyphen',
+    bl: 'has space @ has-hyphen ~ has/slash',
+    match: 'has space@has-hyphen~has/slash',
     branch: {
-      pathSegment: 'has space',
+      nameSegment: 'has space',
       projectSegment: 'has/slash',
       organizationSegment: 'has-hyphen',
     }
@@ -88,20 +92,21 @@ const shouldPass = [
 ]
 
 const shouldFail = [
-  '.@no_dot',
-  '+@no_plus',
-  'l77t@noNumbersInTheMiddle',
-  '-no-leadingDash@org',
-  'no-trailing-dash-@org',
+  'no dot@.',
+  'no plus@+',
+  'no numbers inside word@l77t',
+  'no leading dash@-fail',
+  'no trailing dash@fail-',
 ];
 
 describe('Branch locator', () => {
-  for (const { bl, branch, printWildcards } of shouldPass) {
+  for (const { bl, branch, match } of shouldPass) {
     it(bl, () => {
       const result = decodeBranchLocator(bl);
       assert.deepEqual(result, branch as any);
-      const reEncodedBl = encodeBranchLocator(result, { includeNamespaceSegment: true, printWildcards });
-      assert.equal(reEncodedBl, bl, 're-encode failed');
+
+      const reEncodedBl = encodeBranchLocator(result, { includeNamespaceSegment: true });
+      assert.equal(reEncodedBl, match || bl, 're-encode failed');
     });
   }
 
@@ -113,7 +118,7 @@ describe('Branch locator', () => {
       } catch (e) {
       };
       if (result) {
-        console.log(result)
+        console.log({ result, bl })
         assert(0, `${bl} should have failed`)
       }
     });

@@ -45,11 +45,11 @@ export declare namespace Moss {
 
   interface Branch {
     // required
-    pathSegment: string;
+    nameSegment: string;
     organizationSegment: string;
 
     // optional
-    namespaceSegment?: string;
+    contextSegment?: string;
     organizationSegments?: string[];
     projectSegment?: string;
     projectSegments?: string[];

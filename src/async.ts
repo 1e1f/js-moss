@@ -290,7 +290,7 @@ addResolvers({
     match: (bl: string) => bl == "hello",
     resolve: async (bl: string) => ({
       organizationSegment: "test",
-      pathSegment: bl,
+      nameSegment: bl,
       data: "hello world!",
     }),
   },

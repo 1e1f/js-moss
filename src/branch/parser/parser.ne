@@ -1,6 +1,5 @@
 @preprocessor typescript
 
-
 @{%
 		function join(sequence: string[]) {
 			// console.log('join', sequence)
@@ -15,42 +14,76 @@
 		}
 
 		const stringOfSame = ([tokens]: string[][]) => tokens.join('');
-		const stringAppendAfterGap = ([first, gap, next]: string[]) => first + gap + next;
+		const stringAppendAfterGap = ([first, gap, next]) => first + gap.join('') + next;
 		const pair = ([first, next]: string[]) => [first, next];
 		const token = ([tok]: string[]) => tok;
 		const symbolToSegmentKey = (symbol: string) => {
 			switch (symbol){
-						case '|': return 'projectSegment';
+						case '~': return 'projectSegment';
 						case '@': return 'organizationSegment';
 						case ':': return 'versionSegment';
 					}
 			}
 %}
 
+branchLocators
+	-> branchLocators _ "," branchLocator {%
+		([bls, ws, comma, bl]) => {
+			const iter = Array.isArray(bls) ? bls : [bls];
+			return [
+				...iter,
+				bl
+		  ]
+		}
+	%}
+	| branchLocator {% id %}
+
 branchLocator
-	-> head tail:? {%
-		([head, tail]) => {
+	-> head:? _ tail:? {%
+		([head, ws, tail]) => {
+			if (!head && !tail) return null;
 		  return {
-			...head,
-			...tail,
+				...head,
+				...tail,
 		  }
 		}
 	%}
 
 head
- 	-> (segmentGroup | "-") "::" head {%
-		([[namespaceSegment], mark, pathObject]) => {
-			if (namespaceSegment === '-') return pathObject;
+ 	-> (orgGroup | "-"):? _ "::" head:? {%
+		([context, ws, mark, pathObject]) => {
+			if (!context && !pathObject){
+				return {};
+			}
+			if (!context) return pathObject;
+			const [contextSegment] = context;
+			if (!pathObject) return { contextSegment }
 		  return {
-			namespaceSegment,
+			contextSegment,
 			...pathObject,
 		  }
 		}
 	%}
-	| (segmentGroup | "-") {% ([[pathSegment]]) => {
-		if (pathSegment === '-') return {}
-		return {pathSegment}
+
+	| _ nameSegment {% ([ws, nameSegment]) => nameSegment %}
+
+nameSegment
+	-> fileName {% ([nameSegment]) => {
+		if (!nameSegment) return {}
+		return {nameSegment}
 		} %}
+
+fileName
+	-> fileName gap fileWord {% join %}
+	| fileWord {% id %}
+
+fileWord
+	-> fileChar:+ {% stringOfSame %}
+
+fileChar
+	-> numberChar {% id %}
+	| alphaChar {% id %}
+	| alphaSeparator {% id %}
 
 tail
 	-> markedSegment:+ {%
@@ -72,22 +105,19 @@ tail
 	%}
 
 markedSegment
-  -> [@|:] segmentGroup {% ([mark, value]) => {
-		return [symbolToSegmentKey(mark), value];
+  -> [@~:] _ (orgGroup | "-") _ {% ([ mark, ws, [group]]) => {
+		return [symbolToSegmentKey(mark), group];
 		} %}
-	| [@|:] "-" {% ([mark, value]) => {
-		return [symbolToSegmentKey(mark), null];
-	} %}
 
-segmentGroup
- 	-> chunk gap segmentGroup {% stringAppendAfterGap %}
-	| chunk {% id %}
+orgGroup
+ 	-> orgChunk gap:+ orgGroup {% stringAppendAfterGap %}
+	| orgChunk {% id %}
 
-chunk
-	-> number word number {% join %}
-	| word number {% join %}
-	| number word {% join %}
-	| word {% join %}
+orgChunk
+	-> number name number {% join %}
+	| name number {% join %}
+	| number name {% join %}
+	| name {% join %}
 	| number {% join %}
 
 gap
@@ -95,22 +125,23 @@ gap
   | [/] {% token %}
 
 number
-	-> number numeric {% join %}
-	| numeric {% id %}
+	-> numberChar:+ {% stringOfSame %}
 
-numeric
+numberChar
 	-> [0-9] {% token %}
 
-
-word
-	-> alpha {% id %}
-	| alpha alphaSeparator word {% join %}
+name
+	-> alphaChunk alphaSeparator name {% join %}
+	| alphaChunk {% id %}
 
 alphaSeparator
-  -> [-] {% token %}
+  -> "-" {% token %}
 
-alpha
-	-> [a-zA-Z]:+ {% stringOfSame %}
+alphaChunk
+	-> alphaChar:+ {% stringOfSame %}
+
+alphaChar
+	-> [a-zA-Z] {% token %}
 
 __
 	-> " ":+ {% ([tokens]) => {
@@ -119,4 +150,9 @@ __
 					spaces += ' ';
 				}
 				return spaces;
+			} %}
+
+_
+	-> " ":* {% ([tokens]) => {
+				return null;
 			} %}
