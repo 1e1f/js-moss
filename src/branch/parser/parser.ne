@@ -1,4 +1,5 @@
 @preprocessor typescript
+@builtin "whitespace.ne"
 
 @{%
 		function join(sequence: string[]) {
@@ -8,7 +9,7 @@
 			}
 			let memo = '';
 			for (const item of sequence) {
-					memo = memo + item;
+					memo = memo + (item || ' ');
 			}
 			return memo;
 		}
@@ -25,6 +26,11 @@
 					}
 			}
 %}
+
+fileStart
+	-> [\u200B-\u200D\uFEFF]:? branchLocators {%
+		([startChar, code]) => code
+		%}
 
 branchLocators
 	-> branchLocators _ "," branchLocator {%
@@ -143,16 +149,17 @@ alphaChunk
 alphaChar
 	-> [a-zA-Z] {% token %}
 
-__
-	-> " ":+ {% ([tokens]) => {
-				let spaces = '';
-				for (const i of tokens){
-					spaces += ' ';
-				}
-				return spaces;
-			} %}
+# Now using builtin for these tokens
+# __
+# 	-> " ":+ {% ([tokens]) => {
+# 				let spaces = '';
+# 				for (const i of tokens){
+# 					spaces += ' ';
+# 				}
+# 				return spaces;
+# 			} %}
 
-_
-	-> " ":* {% ([tokens]) => {
-				return null;
-			} %}
+# _
+# 	-> " ":* {% ([tokens]) => {
+# 				return null;
+# 			} %}

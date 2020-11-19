@@ -5,6 +5,8 @@ const grammar = require('./compiled').default;
 const compiled = Grammar.fromCompiled(grammar);
 
 export const parse = (text: string) => {
+  // ignore empty chars in parser is probably faster
+  // let withoutEmptyChars = text.replace(/[\u200B-\u200D\uFEFF]/g, '');
   const parser = new Parser(compiled);
   return parser.feed(text);
 }

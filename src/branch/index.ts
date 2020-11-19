@@ -6,6 +6,8 @@ import { contains, union } from 'typed-json-transform';
 export { decode as decodeBranchLocator, encode as encodeBranchLocator }
 export const canonicalBranchLocator = (bl: string) => encode(decode(bl));
 
+export const slugifyBranchLocator = (bl) => encode(decode(bl), { urlSafe: true });
+
 interface BranchLocatorSelector {
   nameSegment?: string | string[],
   projectSegment?: string | string[],

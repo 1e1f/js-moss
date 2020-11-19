@@ -11,7 +11,7 @@ function id(d: any[]): any { return d[0]; }
 			}
 			let memo = '';
 			for (const item of sequence) {
-					memo = memo + item;
+					memo = memo + (item || ' ');
 			}
 			return memo;
 		}
@@ -57,6 +57,18 @@ interface Grammar {
 const grammar: Grammar = {
   Lexer: undefined,
   ParserRules: [
+    {"name": "_$ebnf$1", "symbols": []},
+    {"name": "_$ebnf$1", "symbols": ["_$ebnf$1", "wschar"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "_", "symbols": ["_$ebnf$1"], "postprocess": function(d) {return null;}},
+    {"name": "__$ebnf$1", "symbols": ["wschar"]},
+    {"name": "__$ebnf$1", "symbols": ["__$ebnf$1", "wschar"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "__", "symbols": ["__$ebnf$1"], "postprocess": function(d) {return null;}},
+    {"name": "wschar", "symbols": [/[ \t\n\v\f]/], "postprocess": id},
+    {"name": "fileStart$ebnf$1", "symbols": [/[\u200B-\u200D\uFEFF]/], "postprocess": id},
+    {"name": "fileStart$ebnf$1", "symbols": [], "postprocess": () => null},
+    {"name": "fileStart", "symbols": ["fileStart$ebnf$1", "branchLocators"], "postprocess": 
+        ([startChar, code]) => code
+        },
     {"name": "branchLocators", "symbols": ["branchLocators", "_", {"literal":","}, "branchLocator"], "postprocess": 
         ([bls, ws, comma, bl]) => {
         	const iter = Array.isArray(bls) ? bls : [bls];
@@ -159,23 +171,9 @@ const grammar: Grammar = {
     {"name": "alphaChunk$ebnf$1", "symbols": ["alphaChar"]},
     {"name": "alphaChunk$ebnf$1", "symbols": ["alphaChunk$ebnf$1", "alphaChar"], "postprocess": (d) => d[0].concat([d[1]])},
     {"name": "alphaChunk", "symbols": ["alphaChunk$ebnf$1"], "postprocess": stringOfSame},
-    {"name": "alphaChar", "symbols": [/[a-zA-Z]/], "postprocess": token},
-    {"name": "__$ebnf$1", "symbols": [{"literal":" "}]},
-    {"name": "__$ebnf$1", "symbols": ["__$ebnf$1", {"literal":" "}], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "__", "symbols": ["__$ebnf$1"], "postprocess":  ([tokens]) => {
-        	let spaces = '';
-        	for (const i of tokens){
-        		spaces += ' ';
-        	}
-        	return spaces;
-        } },
-    {"name": "_$ebnf$1", "symbols": []},
-    {"name": "_$ebnf$1", "symbols": ["_$ebnf$1", {"literal":" "}], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "_", "symbols": ["_$ebnf$1"], "postprocess":  ([tokens]) => {
-        	return null;
-        } }
+    {"name": "alphaChar", "symbols": [/[a-zA-Z]/], "postprocess": token}
   ],
-  ParserStart: "branchLocators",
+  ParserStart: "fileStart",
 };
 
 export default grammar;

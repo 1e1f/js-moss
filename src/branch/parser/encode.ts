@@ -43,17 +43,17 @@ export const encode = (
       bl = bl + ':' + versionSegment;
     }
   }
-  if (urlSafe) return slugifyBranchLocator(bl);
+  if (urlSafe) return _slugifyBranchLocator(bl);
   return bl;
 };
 
-export const slugifyBranchLocator = (
+export const _slugifyBranchLocator = (
   bl: string
 ) => {
   return bl
     .replace(/::/g, '_n_')
-    .replace(/~/g, '_p_')
-    .replace(/@/g, '_o_')
+    .replace(/~/g, '_in_')
+    .replace(/@/g, '_at_')
     .replace(/:/g, '_v_')
     .replace(/\//g, '_s_');
 };

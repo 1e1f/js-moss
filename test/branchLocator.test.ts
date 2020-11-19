@@ -88,6 +88,15 @@ const shouldPass = [
       projectSegment: 'has/slash',
       organizationSegment: 'has-hyphen',
     }
+  },
+  {
+    bl: '﻿8675309/Dreamt Sleep Pen@dreamt~batches',
+    match: '8675309/Dreamt Sleep Pen@dreamt~batches',
+    branch: {
+      nameSegment: '8675309/Dreamt Sleep Pen',
+      projectSegment: 'batches',
+      organizationSegment: 'dreamt',
+    }
   }
 ]
 
