@@ -14,7 +14,7 @@ export const popErrorPath = (state: Moss.State) => state.errorPaths.pop();
 
 export const newState = (branch?: Moss.Branch): Moss.State => {
   const path = branch ? encodeBranchLocator(branch) : "root";
-  // const contentHash = jsonStableHash(branch ? branch.data : {});
+  // const contentHash = jsonStableHash(branch ? branch.parsed : {});
 
   const pathGraph = new Graph<Moss.Branch>();
   pathGraph.addNode(path, branch);

@@ -10,7 +10,7 @@ const { parse, next, setOptions } = Sync;
 describe('Sync API', () => {
     it('can produce a source map', () => {
         const sourceMap = SourceMapper.parse(readFileSync(join(__dirname, 'sourcemap.yaml'), 'utf8'))
-        assert.deepEqual(sourceMap.timestamp.key, [4763, 4772, 170, 0]);
+        assert.deepEqual(sourceMap.timestamp.key, [4753, 4762, 170, 0]);
         // console.log(util.inspect(sourceMap, false, 10, true));
     });
 

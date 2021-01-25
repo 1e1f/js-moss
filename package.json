@@ -1,7 +1,7 @@
 {
   "name": "js-moss",
   "description": "moss is a set of parsing rules for yaml and json",
-  "version": "0.20.2",
+  "version": "0.21.1",
   "homepage": "https://github.com/1e1f/js-moss",
   "author": {
     "name": "Leif Shackelford",
@@ -36,7 +36,7 @@
   },
   "Keywords": [],
   "devDependencies": {
-    "@types/js-yaml": "^3.12",
+    "@types/js-yaml": "^3.11",
     "@types/mathjs": "^5",
     "@types/mocha": "^5",
     "@types/node": "^10",

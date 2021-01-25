@@ -110,7 +110,7 @@ const grammar: Grammar = {
     {"name": "endLine", "symbols": ["_", "eol"], "postprocess": nuller},
     {"name": "comment$ebnf$1", "symbols": ["_escapedString"], "postprocess": id},
     {"name": "comment$ebnf$1", "symbols": [], "postprocess": () => null},
-    {"name": "comment", "symbols": [{"literal":"#"}, "comment$ebnf$1", eol], "postprocess": 
+    {"name": "comment", "symbols": [{"literal":"#"}, "comment$ebnf$1", "eol"], "postprocess": 
         ([hash, comment]) => {
         	console.log({comment});
         	 return [comment || '', {isComment: true}]
@@ -140,19 +140,23 @@ const grammar: Grammar = {
         return scope
         } },
     {"name": "blockScope", "symbols": ["blockMapping"], "postprocess": id},
-    {"name": "blockScope", "symbols": ["blockSequence"], "postprocess": id},
-    {"name": "blockScope", "symbols": ["sol", "statement"], "postprocess": second},
     {"name": "blockMapping$ebnf$1", "symbols": []},
     {"name": "blockMapping$ebnf$1$subexpression$1$ebnf$1", "symbols": []},
     {"name": "blockMapping$ebnf$1$subexpression$1$ebnf$1", "symbols": ["blockMapping$ebnf$1$subexpression$1$ebnf$1", "lineBreak"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "blockMapping$ebnf$1$subexpression$1", "symbols": ["blockMapping$ebnf$1$subexpression$1$ebnf$1", "sol", "kvPair"]},
+    {"name": "blockMapping$ebnf$1$subexpression$1", "symbols": ["blockMapping$ebnf$1$subexpression$1$ebnf$1", "blockMappingLine"]},
     {"name": "blockMapping$ebnf$1", "symbols": ["blockMapping$ebnf$1", "blockMapping$ebnf$1$subexpression$1"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "blockMapping", "symbols": ["sol", "kvPair", "blockMapping$ebnf$1"], "postprocess":  ([sol, head, tail]) => {
+    {"name": "blockMapping", "symbols": ["blockMappingLine", "blockMapping$ebnf$1"], "postprocess":  ([head, tail]) => {
+        	const m = createMap([[head]]);
         	if (tail && tail.length){
-        		return addPairToMap([head, tail.map(([br, sol, i]: any) => i)]);
+        		const pairs = tail.map(([br, i]: any) => i);
+        		for (const p of pairs){
+        				 addPairToMap([m, p]);
+        		}
         	}
-        		return createMap([[head]]);
+        		return m;
         } },
+    {"name": "blockMappingLine", "symbols": ["sol", "kvPair"], "postprocess": second},
+    {"name": "blockMappingLine", "symbols": ["sol", "eol"], "postprocess": nuller},
     {"name": "blockSequence$ebnf$1", "symbols": []},
     {"name": "blockSequence$ebnf$1$subexpression$1$ebnf$1", "symbols": []},
     {"name": "blockSequence$ebnf$1$subexpression$1$ebnf$1", "symbols": ["blockSequence$ebnf$1$subexpression$1$ebnf$1", "lineBreak"], "postprocess": (d) => d[0].concat([d[1]])},
@@ -165,26 +169,6 @@ const grammar: Grammar = {
         		return createBlockSequence([[head]]);
         } },
     {"name": "rhsNode", "symbols": ["statement"], "postprocess": id},
-    {"name": "rhsNode", "symbols": ["bullet", "rhsNode"], "postprocess": second},
-    {"name": "rhsNode$subexpression$1", "symbols": ["statement"]},
-    {"name": "rhsNode$subexpression$1", "symbols": ["kvPair"]},
-    {"name": "rhsNode$subexpression$2$ebnf$1", "symbols": ["blockSequenceItem"]},
-    {"name": "rhsNode$subexpression$2$ebnf$1", "symbols": ["rhsNode$subexpression$2$ebnf$1", "blockSequenceItem"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "rhsNode$subexpression$2", "symbols": ["indent", "rhsNode$subexpression$2$ebnf$1", "dedent"]},
-    {"name": "rhsNode", "symbols": ["bullet", "rhsNode$subexpression$1", "rhsNode$subexpression$2"], "postprocess":  ([key, firstItem, nested]) => {
-        	console.log('bs <= bs', firstItem);
-        	if (nested){
-        		const [indent, tail] = nested;
-        			return createBlockSequence([firstItem, ...tail]);
-        	}
-        	return createBlockSequence([firstItem]);
-        } },
-    {"name": "rhsNode$ebnf$1", "symbols": ["kvPair"]},
-    {"name": "rhsNode$ebnf$1", "symbols": ["rhsNode$ebnf$1", "kvPair"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "rhsNode", "symbols": ["kvPair", "pushScope", "rhsNode$ebnf$1"], "postprocess":  ([head, indent, ...tail]) => {
-        	console.log('bs <= bm');
-        	return createMap([head, ...tail]);
-        } },
     {"name": "statement", "symbols": ["scalar", "endLine"], "postprocess": first},
     {"name": "kvPair", "symbols": ["blockKey", "blockNestedScope"], "postprocess":  ([key, scope]) => {
         	console.log('k: block', key[0], scope);

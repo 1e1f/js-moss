@@ -22,7 +22,7 @@ import {
   select,
   parseSelectors,
 } from "./cascade";
-import * as yaml from "js-yaml";
+import { toYaml, fromYaml } from "./yaml";
 const expression = require('../compiled/expression');
 
 import { getBranchAsync as getBranch } from "./resolvers";
@@ -291,7 +291,8 @@ addResolvers({
     resolve: async (bl: string) => ({
       organizationSegment: "test",
       nameSegment: bl,
-      data: "hello world!",
+      text: "hello world!",
+      ast: "hello world!",
     }),
   },
 });
@@ -391,7 +392,7 @@ addFunctions({
           console.log(JSON.stringify(val, null, 2));
           break;
         case "yaml":
-          console.log(yaml.dump(val));
+          console.log(toYaml(val, { skipInvalid: true }));
           break;
       }
     });
@@ -677,40 +678,39 @@ async function _interpolate(
         try {
           resolvedBranch = await getBranch(bl, resolvers, layer);
         } catch (e) {
+
           throw {
-            message: `Failed resolve ${bl}\n ${e.message}`,
+            message: `Failed to resolve ${bl}\n ${e.message}`,
           };
         }
         if (!resolvedBranch) {
+          // console.log(bl, resolvers);
           throw {
-            message: `No results for ${bl}, in ${Object.keys(resolvers).length} resolvers @ ${yaml.safeDump(layer.data)}`,
+            message: `No async results for ${bl}, in ${Object.keys(resolvers).length} resolvers @ ${toYaml(layer.data)}`,
           };
         }
-        if (resolvedBranch.data) {
+        if (resolvedBranch.ast) {
           popAll++;
           pushErrorPath(layer.state, {
             path: ["^" + encodeBranchLocator(resolvedBranch)],
           });
           if (defer) {
-            resolvedBranch.intermediate = {
-              data: resolvedBranch.data,
-              state: layer.state
-            };
-            return resolvedBranch.data;
+            resolvedBranch.parsed = resolvedBranch.ast;
+            resolvedBranch.state = layer.state;
+            // console.log("defer", resolvedBranch.parsed);
+            return resolvedBranch.parsed;
           }
-          const res: Moss.ReturnValue = await parseNextStructure(
+          const nextLayer: Moss.ReturnValue = await parseNextStructure(
             layer,
-            resolvedBranch.data
+            resolvedBranch.ast
           );
           const {
-            data,
+            data: parsed,
             state: { auto, stack, selectors, merge },
-          } = res;
-          resolvedBranch.intermediate = {
-            data,
-            state: { auto, stack, selectors, merge },
-          };
-          return data;
+          } = nextLayer;
+          resolvedBranch.parsed = parsed;
+          resolvedBranch.state = { auto, stack, selectors, merge };
+          return parsed;
         }
       },
       shell: () => "no shell method supplied",
@@ -748,12 +748,13 @@ export async function start(trunk: Moss.BranchData) {
 }
 
 export async function startBranch(branch: Moss.Branch) {
-  const res = await parseNextStructure(newLayer(branch), branch.data);
+  const res = await parseNextStructure(newLayer(branch), branch.ast);
   const {
     data,
     state: { auto, stack, selectors, merge },
   } = res;
-  branch.intermediate = { data, state: { auto, stack, selectors, merge } };
+  branch.parsed = data;
+  branch.state = { auto, stack, selectors, merge };
   return res;
 }
 
@@ -777,11 +778,11 @@ export async function fromJSON(config: string, baseParser?: string) {
 
 export async function load(config: string, baseParser?: string) {
   if (baseParser) {
-    return await parse(yaml.load(config), yaml.load(baseParser));
+    return await parse(fromYaml(config), fromYaml(baseParser));
   }
-  return await parse(yaml.load(config));
+  return await parse(fromYaml(config));
 }
 
 export async function transform(config: string, baseParser?: string) {
-  return yaml.dump(await load(config, baseParser));
+  return toYaml(await load(config, baseParser), { skipInvalid: true });
 }

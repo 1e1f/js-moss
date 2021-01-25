@@ -24,7 +24,7 @@ import {
   select,
   parseSelectors,
 } from "./cascade";
-import * as yaml from "js-yaml";
+import { toYaml, fromYaml } from "./yaml";
 
 import { getBranchSync as getBranch } from "./resolvers";
 import { encodeBranchLocator } from "./branch";
@@ -299,7 +299,8 @@ addResolvers({
     resolve: (bl: string) => ({
       organizationSegment: "test",
       nameSegment: bl,
-      data: "hello world!",
+      text: "hello world!",
+      ast: "hello world!",
     }),
   },
 });
@@ -399,7 +400,7 @@ addFunctions({
           console.log(JSON.stringify(val, null, 2));
           break;
         case "yaml":
-          console.log(yaml.dump(val));
+          console.log(toYaml(val, { skipInvalid: true }));
           break;
       }
     });
@@ -691,34 +692,30 @@ function _interpolate(
         }
         if (!resolvedBranch) {
           throw {
-            message: `No results for ${bl}, in ${Object.keys(resolvers).length} resolvers @ ${yaml.safeDump(layer.data)}`,
+            message: `No sync results for ${bl}, in ${Object.keys(resolvers).length} resolvers @ ${toYaml(layer.data, { skipInvalid: true })}`,
           };
         }
-        if (resolvedBranch.data) {
+        if (resolvedBranch.ast) {
           popAll++;
           pushErrorPath(layer.state, {
             path: ["^" + encodeBranchLocator(resolvedBranch)],
           });
           if (defer) {
-            console.log("deferred", resolvedBranch)
-            resolvedBranch.intermediate = {
-              data: resolvedBranch.data,
-              state: layer.state
-            };
-            return resolvedBranch.data;
+            resolvedBranch.parsed = resolvedBranch.ast;
+            resolvedBranch.state = layer.state;
+            console.log("sync defer", resolvedBranch.parsed);
+            return resolvedBranch.parsed;
           }
           const res: Moss.ReturnValue = parseNextStructure(
             layer,
-            resolvedBranch.data
+            resolvedBranch.ast
           );
           const {
             data,
             state: { auto, stack, selectors, merge },
           } = res;
-          resolvedBranch.intermediate = {
-            data,
-            state: { auto, stack, selectors, merge },
-          };
+          resolvedBranch.parsed = data;
+          resolvedBranch.state = { auto, stack, selectors, merge };
           return data;
         } else {
           throw {
@@ -761,12 +758,13 @@ export function start(trunk: Moss.BranchData) {
 }
 
 export function startBranch(branch: Moss.Branch) {
-  const res = parseNextStructure(newLayer(branch), branch.data);
+  const res = parseNextStructure(newLayer(branch), branch.ast);
   const {
     data,
     state: { auto, stack, selectors, merge },
   } = res;
-  branch.intermediate = { data, state: { auto, stack, selectors, merge } };
+  branch.parsed = data;
+  branch.state = { auto, stack, selectors, merge }
   return res;
 }
 
@@ -790,11 +788,11 @@ export function fromJSON(config: string, baseParser?: string) {
 
 export function load(config: string, baseParser?: string) {
   if (baseParser) {
-    return parse(yaml.load(config), yaml.load(baseParser));
+    return parse(fromYaml(config), fromYaml(baseParser));
   }
-  return parse(yaml.load(config));
+  return parse(fromYaml(config));
 }
 
 export function transform(config: string, baseParser?: string) {
-  return yaml.dump(load(config, baseParser));
+  return toYaml(load(config, baseParser), { skipInvalid: true });
 }

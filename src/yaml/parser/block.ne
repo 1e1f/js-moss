@@ -14,18 +14,26 @@ blockScope
 	# 		return map;
 	#  } %}
 	-> blockMapping {% id %}
-  | blockSequence {% id %}
-	| sol statement {% second %}
+  # | blockSequence {% id %}
+	# | sol statement {% second %}
 # if a scope has been started inline,
 # and needs indent afterwards
 
 blockMapping
-	-> sol kvPair (lineBreak:* sol kvPair):* {% ([sol, head, tail]) => {
+	-> blockMappingLine (lineBreak:* blockMappingLine):* {% ([head, tail]) => {
+		const m = createMap([[head]]);
 		if (tail && tail.length){
-			return addPairToMap([head, tail.map(([br, sol, i]: any) => i)]);
+			const pairs = tail.map(([br, i]: any) => i);
+			for (const p of pairs){
+					 addPairToMap([m, p]);
+			}
 		}
-			return createMap([[head]]);
+			return m;
 	} %}
+
+blockMappingLine
+	-> sol kvPair {% second %}
+	| sol eol  {% nuller %}
 
 blockSequence
 	-> sol blockSequenceItem (lineBreak:* sol blockSequenceItem):* {% ([sol, head, tail]) => {
@@ -37,20 +45,20 @@ blockSequence
 
 rhsNode
 	-> statement {% id %}
-	| bullet rhsNode {% second %}
-	| bullet (statement | kvPair) (indent blockSequenceItem:+ dedent)
-	{% ([key, firstItem, nested]) => {
-		console.log('bs <= bs', firstItem);
-		if (nested){
-			const [indent, tail] = nested;
-				return createBlockSequence([firstItem, ...tail]);
-		}
-		return createBlockSequence([firstItem]);
-	} %}
-	| kvPair pushScope kvPair:+ {% ([head, indent, ...tail]) => {
-		console.log('bs <= bm');
-		return createMap([head, ...tail]);
-	} %}
+	# | bullet rhsNode {% second %}
+	# | bullet (statement | kvPair) (indent blockSequenceItem:+ dedent)
+	# {% ([key, firstItem, nested]) => {
+	# 	console.log('bs <= bs', firstItem);
+	# 	if (nested){
+	# 		const [indent, tail] = nested;
+	# 			return createBlockSequence([firstItem, ...tail]);
+	# 	}
+	# 	return createBlockSequence([firstItem]);
+	# } %}
+	# | kvPair pushScope kvPair:+ {% ([head, indent, ...tail]) => {
+	# 	console.log('bs <= bm');
+	# 	return createMap([head, ...tail]);
+	# } %}
 
 statement
 	-> scalar endLine {% first %}

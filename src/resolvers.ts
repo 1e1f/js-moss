@@ -27,9 +27,9 @@ export const getBranchAsync = async (
             return branch;
           }
         }
-      } catch (e) {
-        e.message = `${resolverKey} resolver failed importing ${bl} with Error: ${e.message}`;
-        // throw e;
+      } catch (error) {
+        error.message = `${resolverKey} resolver failed importing ${bl} with Error: ${error.message}`;
+        throw error;
       }
     }
   }

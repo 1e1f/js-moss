@@ -48,7 +48,7 @@ export declare namespace Moss {
     nameSegment: string;
     organizationSegment: string;
 
-    // optional
+    // meta
     contextSegment?: string;
     organizationSegments?: string[];
     projectSegment?: string;
@@ -56,12 +56,15 @@ export declare namespace Moss {
     versionSegment?: string;
     versionSegments?: string[];
     kind?: string;
+
+    // payload
     text?: string;
-    data?: BranchData;
-    intermediate?: {
-      data: BranchData;
-      state: ParserState;
-    };
+    savedText?: string;
+
+    // cache
+    ast?: BranchData;
+    parsed?: BranchData;
+    state?: ParserState;
   }
 
   type BranchData = any;
@@ -78,13 +81,17 @@ export declare namespace Moss {
     sourceMap?: any;
   }
 
+  interface ResolverOptions {
+    projection?: { [x: string]: number }
+    allowBadParse?: boolean
+  }
   type ErrorReporter = (error: Error) => Error;
 
   type Function<T> = (current: Moss.ReturnValue, args: any, setter?: (...args: any[]) => void) => T;
   type Resolver<T> = {
     name?: string;
-    match: (uri: string) => boolean;
-    resolve: (uri: string) => T;
+    match: (uri: string, options?: ResolverOptions) => boolean;
+    resolve: (uri: string, options?: ResolverOptions) => T;
   };
 
   type FunctionsMap<T> = {

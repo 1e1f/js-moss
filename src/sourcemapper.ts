@@ -1,4 +1,4 @@
-import * as yaml from 'js-yaml';
+import { toYaml, fromYaml } from "./yaml";
 
 interface State {
   keys: any[]
@@ -169,7 +169,7 @@ export namespace SourceMapper {
   export const parse = (yamlString: string) => {
     const ctx = reset();
 
-    const result = yaml.load(yamlString, {
+    const result = fromYaml(yamlString, {
       listener: createListener(ctx)
     } as any);
 

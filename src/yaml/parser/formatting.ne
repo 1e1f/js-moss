@@ -12,7 +12,7 @@ endLine
 	| _ eol {% nuller %}
 
 comment
-	-> "#" _escapedString:? %eol {%
+	-> "#" _escapedString:? eol {%
 		([hash, comment]) => {
 			console.log({comment});
 			 return [comment || '', {isComment: true}]

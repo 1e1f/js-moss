@@ -189,13 +189,13 @@ const rules = {
 
 const printToken = (t: Token) => {
     switch (t.type) {
-        case "eol": return ">";
+        case "eol": return " ";
         case "space": return " ";
-        case "indent": return "->";
-        case "dedent": return "<-";
-        case "eof": return "eof";
-        case "sof": return "sof";
-        case "sol": return "<";
+        case "indent": return "{";
+        case "dedent": return "}";
+        case "eof": return "";
+        case "sof": return "";
+        case "sol": return " ";
         default: return t.text;
     }
 }

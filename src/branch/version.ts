@@ -26,8 +26,8 @@ export const parseVersionLine = (versionLine: string) => {
 
 export const parseEditorText = (text: string) => {
   const [firstLine, ...body] = text.split("\n");
-  const metaData = parseVersionLine(firstLine);
-  return { ...metaData, text: body.join("\n") };
+  const metadata = parseVersionLine(firstLine);
+  return { ...metadata, text: body.join("\n") };
 }
 
 export const getBranchVersionAndText = (branch: Moss.Branch) =>
