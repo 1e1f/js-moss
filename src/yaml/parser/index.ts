@@ -27,7 +27,7 @@ class ParserState {
 }
 
 export class MonacoTokensProvider {
-    parser: nearley.Parser;
+    parser: Parser;
 
     getInitialState(line: string) {
         this.parser = new Parser(Grammar.fromCompiled(grammar))

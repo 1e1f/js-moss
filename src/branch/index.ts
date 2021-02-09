@@ -1,10 +1,10 @@
-import { decode, encode } from './parser';
+import { decode, encode, transcode } from './parser';
 export * from './parser';
-import { Moss } from '../types';
 import { contains, union } from 'typed-json-transform';
 
-export { decode as decodeBranchLocator, encode as encodeBranchLocator }
-export const canonicalBranchLocator = (bl: string) => encode(decode(bl));
+export { decode as decodeBranchLocator, encode as encodeBranchLocator, transcode as transcodeSegment }
+
+export * from './canonical';
 
 export const slugifyBranchLocator = (bl) => encode(decode(bl), { urlSafe: true });
 

@@ -10,14 +10,15 @@ export const withoutVersion = (branch: Moss.Branch | string) => {
   return encode(withoutVersion);
 };
 
-export const versionPrefix = "^";
+export const importPrefix = "^";
+export const queryPrefix = "?";
 
 export const encodeVersionLine = (branch: Moss.Branch) =>
-  versionPrefix + encode(branch) + "\n";
+  importPrefix + encode(branch) + "\n";
 
 export const parseVersionLine = (versionLine: string) => {
-  if (versionLine && versionLine.indexOf(versionPrefix) == 0) {
-    const bl = versionLine.split('\n')[0].slice(versionPrefix.length);
+  if (versionLine && versionLine.indexOf(importPrefix) == 0) {
+    const bl = versionLine.split('\n')[0].slice(importPrefix.length);
     return decode(bl);
   } else {
     throw new Error("bad version line: " + versionLine);

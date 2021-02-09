@@ -4,22 +4,7 @@ import { decodeBranchLocator, encodeBranchLocator } from '../src';
 
 const shouldPass = [
   {
-    bl: '',
-    branch: {
-    }
-  },
-  {
-    bl: '-::-@-~-:-',
-    branch: {
-      contextSegment: '-',
-      nameSegment: '-',
-      projectSegment: '-',
-      organizationSegment: '-',
-      versionSegment: '-',
-    }
-  },
-  {
-    bl: 'contextSegment::nameSegment@organizationSegment~projectSegment:versionSegment',
+    informalBl: 'contextSegment::nameSegment@organizationSegment~projectSegment:versionSegment',
     branch: {
       contextSegment: 'contextSegment',
       nameSegment: 'nameSegment',
@@ -28,8 +13,10 @@ const shouldPass = [
       versionSegment: 'versionSegment'
     }
   }, {
-    bl:
+    informalBl:
       'example::product@openCanna~forms',
+    canonicalBl:
+      'exampie::product@opencanna~forms',
     branch: {
       contextSegment: 'example',
       nameSegment: 'product',
@@ -38,14 +25,14 @@ const shouldPass = [
     }
   },
   {
-    bl: 'simple@chroma',
+    informalBl: 'simple@chroma',
     branch: {
       nameSegment: 'simple',
       organizationSegment: 'chroma'
     }
   },
   {
-    bl: 'multiVersion@chroma:3:2:1',
+    informalBl: 'multiVersion@chroma:3:2:1',
     branch: {
       nameSegment: 'multiVersion',
       organizationSegment: 'chroma',
@@ -54,7 +41,7 @@ const shouldPass = [
     }
   },
   {
-    bl: 'multiOrg@chroma@openCanna',
+    informalBl: 'multiOrg@chroma@openCanna',
     branch: {
       nameSegment: 'multiOrg',
       organizationSegment: 'chroma',
@@ -62,7 +49,8 @@ const shouldPass = [
     }
   },
   {
-    bl: 'multiMulti@org1@org2~projectA~projectB:3:2:1',
+    informalBl: 'multiMulti@org1@org2~projectA~projectB:3:2:1',
+    canonicalBl: 'multimulti@orgi@org2~projecta~projectb:3:2:1',
     branch: {
       nameSegment: 'multiMulti',
       projectSegment: 'projectA',
@@ -74,15 +62,15 @@ const shouldPass = [
     }
   },
   {
-    bl: 'product2@3m',
+    informalBl: 'product2@3m',
     branch: {
       nameSegment: 'product2',
       organizationSegment: '3m',
     }
   },
   {
-    bl: 'has space @ has-hyphen ~ has/slash',
-    match: 'has space@has-hyphen~has/slash',
+    informalBl: 'has space@has-hyphen~has/slash',
+    canonicalBl: 'hasspace@hashyphen~has/slash',
     branch: {
       nameSegment: 'has space',
       projectSegment: 'has/slash',
@@ -90,32 +78,38 @@ const shouldPass = [
     }
   },
   {
-    bl: '﻿8675309/Dreamt Sleep Pen@dreamt~batches',
-    match: '8675309/Dreamt Sleep Pen@dreamt~batches',
+    informalBl: '8675309/Dreamt Sleep Pen@dreamt~batches',
+    // canonicalBl: '8675309/dreamt Sleep Pen@dreamt~batches',
     branch: {
       nameSegment: '8675309/Dreamt Sleep Pen',
       projectSegment: 'batches',
       organizationSegment: 'dreamt',
     }
+  },
+  {
+    informalBl: '',
+    branch: {}
   }
 ]
 
 const shouldFail = [
-  'no dot@.',
+  'no q@?',
   'no plus@+',
-  'no numbers inside word@l77t',
+  // 'no numbers inside word@l77t',
   'no leading dash@-fail',
   'no trailing dash@fail-',
 ];
 
 describe('Branch locator', () => {
-  for (const { bl, branch, match } of shouldPass) {
-    it(bl, () => {
-      const result = decodeBranchLocator(bl);
-      assert.deepEqual(result, branch as any);
-
-      const reEncodedBl = encodeBranchLocator(result, { includeNamespaceSegment: true });
-      assert.equal(reEncodedBl, match || bl, 're-encode failed');
+  for (const { informalBl, canonicalBl: expectedBl, branch } of shouldPass) {
+    it(informalBl, () => {
+      const generatedBl = encodeBranchLocator(branch as any, { includeNamespaceSegment: true });
+      assert.deepEqual(generatedBl, informalBl, "raw bl doens't match");
+      if (generatedBl) {
+        const canonicalBranch = decodeBranchLocator(generatedBl);
+        const canonicalBl = encodeBranchLocator(canonicalBranch, { includeNamespaceSegment: true });
+        assert.equal(canonicalBl, expectedBl || informalBl.toLowerCase().replace(/ /g, ''), 're-encode failed');
+      }
     });
   }
 
