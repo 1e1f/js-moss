@@ -1,5 +1,10 @@
 @include "./shared.ne"
 
+start
+	-> (strip:* _) queries{%
+		([ws, q]) => q
+		%}
+
 queries
 	-> queries "," query {%
 		([bls, comma, bl]) => {
@@ -13,18 +18,22 @@ queries
 	| query {% id %}
 
 query
+	-> blQuery ("$" blQuery):? {%
+		([blQuery, schemaQuery]) => schemaQuery ? {...blQuery, kind: schemaQuery[1]} : blQuery %}
+
+blQuery
 	-> queryHead:? queryTail:? {%
 		([head, tail]) => {
 			if (!head && !tail) return null;
-			return  {
+			return ({
 				...head,
 				...tail,
-		  }
+		  })
 		}
 	%}
 
 queryHead
- 	-> _ caseInsensitiveQuery:? _ "::" queryHead:? {%
+ 	-> _ disambiguatedQuery:? _ "::" queryHead:? {%
 		([ws, contextSegment, ws2, mark, nameSegmentPart]) => {
 			if (!contextSegment && !nameSegmentPart){
 				return {};

@@ -128,6 +128,12 @@ const grammar: Grammar = {
     {"name": "versionFlag", "symbols": [/[\^~]/], "postprocess": token},
     {"name": "versionDivider", "symbols": [/[-.]/], "postprocess": token},
     {"name": "strip", "symbols": [/[\u200B-\u200D\uFEFF]/], "postprocess": id},
+    {"name": "start$subexpression$1$ebnf$1", "symbols": []},
+    {"name": "start$subexpression$1$ebnf$1", "symbols": ["start$subexpression$1$ebnf$1", "strip"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "start$subexpression$1", "symbols": ["start$subexpression$1$ebnf$1", "_"]},
+    {"name": "start", "symbols": ["start$subexpression$1", "queries"], "postprocess": 
+        ([ws, q]) => q
+        },
     {"name": "queries", "symbols": ["queries", {"literal":","}, "query"], "postprocess": 
         ([bls, comma, bl]) => {
         	const iter = Array.isArray(bls) ? bls : [bls];
@@ -138,20 +144,25 @@ const grammar: Grammar = {
         }
         	},
     {"name": "queries", "symbols": ["query"], "postprocess": id},
-    {"name": "query$ebnf$1", "symbols": ["queryHead"], "postprocess": id},
+    {"name": "query$ebnf$1$subexpression$1", "symbols": [{"literal":"$"}, "blQuery"]},
+    {"name": "query$ebnf$1", "symbols": ["query$ebnf$1$subexpression$1"], "postprocess": id},
     {"name": "query$ebnf$1", "symbols": [], "postprocess": () => null},
-    {"name": "query$ebnf$2", "symbols": ["queryTail"], "postprocess": id},
-    {"name": "query$ebnf$2", "symbols": [], "postprocess": () => null},
-    {"name": "query", "symbols": ["query$ebnf$1", "query$ebnf$2"], "postprocess": 
+    {"name": "query", "symbols": ["blQuery", "query$ebnf$1"], "postprocess": 
+        ([blQuery, schemaQuery]) => schemaQuery ? {...blQuery, kind: schemaQuery[1]} : blQuery },
+    {"name": "blQuery$ebnf$1", "symbols": ["queryHead"], "postprocess": id},
+    {"name": "blQuery$ebnf$1", "symbols": [], "postprocess": () => null},
+    {"name": "blQuery$ebnf$2", "symbols": ["queryTail"], "postprocess": id},
+    {"name": "blQuery$ebnf$2", "symbols": [], "postprocess": () => null},
+    {"name": "blQuery", "symbols": ["blQuery$ebnf$1", "blQuery$ebnf$2"], "postprocess": 
         ([head, tail]) => {
         	if (!head && !tail) return null;
-        	return  {
+        	return ({
         		...head,
         		...tail,
-          }
+          })
         }
         	},
-    {"name": "queryHead$ebnf$1", "symbols": ["caseInsensitiveQuery"], "postprocess": id},
+    {"name": "queryHead$ebnf$1", "symbols": ["disambiguatedQuery"], "postprocess": id},
     {"name": "queryHead$ebnf$1", "symbols": [], "postprocess": () => null},
     {"name": "queryHead$string$1", "symbols": [{"literal":":"}, {"literal":":"}], "postprocess": (d) => d.join('')},
     {"name": "queryHead$ebnf$2", "symbols": ["queryHead"], "postprocess": id},
@@ -219,7 +230,7 @@ const grammar: Grammar = {
     {"name": "versionQuery$ebnf$1", "symbols": [], "postprocess": () => null},
     {"name": "versionQuery", "symbols": ["versionQuery$ebnf$1", "versionChunk"], "postprocess": join}
   ],
-  ParserStart: "queries",
+  ParserStart: "start",
 };
 
 export default grammar;

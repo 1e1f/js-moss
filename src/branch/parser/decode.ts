@@ -4,14 +4,15 @@ import { Moss } from '../../types';
 const queryGrammar = require('./compiled/query').default;
 const locatorGrammar = require('./compiled/locator').default;
 
+const caseInsensitiveChunk = require('./compiled/caseInsensitiveChunk').default;
 const disambiguatedChunk = require('./compiled/disambiguatedChunk').default;
 const grammars = {
   query: Grammar.fromCompiled(queryGrammar),
   locator: Grammar.fromCompiled(locatorGrammar),
   versionSegment: Grammar.fromCompiled(require('./compiled/versionChunk').default),
-  nameSegment: Grammar.fromCompiled(require('./compiled/caseInsensitiveChunk').default),
+  nameSegment: Grammar.fromCompiled(caseInsensitiveChunk),
   organizationSegment: Grammar.fromCompiled(disambiguatedChunk),
-  projectSegment: Grammar.fromCompiled(disambiguatedChunk),
+  projectSegment: Grammar.fromCompiled(caseInsensitiveChunk),
 }
 
 export const parse = (text: string, grammar: string, strict?: boolean) => {
@@ -31,7 +32,7 @@ export const parse = (text: string, grammar: string, strict?: boolean) => {
   return results && results[0];
 }
 
-export const decode = (text: string, grammar = 'locator'): Moss.Branch => {
+export const decode = (text: string, grammar = 'query'): Moss.Branch => {
   if ((text === undefined) || (text === null)) throw new Error("decoding " + text + " branch locator");
   return parse(text + " ", grammar);
 }
