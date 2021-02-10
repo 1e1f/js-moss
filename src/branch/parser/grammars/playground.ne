@@ -2,34 +2,42 @@
 @builtin "whitespace.ne"
 
 @{%
-	const queryAstToMongo = (current, mode, parent) => {
+		const mongoKeysMap = {
+		  not: '$ne',
+		  or: '$in',
+		}
+
+		const queryAstToMongo = (current, parentKey, parent) => {
 		  const res = Array.isArray(current) ? [] : {};
 		  let target = res;
 		  for (const k of Object.keys(current)) {
-			const v = current[k];
-			let nextKey = mongoFunctionMap[k] || k;
-			if (mode == '$ne') {
-				if (nextKey == '$in') {
-					delete parent[mode];
-					nextKey = '$nin';
-					target = parent;
-				}
+			let v = current[k];
+			let nextKey = mongoKeysMap[k] || k;
+			if (parentKey == '$ne') {
+			  if (nextKey == '$in') {
+				delete parent[parentKey];
+				nextKey = '$nin';
+				target = parent;
+			  }
 			}
-
+			  if (v == "-"){
+				  if (k == "not"){
+					  return {$exists: true}
+				  }
+				  v = { $exists: false}
+			  }
 			if (typeof v === 'object') {
-			if (mode == '$in') {
-				//if (nextKey == '$ne') {
-					throw new Error("use of ! operator requires a group, i.e. !(a|b) instead of (a|!b) which mixes inclusive/exclusive operators");
-				//}
-			}
+			  if (parentKey == '$in') {
+				throw new Error("use of nested operator (like !) requires a group, i.e. !(a|b) instead of (a|!b) which mixes inclusive/exclusive operators");
+			  }
 			  const next = queryAstToMongo(v, nextKey, res);
-			  if (next && next.length || Object.keys(next).length) {
-				  console.log('assign', next)
-				  target[nextKey] = next;
+			  if (typeof next === 'object' && (next.length || Object.keys(next).length)) {
+				console.log('assign', v, next)
+
+				target[nextKey] = next;
 			  }
 			}
 			else target[nextKey] = v;
-
 		  }
 		  return res;
 		}
@@ -75,12 +83,6 @@
 					}
 			}
 
-		const mongoFunctionMap = {
-		  not: '$ne',
-		  or: '$in',
-		}
-
-
 
 		const queryOp =  ([ lhs, ws, op, ws2, rhs]) => {
 			if (op == "|") {
@@ -105,93 +107,9 @@
 
 
 start
-	-> strip:* _ locators {%
-		([strip, ws, code]) => code
+	-> (strip:* _) queries{%
+		([ws, q]) => q
 		%}
-	|  strip:* _ "?" queries {%
-		([strip, ws, q, code]) => code
-		%}
-
-locators
-	-> locators "," locator {%
-		([bls, comma, bl]) => {
-			const iter = Array.isArray(bls) ? bls : [bls];
-			return [
-				...iter,
-				bl
-		  ]
-		}
-	%}
-	| locator {% id %}
-
-locator
-	-> locatorHead:? locatorTail:? {%
-		([head, tail]) => {
-			if (!head && !tail) return null;
-		  return {
-			...head,
-			...tail
-		  }
-		}
-	%}
-
-locatorHead
- 	-> _ disambiguatedChunk:? _ "::" locatorHead:? {%
-		([ws, contextSegment, ws2, mark, nameSegmentPart]) => {
-			if (!contextSegment && !nameSegmentPart){
-				return {};
-			}
-			if (!contextSegment) return nameSegmentPart;
-			if (!nameSegmentPart) return { contextSegment }
-		  return {
-			contextSegment,
-			...nameSegmentPart
-		  }
-		}
-	%}
-	| _ caseInsensitiveChunk _ {% ([ ws, nameSegment ]) => ({nameSegment}) %}
-
-locatorTail
-	-> tailSegment:+ {%
-		([segments]) => {
-		  const locator = {};
-		  for (const [key, segment] of segments) {
-				if (segment){
-					const existing = locator[key];
-					if (existing){
-						const set = locator[key + 's'];
-						locator[key + 's'] = [...(set || [existing]), segment];
-					} else {
-						locator[key] = segment;
-					}
-				}
-		  }
-		  return locator;
-		}
-	%}
-
-tailSegment
-	-> versionSegment {% id %}
-	| disambiguatedSegment {% id %}
-
-versionSegment
-	-> [:] _ versionChunk _ {% ([ mark, ws, group]) => {
-		return [symbolToSegmentKey(mark), group];
-		} %}
-
-caseInsensitiveSegment
-  -> [~] _ caseInsensitiveChunk _ {% ([ mark, ws, group]) => {
-		return [symbolToSegmentKey(mark), group];
-		} %}
-
-disambiguatedSegment
-  -> [@] _ disambiguatedChunk _ {% ([ mark, ws, group]) => {
-		return [symbolToSegmentKey(mark), group];
-		} %}
-
-#
-# query.ne
-#
 
 queries
 	-> queries "," query {%
@@ -205,8 +123,11 @@ queries
 	%}
 	| query {% id %}
 
-
 query
+	-> blQuery ("$" blQuery):? {%
+		([blQuery, schemaQuery]) => schemaQuery ? {...blQuery, kind: schemaQuery[1]} : blQuery %}
+
+blQuery
 	-> queryHead:? queryTail:? {%
 		([head, tail]) => {
 			if (!head && !tail) return null;
@@ -319,7 +240,7 @@ semanticDivider
 	-> [/] {% token %}
 
 nonSemanticDivider
-  -> [-'.] {% token %}
+  -> [-&'.] {% token %}
 
 disambiguatedString
 	-> disambiguatedChar:+ {% stringOfSame %}
