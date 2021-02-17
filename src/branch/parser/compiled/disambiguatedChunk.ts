@@ -17,6 +17,12 @@ function id(d: any[]): any { return d[0]; }
 		}
 
 
+		const prefixes = {
+			"?": "ast",
+			"$": "kind",
+			"^": "deps"
+		}
+
 		const glyphGroup = {
 			i: "i",
 			o: "o"

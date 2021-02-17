@@ -1,28 +1,37 @@
 @include "./shared.ne"
 
 start
-	-> (strip:* _) queries{%
+	-> (strip:*) all {%
 		([ws, q]) => q
 		%}
 
+all
+	-> blQuery queries:? {% ([ query, queries]) => (queries ? { ...queries, ...query} : query) %}
+	| queries {% ([ queries]) => queries %}
+
 queries
-	-> queries "," query {%
-		([bls, comma, bl]) => {
-			const iter = Array.isArray(bls) ? bls : [bls];
-			return [
-				...iter,
-				bl
-		  ]
+	-> query:+ {% ([queries]) => {
+		const all = {};
+		for (const pair of queries){
+			all[pair[0]] = pair[1]
 		}
-	%}
-	| query {% id %}
+		return all;
+	} %}
 
 query
-	-> blQuery ("$" blQuery):? {%
-		([blQuery, schemaQuery]) => schemaQuery ? {...blQuery, kind: schemaQuery[1]} : blQuery %}
+	-> [$\^] blQuery {%
+	([prefix, blQuery]) => {
+		return [prefixes[prefix] || 'bl', blQuery];
+	} %}
+	| "?" astQuery {%
+		([prefix, query]) => [prefixes[prefix] , query]
+	   %}
+
+astQuery
+	-> caseInsensitiveChunk {% id %}
 
 blQuery
-	-> queryHead:? queryTail:? {%
+	-> queryHead:? queryTail {%
 		([head, tail]) => {
 			if (!head && !tail) return null;
 			return ({
@@ -31,6 +40,7 @@ blQuery
 		  })
 		}
 	%}
+	| queryHead {% id %}
 
 queryHead
  	-> _ disambiguatedQuery:? _ "::" queryHead:? {%

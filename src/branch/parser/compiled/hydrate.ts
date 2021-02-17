@@ -17,12 +17,6 @@ function id(d: any[]): any { return d[0]; }
 		}
 
 
-		const prefixes = {
-			"?": "ast",
-			"$": "kind",
-			"^": "deps"
-		}
-
 		const glyphGroup = {
 			i: "i",
 			o: "o"
@@ -103,67 +97,22 @@ const grammar: Grammar = {
     {"name": "__$ebnf$1", "symbols": ["__$ebnf$1", "wschar"], "postprocess": (d) => d[0].concat([d[1]])},
     {"name": "__", "symbols": ["__$ebnf$1"], "postprocess": function(d) {return null;}},
     {"name": "wschar", "symbols": [/[ \t\n\v\f]/], "postprocess": id},
-    {"name": "caseInsensitiveChunk", "symbols": ["caseInsensitiveChunk", "gap", "caseInsensitiveString"], "postprocess": ([lhs, gap, rhs]) => lhs + rhs},
-    {"name": "caseInsensitiveChunk", "symbols": ["caseInsensitiveChunk", "_", "nonSemanticDivider", "_", "caseInsensitiveString"], "postprocess": ([lhs, ws, exp, ws2, rhs]) => lhs + rhs},
-    {"name": "caseInsensitiveChunk", "symbols": ["caseInsensitiveChunk", "_", "semanticDivider", "_", "caseInsensitiveString"], "postprocess": ([lhs, ws, exp, ws2, rhs]) => lhs + exp + rhs},
-    {"name": "caseInsensitiveChunk", "symbols": ["caseInsensitiveString"], "postprocess": id},
-    {"name": "disambiguatedChunk", "symbols": ["disambiguatedChunk", "gap", "disambiguatedString"], "postprocess": ([lhs, gap, rhs]) => lhs + rhs},
-    {"name": "disambiguatedChunk", "symbols": ["disambiguatedChunk", "_", "nonSemanticDivider", "_", "disambiguatedString"], "postprocess": ([lhs, ws, exp, ws2, rhs]) => lhs + rhs},
-    {"name": "disambiguatedChunk", "symbols": ["disambiguatedChunk", "_", "semanticDivider", "_", "disambiguatedString"], "postprocess": ([lhs, ws, exp, ws2, rhs]) => lhs + exp + rhs},
-    {"name": "disambiguatedChunk", "symbols": ["disambiguatedString"], "postprocess": id},
-    {"name": "gap", "symbols": ["__"], "postprocess": id},
-    {"name": "semanticDivider", "symbols": [/[\/]/], "postprocess": token},
-    {"name": "nonSemanticDivider", "symbols": [/[-'.]/], "postprocess": token},
-    {"name": "disambiguatedString$ebnf$1", "symbols": ["disambiguatedChar"]},
-    {"name": "disambiguatedString$ebnf$1", "symbols": ["disambiguatedString$ebnf$1", "disambiguatedChar"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "disambiguatedString", "symbols": ["disambiguatedString$ebnf$1"], "postprocess": stringOfSame},
-    {"name": "caseInsensitiveString$ebnf$1", "symbols": ["caseInsensitiveChar"]},
-    {"name": "caseInsensitiveString$ebnf$1", "symbols": ["caseInsensitiveString$ebnf$1", "caseInsensitiveChar"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "caseInsensitiveString", "symbols": ["caseInsensitiveString$ebnf$1"], "postprocess": stringOfSame},
-    {"name": "disambiguatedChar", "symbols": [/[a-zA-Z0-9]/], "postprocess":  ([token]) => {
-        	const r = reserveMap[token];
-        	return (r != undefined ? r : token.toLowerCase())
-        } },
-    {"name": "caseInsensitiveChar", "symbols": [/[a-zA-Z0-9]/], "postprocess": ([token]) => token.toLowerCase()},
-    {"name": "versionChunk", "symbols": ["versionChunk", "versionDivider", "versionString"], "postprocess": join},
-    {"name": "versionChunk", "symbols": ["versionString"], "postprocess": id},
-    {"name": "versionString$ebnf$1", "symbols": ["versionChar"]},
-    {"name": "versionString$ebnf$1", "symbols": ["versionString$ebnf$1", "versionChar"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "versionString", "symbols": ["versionString$ebnf$1"], "postprocess": stringOfSame},
-    {"name": "versionChar", "symbols": [/[a-zA-Z0-9]/], "postprocess": ([token]) => token.toLowerCase()},
-    {"name": "versionFlag", "symbols": [/[\^~]/], "postprocess": token},
-    {"name": "versionDivider", "symbols": [/[-.]/], "postprocess": token},
-    {"name": "strip", "symbols": [/[\u200B-\u200D\uFEFF]/], "postprocess": id},
     {"name": "start$subexpression$1$ebnf$1", "symbols": []},
     {"name": "start$subexpression$1$ebnf$1", "symbols": ["start$subexpression$1$ebnf$1", "strip"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "start$subexpression$1", "symbols": ["start$subexpression$1$ebnf$1"]},
-    {"name": "start", "symbols": ["start$subexpression$1", "all"], "postprocess": 
+    {"name": "start$subexpression$1", "symbols": ["start$subexpression$1$ebnf$1", "_"]},
+    {"name": "start", "symbols": ["start$subexpression$1", "query"], "postprocess": 
         ([ws, q]) => q
         },
-    {"name": "all$ebnf$1", "symbols": ["queries"], "postprocess": id},
-    {"name": "all$ebnf$1", "symbols": [], "postprocess": () => null},
-    {"name": "all", "symbols": ["blQuery", "all$ebnf$1"], "postprocess": ([ query, queries]) => (queries ? { ...queries, ...query} : query)},
-    {"name": "all", "symbols": ["queries"], "postprocess": ([ queries]) => queries},
-    {"name": "queries$ebnf$1", "symbols": ["query"]},
-    {"name": "queries$ebnf$1", "symbols": ["queries$ebnf$1", "query"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "queries", "symbols": ["queries$ebnf$1"], "postprocess":  ([queries]) => {
-        	const all = {};
-        	for (const pair of queries){
-        		all[pair[0]] = pair[1]
-        	}
-        	return all;
-        } },
-    {"name": "query", "symbols": [/[$\^]/, "blQuery"], "postprocess": 
-        ([prefix, blQuery]) => {
-        	return [prefixes[prefix] || 'bl', blQuery];
-        } },
-    {"name": "query", "symbols": [{"literal":"?"}, "astQuery"], "postprocess": 
-        ([prefix, query]) => [prefixes[prefix] , query]
-        	   },
-    {"name": "astQuery", "symbols": ["caseInsensitiveChunk"], "postprocess": id},
+    {"name": "query$ebnf$1$subexpression$1", "symbols": [{"literal":"$"}, "blQuery"]},
+    {"name": "query$ebnf$1", "symbols": ["query$ebnf$1$subexpression$1"], "postprocess": id},
+    {"name": "query$ebnf$1", "symbols": [], "postprocess": () => null},
+    {"name": "query", "symbols": ["blQuery", "query$ebnf$1"], "postprocess": 
+        ([blQuery, schemaQuery]) => schemaQuery ? {...blQuery, kind: schemaQuery[1]} : blQuery },
     {"name": "blQuery$ebnf$1", "symbols": ["queryHead"], "postprocess": id},
     {"name": "blQuery$ebnf$1", "symbols": [], "postprocess": () => null},
-    {"name": "blQuery", "symbols": ["blQuery$ebnf$1", "queryTail"], "postprocess": 
+    {"name": "blQuery$ebnf$2", "symbols": ["queryTail"], "postprocess": id},
+    {"name": "blQuery$ebnf$2", "symbols": [], "postprocess": () => null},
+    {"name": "blQuery", "symbols": ["blQuery$ebnf$1", "blQuery$ebnf$2"], "postprocess": 
         ([head, tail]) => {
         	if (!head && !tail) return null;
         	return ({
@@ -172,7 +121,6 @@ const grammar: Grammar = {
           })
         }
         	},
-    {"name": "blQuery", "symbols": ["queryHead"], "postprocess": id},
     {"name": "queryHead$ebnf$1", "symbols": ["disambiguatedQuery"], "postprocess": id},
     {"name": "queryHead$ebnf$1", "symbols": [], "postprocess": () => null},
     {"name": "queryHead$string$1", "symbols": [{"literal":":"}, {"literal":":"}], "postprocess": (d) => d.join('')},
@@ -239,7 +187,35 @@ const grammar: Grammar = {
         } },
     {"name": "versionQuery$ebnf$1", "symbols": ["versionFlag"], "postprocess": id},
     {"name": "versionQuery$ebnf$1", "symbols": [], "postprocess": () => null},
-    {"name": "versionQuery", "symbols": ["versionQuery$ebnf$1", "versionChunk"], "postprocess": join}
+    {"name": "versionQuery", "symbols": ["versionQuery$ebnf$1", "versionChunk"], "postprocess": join},
+    {"name": "caseInsensitiveChunk", "symbols": ["caseInsensitiveChunk", "gap", "caseInsensitiveString"], "postprocess": join},
+    {"name": "caseInsensitiveChunk", "symbols": ["caseInsensitiveChunk", "_", "nonSemanticDivider", "_", "caseInsensitiveString"], "postprocess": join},
+    {"name": "caseInsensitiveChunk", "symbols": ["caseInsensitiveChunk", "_", "semanticDivider", "_", "caseInsensitiveString"], "postprocess": join},
+    {"name": "caseInsensitiveChunk", "symbols": ["caseInsensitiveString"], "postprocess": id},
+    {"name": "disambiguatedChunk", "symbols": ["disambiguatedChunk", "gap", "disambiguatedString"], "postprocess": join},
+    {"name": "disambiguatedChunk", "symbols": ["disambiguatedChunk", "_", "nonSemanticDivider", "_", "disambiguatedString"], "postprocess": join},
+    {"name": "disambiguatedChunk", "symbols": ["disambiguatedChunk", "_", "semanticDivider", "_", "disambiguatedString"], "postprocess": join},
+    {"name": "disambiguatedChunk", "symbols": ["disambiguatedString"], "postprocess": id},
+    {"name": "gap", "symbols": ["__"], "postprocess": () => " "},
+    {"name": "semanticDivider", "symbols": [/[\/]/], "postprocess": token},
+    {"name": "nonSemanticDivider", "symbols": [/[-'.]/], "postprocess": token},
+    {"name": "disambiguatedString$ebnf$1", "symbols": ["disambiguatedChar"]},
+    {"name": "disambiguatedString$ebnf$1", "symbols": ["disambiguatedString$ebnf$1", "disambiguatedChar"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "disambiguatedString", "symbols": ["disambiguatedString$ebnf$1"], "postprocess": stringOfSame},
+    {"name": "caseInsensitiveString$ebnf$1", "symbols": ["caseInsensitiveChar"]},
+    {"name": "caseInsensitiveString$ebnf$1", "symbols": ["caseInsensitiveString$ebnf$1", "caseInsensitiveChar"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "caseInsensitiveString", "symbols": ["caseInsensitiveString$ebnf$1"], "postprocess": stringOfSame},
+    {"name": "disambiguatedChar", "symbols": [/[a-zA-Z0-9]/], "postprocess": token},
+    {"name": "caseInsensitiveChar", "symbols": [/[a-zA-Z0-9]/], "postprocess": token},
+    {"name": "versionChunk", "symbols": ["versionChunk", "versionDivider", "versionString"], "postprocess": join},
+    {"name": "versionChunk", "symbols": ["versionString"], "postprocess": id},
+    {"name": "versionString$ebnf$1", "symbols": ["versionChar"]},
+    {"name": "versionString$ebnf$1", "symbols": ["versionString$ebnf$1", "versionChar"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "versionString", "symbols": ["versionString$ebnf$1"], "postprocess": stringOfSame},
+    {"name": "versionChar", "symbols": [/[a-zA-Z0-9]/], "postprocess": token},
+    {"name": "versionFlag", "symbols": [/[\^~]/], "postprocess": token},
+    {"name": "versionDivider", "symbols": [/[-.]/], "postprocess": token},
+    {"name": "strip", "symbols": [/[\u200B-\u200D\uFEFF]/], "postprocess": id}
   ],
   ParserStart: "start",
 };

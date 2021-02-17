@@ -1,7 +1,7 @@
 {
   "name": "js-moss",
   "description": "moss is a set of parsing rules for yaml and json",
-  "version": "0.22.6",
+  "version": "0.22.9",
   "homepage": "https://github.com/1e1f/js-moss",
   "author": {
     "name": "Leif Shackelford",
@@ -27,7 +27,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "bl": "nearleyc src/branch/parser/grammars/locator.ne -o src/branch/parser/compiled/locator.ts && nearleyc src/branch/parser/grammars/query.ne -o src/branch/parser/compiled/query.ts && nearleyc src/branch/parser/grammars/versionChunk.ne -o src/branch/parser/compiled/versionChunk.ts && nearleyc src/branch/parser/grammars/disambiguatedChunk.ne -o src/branch/parser/compiled/disambiguatedChunk.ts && nearleyc src/branch/parser/grammars/caseInsensitiveChunk.ne -o src/branch/parser/compiled/caseInsensitiveChunk.ts",
+    "bl": "nearleyc src/branch/parser/grammars/hydrate.ne -o src/branch/parser/compiled/hydrate.ts && nearleyc src/branch/parser/grammars/query.ne -o src/branch/parser/compiled/query.ts && nearleyc src/branch/parser/grammars/versionChunk.ne -o src/branch/parser/compiled/versionChunk.ts && nearleyc src/branch/parser/grammars/disambiguatedChunk.ne -o src/branch/parser/compiled/disambiguatedChunk.ts && nearleyc src/branch/parser/grammars/caseInsensitiveChunk.ne -o src/branch/parser/compiled/caseInsensitiveChunk.ts",
     "yaml": "nearleyc src/yaml/parser/yaml.ne -o src/yaml/parser/compiled.ts",
     "test": "NODE_ENV=test mocha --recursive --require ts-node/register \"test/**/*.ts\" --bail",
     "cover": "NODE_ENV=test nyc --report-dir coverage npm t",

@@ -1,7 +1,9 @@
-import { decode, encode, transcode } from './parser';
+import { decode, encode, transcode, } from './parser';
 export * from './parser';
 import { contains, union } from 'typed-json-transform';
-
+import { toYaml } from '../yaml';
+import { createBranchIndex } from './canonical';
+import { newState } from '../state';
 export { decode as decodeBranchLocator, encode as encodeBranchLocator, transcode as transcodeSegment }
 
 export * from './canonical';
@@ -13,6 +15,20 @@ interface BranchLocatorSelector {
   projectSegment?: string | string[],
   organizationSegment?: string | string[],
   version?: string | string[]
+}
+
+export const createBranch = (bl, parsed: any, ast?: any, hashFunction?: any) => {
+  const meta = decode(bl);
+  const text = toYaml(ast || parsed);
+  const branch = {
+    ...meta,
+    text,
+    parsed,
+    ast: ast || parsed,
+    s: createBranchIndex({ ...meta, text }, hashFunction),
+    state: newState()
+  }
+  return branch;
 }
 
 export const selectBranchLocator = (bl: string, options: BranchLocatorSelector) => {

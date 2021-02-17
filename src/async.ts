@@ -713,6 +713,56 @@ async function _interpolate(
           return parsed;
         }
       },
+      query: async (bl: string, { defer, sourceMap }: Expand.FunctionArguments = {}) => {
+        popAll++;
+        pushErrorPath(layer.state, {
+          path: sourceMap,
+          rhs: true,
+        });
+        let results;
+        try {
+          results = await getBranch(bl, resolvers, layer);
+          // console.log(results);
+        } catch (e) {
+
+          throw {
+            message: `Failed to resolve ${bl}\n ${e.message}`,
+          };
+        }
+        if (!results) {
+          // console.log(bl, resolvers);
+          throw {
+            message: `No async results for ${bl}, in ${Object.keys(resolvers).length} resolvers @ ${toYaml(layer.data)}`,
+          };
+        }
+        if (results) {
+          const parsedResults = [];
+          for (const resolvedBranch of results) {
+            popAll++;
+            pushErrorPath(layer.state, {
+              path: ["^" + encodeBranchLocator(resolvedBranch)],
+            });
+            if (defer) {
+              resolvedBranch.parsed = resolvedBranch.ast;
+              resolvedBranch.state = layer.state;
+              // console.log("defer", resolvedBranch.parsed);
+              return resolvedBranch.parsed;
+            }
+            const nextLayer: Moss.ReturnValue = await parseNextStructure(
+              layer,
+              resolvedBranch.ast
+            );
+            const {
+              data: parsed,
+              state: { auto, stack, selectors, merge },
+            } = nextLayer;
+            resolvedBranch.parsed = parsed;
+            resolvedBranch.state = { auto, stack, selectors, merge };
+            parsedResults.push(parsed);
+          }
+          return parsedResults;
+        }
+      },
       shell: () => "no shell method supplied",
       getStack: () => {
         if (!layer.state.strict) {

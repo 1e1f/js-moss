@@ -15,6 +15,12 @@
 		}
 
 
+		const prefixes = {
+			"?": "ast",
+			"$": "kind",
+			"^": "deps"
+		}
+
 		const glyphGroup = {
 			i: "i",
 			o: "o"

@@ -2,13 +2,13 @@ import { Parser, Grammar } from 'nearley';
 import { Moss } from '../../types';
 
 const queryGrammar = require('./compiled/query').default;
-const locatorGrammar = require('./compiled/locator').default;
+const hydrateGrammar = require('./compiled/hydrate').default;
 
 const caseInsensitiveChunk = require('./compiled/caseInsensitiveChunk').default;
 const disambiguatedChunk = require('./compiled/disambiguatedChunk').default;
 const grammars = {
   query: Grammar.fromCompiled(queryGrammar),
-  locator: Grammar.fromCompiled(locatorGrammar),
+  hydrate: Grammar.fromCompiled(hydrateGrammar),
   versionSegment: Grammar.fromCompiled(require('./compiled/versionChunk').default),
   nameSegment: Grammar.fromCompiled(caseInsensitiveChunk),
   organizationSegment: Grammar.fromCompiled(disambiguatedChunk),

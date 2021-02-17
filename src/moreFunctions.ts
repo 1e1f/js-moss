@@ -1,5 +1,5 @@
 import { toCamel, fromCamel } from 'typed-json-transform';
-import { encodeBranchLocator, decodeBranchLocator, canonicalBl } from './branch';
+import { encodeBranchLocator, decodeBranchLocator, canonicalBl, filterBranchName } from './branch';
 const pluralize = require("pluralize");
 import { addFunctions, wrapFunction } from './async';
 import { addFunctions as addSyncFunctions, wrapFunction as wrapSyncFunction } from './sync';
@@ -50,6 +50,7 @@ const proper = (str: string) => {
   return str;
 }
 
+
 addFunctions({
   toCamel: wrapFunction(toCamel, parseStringArgs),
   fromCamel: wrapFunction(fromCamel, parseStringArgs),
@@ -61,6 +62,7 @@ addFunctions({
   linkBranch: wrapFunction((branch: any) => branch ? `^${encodeBranchLocator(branch)}` : null),
   link: wrapFunction((bl: string) => `^${canonicalBl(bl)}`),
   canonicalBl: wrapFunction(canonicalBl),
+  nameSafe: wrapFunction(filterBranchName),
   toBranchLocator: wrapFunction(encodeBranchLocator),
   toBranch: wrapFunction(decodeBranchLocator)
 })
@@ -70,6 +72,7 @@ addSyncFunctions({
   fromCamel: wrapSyncFunction(fromCamel, parseStringArgs),
   lowercase: wrapSyncFunction((s: string) => s.toLowerCase(), parseStringArgs),
   canonicalBl: wrapSyncFunction(canonicalBl),
+  nameSafe: wrapSyncFunction(filterBranchName),
   capslock: wrapSyncFunction((s: string) => s.toUpperCase(), parseStringArgs),
   capitalize: wrapSyncFunction(capitalize, parseStringArgs),
   proper: wrapSyncFunction(proper, parseStringArgs),

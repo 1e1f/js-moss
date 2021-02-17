@@ -19,12 +19,28 @@ export const getBranchAsync = async (
           let branch: any;
           branch = await resolve(bl);
           if (branch) {
-            const { graph, currentBranch } = layer.state;
-            graph.addNode(bl, branch);
-            graph.addDependency(currentBranch, bl);
-            graph.dependenciesOf(currentBranch);
-            layer.state.currentBranch = bl;
-            return branch;
+            if (Array.isArray(branch)) {
+              for (const b of branch) {
+                if (b.ast?.__bl) {
+                  const bl = b.ast.__bl;
+                  console.log("query b, should limit recursion somewhere or ...", bl);
+                  const { graph, currentBranch } = layer.state;
+                  graph.addNode(bl, b);
+                  graph.addDependency(currentBranch, bl);
+                  // graph.dependenciesOf(currentBranch);
+                  // layer.state.currentBranch = bl;
+                }
+              }
+              return branch;
+            }
+            else {
+              const { graph, currentBranch } = layer.state;
+              graph.addNode(bl, branch);
+              graph.addDependency(currentBranch, bl);
+              // graph.dependenciesOf(currentBranch);
+              layer.state.currentBranch = bl;
+              return branch;
+            }
           }
         }
       } catch (error) {
@@ -61,7 +77,7 @@ export const getBranchSync = (
           }
         }
       } catch (e) {
-        e.message = `${resolverKey} resolver failed importing ${bl} with Error: ${e.message}`;
+        e.message = `${resolverKey} resolver failed importing ${bl}\nError: ${e.message}`;
         // throw e;
       }
     }

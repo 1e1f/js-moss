@@ -5,7 +5,7 @@ const expression = require('../../compiled/expression');
 import { newState, parse, reduce, append as _append, pop } from './shared';
 
 export async function tokenize(str: string, options: Expand.Options) {
-    const { dereference, dereferenceSync, call, shell, fetch } = options;
+    const { dereference, dereferenceSync, call, shell, fetch, query } = options;
     const template = String(str);
     let i = 0;
     let offset = i;
@@ -111,6 +111,8 @@ export async function tokenize(str: string, options: Expand.Options) {
                 res = await sub(shell, swap, ptr.state.sourceMap);
             } else if (op == 'f') {
                 res = await sub(fetch, swap, ptr.state.sourceMap);
+            } else if (op == 'q') {
+                res = await sub(query, '?' + swap, ptr.state.sourceMap);
             } else if (op == 'e') {
                 const deref = (str: string) => subSync(dereferenceSync, str, ptr.state.sourceMap)
                 res = await sub((s) => expression(deref, check).parse(s), swap, ptr.state.sourceMap)
@@ -163,8 +165,8 @@ export async function tokenize(str: string, options: Expand.Options) {
                         append(char);
                     }
                     break;
-                case ' ':
-                    if (op && terminal == char) {
+                case ' ': case ',':
+                    if (op && (terminal == ' ' || terminal == ',')) {
                         await close();
                     }
                     append(char);
@@ -178,7 +180,8 @@ export async function tokenize(str: string, options: Expand.Options) {
                         if (header == '=') open('e', '__null__');
                         else if (header == '^') open('f', '__null__');
                         else if (header == '$') open('v', ' ');
-                    } else if (char == '=' || char == '$' || char == '^') {
+                        else if (header == '?') open('q', ' ');
+                    } else if (char == '=' || char == '$' || char == '^' || char == '?') {
                         if (i < 1) ptr.state.header = char;
                         ptr.state.detecting = char;
                     } else if (detecting) {

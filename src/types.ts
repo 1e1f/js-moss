@@ -121,10 +121,10 @@ export declare namespace Moss {
 export type ParsedObject = { [index: string]: any };
 
 export declare namespace Expand {
-  type Key = '$' | '=' | '^';
+  type Key = '$' | '=' | '^' | '?';
   type Open = '{' | '(';
-  type Terminal = '}' | ')' | ' ' | '__null__';
-  type Op = 'v' | 's' | 'e' | 'f';
+  type Terminal = '}' | ')' | ' ' | ',' | '__null__';
+  type Op = 'v' | 's' | 'e' | 'f' | 'q';
 
   interface State {
     detecting?: Key
@@ -153,6 +153,7 @@ export declare namespace Expand {
     dereference?: (sub: string, options?: FunctionArguments) => any
     call?: (sub: any, options?: FunctionArguments) => any
     fetch?: (sub: any, options?: FunctionArguments) => any
+    query?: (sub: any, options?: FunctionArguments) => any
     shell?: (sub: string, options?: FunctionArguments) => string
     getStack?: any
     pushErrorState?: (state?: Moss.ErrorPath) => void
