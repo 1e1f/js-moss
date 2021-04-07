@@ -3,10 +3,22 @@
 
 # Moss
 
-moss is a set of parsing rules for js objects, most often described in YAML-like
-syntax. moss aims to have serparable layers, each with an opinionated first choice that is ultimately swappable if desired.
+moss is a set of parsing rules for js objects, most often described in YAML-like syntax. It is a Turing-incomplete language that looks a bit like YAMl but is closer Kubernetes Helm. Moss aims to have serparable layers, each with an opinionated first choice that is ultimately swappable if desired.
 
-## Layers in moss
+## Branches
+Moss "branches" are somewhat like files but with key differences. A traditional file separates its data (the file contents) from its metadata (owner, permissions). In contrast, a Moss branch is identified by its first line, called a "branch locator".
+
+## Branch locators
+
+Example: context::name@Organzation Name~Folder/other tag:version
+
+context aka "forest" - defines which layer 0 resolver to use if sourcing from another forest
+name - just a file name.
+Organization Name - Represents permissions
+projectTags - User defined hints, similar to unix directories
+version - server or a hash
+
+## Layers of moss
 ```
 0 binary
 1 source
