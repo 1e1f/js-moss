@@ -1,7 +1,7 @@
 import { Moss } from './types';
 
 import { clone, Graph } from "typed-json-transform";
-import { encodeBranchLocator } from "./branch";
+import { canonicalBl, encodeBranchLocator } from "./branch";
 // import { jsonStableHash } from "./hash";
 
 export const currentErrorPath = (state: Moss.State) =>
@@ -13,7 +13,7 @@ export const pushErrorPath = (state: Moss.State, path?: any) =>
 export const popErrorPath = (state: Moss.State) => state.errorPaths.pop();
 
 export const newState = (branch?: Moss.Branch): Moss.State => {
-  const path = branch ? encodeBranchLocator(branch) : "root";
+  const path = canonicalBl(branch ? encodeBranchLocator(branch) : "Root");
   // const contentHash = jsonStableHash(branch ? branch.parsed : {});
 
   const pathGraph = new Graph<Moss.Branch>();
@@ -42,21 +42,64 @@ export const newLayer = (branch?: Moss.Branch): Moss.ReturnValue => {
   return { data: {}, state: newState(branch) };
 };
 
-export const pushState = (layer: Moss.ReturnValue) => {
-  if (!layer.state.locked) {
-    const { graph, currentBranch, ..._state } = layer.state;
-    return {
-      data: layer.data,
-      state: {
-        ...clone(_state),
-        merge: {
-          ..._state.merge,
-          precedence: {},
-        },
-        currentBranch,
-        graph,
-      },
-    };
+export const cloneState = (state: Moss.State) => {
+  const { graph, ..._state } = state;
+  return {
+    ...clone(_state),
+    graph,
   }
-  return layer;
+}
+
+// export const pushState = (layer: Moss.ReturnValue) => {
+//   if (!layer.state.locked) {
+//     // const { graph, currentBranch, ..._state } = layer.state;
+//     return {
+//       data: layer.data,
+//       state: {
+//         ...cloneState(layer.state),
+//         merge: {
+//           ...layer.state.merge,
+//           precedence: {},
+//         }
+//       },
+//     };
+//   }
+//   return layer;
+// };
+
+export const pushState = (layer: Moss.ReturnValue) => {
+  if (layer.state.locked) {
+    return layer;
+  }
+  const { graph, currentBranch, strict, selectors, errorPaths, stack, merge, auto, autoMap } = layer.state;
+  const nextLayer = {
+    data: layer.data,
+    state: {
+      strict,
+      currentBranch,
+      graph,
+      selectors: {
+        ...selectors
+      },
+      errorPaths: [
+        ...errorPaths
+      ],
+      stack: {
+        ...stack
+      },
+      auto: {
+        ...auto
+      },
+      autoMap: {
+        ...autoMap
+      },
+      merge: {
+        ...merge,
+        precedence: {},
+      }
+    },
+  };
+  // console.log("mutbale state", auto);
+  // console.log("next state", nextLayer.state);
+  return nextLayer as Moss.ReturnValue;
 };

@@ -1,8 +1,9 @@
 import { toCamel, fromCamel } from 'typed-json-transform';
-import { encodeBranchLocator, decodeBranchLocator, canonicalBl, filterBranchName } from './branch';
+import { encodeBranchLocator, decodeBranchLocator, canonicalBl, filterBranchName, transcode } from './branch';
 const pluralize = require("pluralize");
 import { addFunctions, wrapFunction } from './async';
 import { addFunctions as addSyncFunctions, wrapFunction as wrapSyncFunction } from './sync';
+import { toYaml } from './yaml';
 
 const parseStringArgs = (args: any) => {
   if (typeof args === "string") {
@@ -58,28 +59,43 @@ addFunctions({
   capslock: wrapFunction((s: string) => s.toUpperCase(), parseStringArgs),
   capitalize: wrapFunction(capitalize, parseStringArgs),
   proper: wrapFunction(proper, parseStringArgs),
+  properCase: wrapFunction(proper, parseStringArgs),
   plural: wrapFunction(pluralize, parseStringArgs),
   linkBranch: wrapFunction((branch: any) => branch ? `^${encodeBranchLocator(branch)}` : null),
-  link: wrapFunction((bl: string) => `^${canonicalBl(bl)}`),
-  canonicalBl: wrapFunction(canonicalBl),
-  nameSafe: wrapFunction(filterBranchName),
+  link: wrapFunction((bl: string) => bl && `^${canonicalBl(bl)}`),
+  // link: wrapFunction((bl: string) => `^${canonicalBl(bl)}`),
+  canonicalBl: wrapFunction((s) => s && canonicalBl(s)),
+  nameSafe: wrapFunction((s) => s && filterBranchName(s)),
+  orgSafe: wrapFunction((s) => s && transcode(filterBranchName(s))),
   toBranchLocator: wrapFunction(encodeBranchLocator),
-  toBranch: wrapFunction(decodeBranchLocator)
+  toBranch: wrapFunction(decodeBranchLocator),
+  print: wrapFunction(toYaml),
+  toYaml: wrapFunction(toYaml),
+  fromJson: wrapFunction(JSON.parse),
+  toJson: wrapFunction(JSON.stringify),
+  json2yaml: wrapFunction((s) => s && toYaml(JSON.parse(s))),
 })
 
 addSyncFunctions({
   toCamel: wrapSyncFunction(toCamel, parseStringArgs),
   fromCamel: wrapSyncFunction(fromCamel, parseStringArgs),
   lowercase: wrapSyncFunction((s: string) => s.toLowerCase(), parseStringArgs),
-  canonicalBl: wrapSyncFunction(canonicalBl),
-  nameSafe: wrapSyncFunction(filterBranchName),
+  canonicalBl: wrapSyncFunction((s) => s && canonicalBl(s)),
+  nameSafe: wrapSyncFunction((s) => s && filterBranchName(s)),
+  orgSafe: wrapFunction((s) => s && transcode(filterBranchName(s))),
   capslock: wrapSyncFunction((s: string) => s.toUpperCase(), parseStringArgs),
   capitalize: wrapSyncFunction(capitalize, parseStringArgs),
   proper: wrapSyncFunction(proper, parseStringArgs),
+  properCase: wrapSyncFunction(proper, parseStringArgs),
   plural: wrapSyncFunction(pluralize, parseStringArgs),
   linkBranch: wrapSyncFunction((branch: any) => encodeBranchLocator ? `^${encodeBranchLocator(branch)}` : ''),
   link: wrapSyncFunction((bl: string) => `^${canonicalBl(bl)}`),
   toBranchLocator: wrapSyncFunction(encodeBranchLocator),
-  toBranch: wrapSyncFunction(decodeBranchLocator)
+  toBranch: wrapSyncFunction(decodeBranchLocator),
+  print: wrapSyncFunction(toYaml),
+  toYaml: wrapSyncFunction(toYaml),
+  fromJson: wrapSyncFunction(JSON.parse),
+  toJson: wrapSyncFunction(JSON.stringify),
+  json2yaml: wrapSyncFunction((s) => s && toYaml(JSON.parse(s))),
 })
 

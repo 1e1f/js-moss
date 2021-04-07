@@ -55,12 +55,6 @@
 					return lhs;
 				}
 				return {or: [lhs, rhs]};
-			} if (op == "&") {
-				if (lhs.and) {
-					lhs.and = [...lhs.and, rhs]
-					return lhs;
-				}
-				return {and: [lhs, rhs]};
 			}
 		}
 %}
@@ -85,7 +79,7 @@ semanticDivider
 	-> [/] {% token %}
 
 nonSemanticDivider
-  -> [-'.] {% token %}
+  -> [-'.&] {% token %}
 
 disambiguatedString
 	-> disambiguatedChar:+ {% stringOfSame %}

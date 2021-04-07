@@ -1,5 +1,7 @@
 {
-  const vars = { n: 3, g: "\$", stringA: "hello", stringB: "hell", c: {l: "lo"}, testArray:[{y: 3}, {y: 5}], x: { y: 5, ref: 'y' } , z: 0};
+  const vars = {
+  x: {y: {z: 3}}
+  };
   const heap = (x) => vars[x];
   function isNumeric(n) {
     return !n.length && !isNaN(parseFloat(n)) && isFinite(n);
@@ -61,8 +63,6 @@ Comparison = head:AddOp tail:(_ (">=" / "<=" / "==" / "!=" / ">" / "<"   / "= ")
       	let cmp;
         const scope = element[1][0] == "!" ? "=" : element[1][0];
         const mode = element[1].length > 1 ? scope == "=" ? element[1][0] : element[1][1] : '';
-
-		//throw new Error(element[1] + ' ' + scope + ' ' + mode)
         switch (scope) {
           case '<': {
           	if (mode == "="){
@@ -89,7 +89,6 @@ Comparison = head:AddOp tail:(_ (">=" / "<=" / "==" / "!=" / ">" / "<"   / "= ")
         return cmp(result, element[3]);
       }, head);
     }
-
 
 AddOp = head:MulOp tail:(_ ("+" / "-") _ MulOp)* {
       return tail.reduce(function(result, element) {
@@ -118,46 +117,28 @@ Unary = UnaryNot / UnaryNeg / Sequence
 UnaryNot = "!" c:Factor { return !c }
 UnaryNeg = "-" c:Number { return -c }
 
-Sequence = head:(Chunk) tail:(Chunk)* {
-      return tail.reduce(function(result, element) {
-
-        return result + element;
+Sequence = head:(Any) tail:(Space Any)* {
+      return tail.reduce(function(head, element) {
+        return head + ' ' + element[1];
       }, head);
+}
+
+MemberOperator = head:("\\"? Identifier) tail:(("[" Any "]") / ("." Identifier))* {
+   	let lhs = head[1];
+	if (!head[0]){
+      const res = heap(lhs);
+      if (res !== undefined){
+        lhs = res;
+      }
     }
 
-//RecursiveExpression / StackExpression / StackReference
-//StackReference = variable:String { return heap(variable); }
-//StackExpression = "${" variable:Expression "}" { return heap(variable); }
-//RecursiveExpression = "={" variable:Expression "}" { return variable; }
-
-// MapObject = ref:StackReference "[]" {
-// 	return ref;
-// }
-
-// Map = head:MapObject tail:(_ Expression)* _ {
-//       return tail.reduce(function(result, element) {
-//       		console.log('map', element[1])
-//          return result[element[1]];
-//       }, head);
-//     }
-
-MemberOperator = head:StackReference tail:("[" Any "]")* _ {
-      return tail.reduce(function(result, element) {
-         return result[element[1]];
-      }, head);
-    }
-
-StackReference = head:Identifier tail:("." Identifier)* {
-    let lhs = heap(head);
-    if (lhs === undefined){
-      lhs = head;
-    }
     return tail.reduce(function(result, element) {
         const res = result[element[1]];
-        if (!res) throw new Error({ result, accessor: element[1]})
+        if (res === undefined) throw new Error({ result, accessor: element[1]})
         return res;
     }, lhs);
 }
+
 
 Array = "[" items:ArrayItem+ "]" _ {
 	return items;
@@ -167,8 +148,8 @@ ArrayItem = item:(("," _ ReEntry) / _ ReEntry) {
 	return (item[0] && (item[0] == ',')) ? item[2] : item[1];
 }
 
-Chunk = (Any / Space)
-Any = MemberOperator / StackReference / Array / Identifier / Number
+Any = s:"\\ "? w:(MemberOperator / Array / Identifier / Number) { return s ? ' ' + w : w }
+
 Keyword = "contains" / "startsWith" / "endsWith" / "includes" / "hasKey"
 
 Identifier = Word

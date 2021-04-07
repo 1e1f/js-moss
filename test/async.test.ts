@@ -4,10 +4,19 @@ import { join } from 'path';
 import { assert } from 'chai';
 import { exec } from 'shelljs';
 
+import { clone } from 'typed-json-transform';
+
 import { Async, newLayer, SourceMapper, fromYaml, toYaml } from '../src';
 
 const { parse, next, setOptions } = Async;
 describe('Async API', () => {
+    it('sanity', () => {
+        const res = clone([1, 2, 3]);
+        // const sourceMap = SourceMapper.parse(readFileSync(join(__dirname, 'sourcemap.yaml'), 'utf8'))
+        assert.deepEqual(res, [1, 2, 3]);
+        // console.log(util.inspect(sourceMap, false, 10, true));
+    });
+
     it('can produce a source map', () => {
         const sourceMap = SourceMapper.parse(readFileSync(join(__dirname, 'sourcemap.yaml'), 'utf8'))
         assert.deepEqual(sourceMap.timestamp.key, [4753, 4762, 170, 0]);

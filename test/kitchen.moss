@@ -53,20 +53,20 @@ config:
         $graphicsLib: $graphicsLib
   build:
     map<:
+      parseInput: true
       from:
         =mac, linux:
-          device:
+          device>:
             arch: x64
             endianness: LE
         =ios !linux:
-          device:
-            <>:
-              arch: arm
-              endianness: BE
-          simulator:
+          device>:
+            arch: arm
+            endianness: BE
+          simulator>:
             arch: x64
             endianness: LE
-            select<>:
+            <select:
               simulator: 1
       to: ${${build}}
   theme:
@@ -74,7 +74,7 @@ config:
       =:
         purple: rgb(184, 0, 142)
         <:
-          r: 184 
+          r: 184
           g: 0
           b: 142
           a: 20

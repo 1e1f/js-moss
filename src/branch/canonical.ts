@@ -1,15 +1,36 @@
-import { Moss } from '../types';
-import { decode, encode, transcode } from './parser';
+import { Moss, SearchIndex, BLIndex } from '../types';
+import { decode, encode } from './parser';
 
-export const canonicalBl = (bl: string) => encode(decode(bl));
+export const canonicalBl = (bl: string | Moss.Branch) => {
+  if (typeof bl == 'string') {
+    return encode(decode(bl));
+  }
+  return encode(canonicalBranchLocator(bl));
+}
+
+export const disambiguatedHash = (org: string) => {
+  return decode(org, 'organizationSegment');
+}
+
+export const nameHash = (org: string) => {
+  return decode(org, 'nameSegment');
+}
+
 export const canonicalBranchLocator = (branch: Moss.Branch) => decode(encode(branch));
 
-import { check, hashField, prune, setValueForKeyPath, valueForKeyPath } from 'typed-json-transform';
+import { check, prune, setValueForKeyPath, valueForKeyPath } from 'typed-json-transform';
 import { fromYaml } from '../yaml';
-import { stringify } from 'querystring';
-import { importPrefix } from './version';
+import { importPrefix } from '../types';
 
-export const filterBranchName = (text) => text.replace(/[?@~&!:]/g, '');
+export const filterBranchName = (text) => {
+  if (!text) return text;
+  if (text.length) {
+    if (text.length > 1) {
+      text = text.trim();
+    }
+    return text.replace(/[^a-zA-Z0-9 \-'\.&\/]/g, "")
+  }
+};
 
 export const filterBranch = (meta: Moss.Branch) => ({
   ...meta,
@@ -25,13 +46,7 @@ export const hydrateBranchLocator = (s) => decode(s, 'hydrate');
 
 type MetaHashFunction = (meta: Moss.Branch, options?: any) => string
 
-interface BLIndex {
-  o: string
-  n?: string
-  p?: string
-  v?: string
-  h?: string
-}
+
 
 export const searchableLocator = (meta, hashMetadata?: MetaHashFunction) => {
   const canonicalLocator = canonicalBranchLocator(meta);
@@ -66,15 +81,19 @@ const blIndexer: IndexProducer<BLIndex> = {
     const importTokenPos = value.indexOf(importPrefix);
     if (importTokenPos != -1) {
       let blLine = value.slice(importTokenPos + 1);
+      if (blLine[0] === '?') {
+        // is Query not import, skip
+        return;
+      }
       if (blLine.indexOf('#') !== -1) {
         blLine = blLine.split('#')[0];
       }
       try {
         const meta = decode(blLine);
-        const s = searchableLocator(meta, hashFunctions.branchMeta);
+        const s = searchableLocator(meta, hashFunctions && hashFunctions.branchMeta);
         return s;
       } catch (e) {
-        console.log("bad locator while building search index on key:", key, "with value", value)
+        console.log("bad locator", blLine, "while building search index on key:", key, "with value", value)
         console.log(e);
       }
     }
@@ -166,19 +185,16 @@ const indexWithIndexer = (value: any, key: any, producers: IndexProducer<any>[],
 }
 
 export const createBranchIndex = (branch: Moss.Branch, hashFunctions?: HashFunctions) => {
-  if (!hashFunctions.branchMeta) {
-    throw new Error("createBranchIndex needs branch hash function")
-  }
   let ast = branch.ast;
   if (!ast) {
     ast = fromYaml(branch.text);
   }
-  const bi = {};
+  const bi: SearchIndex = {};
   indexAny(ast, branchIndexer, bi, hashFunctions);
   return {
     ...bi,
-    bl: searchableLocator(branch, hashFunctions.branchMeta),
-    kind: searchableLocator(decode(ast.kind || "data"), hashFunctions.branchMeta),
+    bl: searchableLocator(branch, hashFunctions && hashFunctions.branchMeta),
+    kind: searchableLocator(decode(ast.kind || "data"), hashFunctions && hashFunctions.branchMeta),
   }
 }
 
@@ -188,6 +204,22 @@ export const indexPaths = {
   project: 's.bl.p',
   version: 's.bl.v',
   hash: 's.bl.h'
+}
+
+export const kindIndexes = {
+  organization: 's.kind.o',
+  name: 's.kind.n',
+  project: 's.kind.p',
+  version: 's.kind.v',
+  hash: 's.kind.h'
+}
+
+export const depsIndexes = {
+  organization: 's.deps.o',
+  name: 's.deps.n',
+  project: 's.deps.p',
+  version: 's.deps.v',
+  hash: 's.deps.h'
 }
 
 export const getCanonicalOrgName = (org, segment) => {

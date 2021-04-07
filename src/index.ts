@@ -10,4 +10,4 @@ export { Async, Sync };
 
 import './moreFunctions';
 
-export { Moss } from './types';
+export { Moss, importPrefix, queryPrefix } from './types';

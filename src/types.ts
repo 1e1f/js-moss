@@ -14,6 +14,27 @@ MossError.prototype = Error.prototype;
 
 // export declare type MossError = Error & Moss.Error;
 
+export interface BLIndex {
+  o?: string
+  n?: string
+  p?: string
+  v?: string
+  h?: string
+}
+
+export interface SearchIndex extends BLIndex {
+  kind?: BLIndex
+  deps?: BLIndex[]
+  bl?: BLIndex
+}
+
+export interface BranchLocatorSelector {
+  nameSegment?: string | string[],
+  projectSegment?: string | string[],
+  organizationSegment?: string | string[],
+  version?: string | string[]
+}
+
 export declare namespace Moss {
   interface ErrorPath {
     path: any[];
@@ -64,7 +85,7 @@ export declare namespace Moss {
     // cache
     ast?: BranchData;
     parsed?: BranchData;
-    state?: ParserState;
+    state?: State;
   }
 
   type BranchData = any;
@@ -161,3 +182,6 @@ export declare namespace Expand {
     popErrorState?: () => void
   }
 }
+
+export const importPrefix = "^";
+export const queryPrefix = "?";

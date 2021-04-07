@@ -15,7 +15,8 @@ import {
   all,
   isEqual,
   mergeLhsArray,
-  mergeLhsObject
+  mergeLhsObject,
+  shallowCopy,
 } from "typed-json-transform";
 import { interpolate as __interpolate } from "./interpolate";
 import {
@@ -26,7 +27,7 @@ import {
 } from "./cascade";
 import { toYaml, fromYaml } from "./yaml";
 
-import { getBranchSync as getBranch } from "./resolvers";
+import { getBranchesSync as getBranches } from "./resolvers";
 import { encodeBranchLocator } from "./branch";
 const expression = require('../compiled/expression');
 
@@ -39,6 +40,7 @@ import {
 } from "./state";
 
 import { handleError } from "./util";
+
 
 type Functions = Moss.Sync.Functions;
 type Resolvers = Moss.Sync.Resolvers;
@@ -56,7 +58,7 @@ export const next = continueWithNewFrame;
 
 export const parseFunctions = (current: Moss.ReturnValue) => {
   const { state, data } = current;
-  const source: any = clone(data);
+  const source: any = rclone(data);
   const target = state.target || current.data;
   for (const _key of Object.keys(source)) {
     if (_key[0] === "<" || _key[_key.length - 1] === "<") {
@@ -106,9 +108,12 @@ export const parseFunction = (
         errorPaths: state.errorPaths,
       };
     }
-
   }
 }
+
+
+const rclone = (x) => shallowCopy(x);
+const nclone = (x) => x;
 
 export const parseObject = (current: Moss.ReturnValue) => {
   const { state } = current;
@@ -148,15 +153,13 @@ export const parseObject = (current: Moss.ReturnValue) => {
       } else {
         let val = source[_key];
         if (_key[0] === "$") {
-          key = <any>(interpolate(current, _key)).data;
+          try {
+            key = <any>(interpolate(current, _key)).data;
+          } catch (e) {
+
+          }
         } else if (_key[0] == "\\") {
           key = _key.slice(1);
-        } else if (_key[0] === '~' && _key.indexOf(".") != -1) {
-          key = _key.slice(1);
-          const [first, ...kp] = key.split(".");
-          key = first;
-          val = {};
-          setValueForKeyPath(source[_key], kp.join("."), val);
         } else {
           key = _key;
         }
@@ -173,21 +176,16 @@ export const parseObject = (current: Moss.ReturnValue) => {
   return current;
 };
 
-
-export const wrapFunction = (fn: Function,
-  transformArgs?: (args: any) => any[]) => (current: Moss.ReturnValue,
-    args: Moss.BranchData,
-    setRes: any) => {
-    const { data } = continueWithNewFrame(current, args);
-    let res;
-    if (transformArgs) {
-      res = fn(...transformArgs(data));
-    } else {
-      res = fn(data);
-    }
-    setRes ? setRes(res) : current.data = res;
+export const wrapFunction = (fn: Function, transformArgs?: (args: any) => any[]) => (current: Moss.ReturnValue, args: Moss.BranchData, setRes: any) => {
+  const { data } = continueWithNewFrame(current, args);
+  let res;
+  if (transformArgs) {
+    res = fn(...transformArgs(data));
+  } else {
+    res = fn(data);
   }
-
+  setRes ? setRes(res) : current.data = res;
+}
 
 export const parseArray = (
   layer: Moss.ReturnValue,
@@ -306,8 +304,8 @@ addResolvers({
 });
 
 const stack = (current: Moss.ReturnValue, args: any) => {
-  const { data, state: _state } = current;
-  const state = clone(_state);
+  const { data, state } = pushState(current);
+  // const state = clone(_state);
   state.locked = true;
   state.target = state.stack;
   parseNextStructure(
@@ -317,13 +315,13 @@ const stack = (current: Moss.ReturnValue, args: any) => {
     },
     args
   );
-  _state.stack = state.stack;
+  current.state.stack = state.stack;
 };
 
 addFunctions({
   select: (current: Moss.ReturnValue, args: any) => {
     const { data, state: _state } = current;
-    const state = clone(_state);
+    const state = rclone(_state);
     state.locked = true;
     state.target = state.selectors;
     parseNextStructure(
@@ -440,7 +438,7 @@ addFunctions({
   },
   map: (parent: Moss.ReturnValue, args: any) => {
     const base = currentErrorPath(parent.state).path.join(".");
-    const { from, to } = args;
+    const { from, to, parseInput } = args;
     if (!from) {
       throw {
         message: `for $map please supply 'from:' as input`,
@@ -448,118 +446,104 @@ addFunctions({
       };
     }
     currentErrorPath(parent.state).path.push("from");
-    const fromCtx = continueWithNewFrame(parent, from);
+    const fromCtx = continueWithNewFrame(parent, rclone(from));
     currentErrorPath(fromCtx.state).path.pop();
     if (!to) {
       throw {
         message: `for $map please supply 'to:' as input`,
-        errorPaths: fromCtx.state.errorPaths,
+        errorPaths: parent.state.errorPaths,
         source: args,
       };
     }
     let i = 0;
+
     parent.data = okmap(fromCtx.data, (item: any, key: string) => {
-      if (fromCtx.state.autoMap[key]) {
-        currentErrorPath(fromCtx.state).path = fromCtx.state.autoMap[key].split(
+      if (parent.state.autoMap[key]) {
+        currentErrorPath(parent.state).path = parent.state.autoMap[key].split(
           "."
         );
       }
-      const ctx = continueWithNewFrame(fromCtx, item);
-      currentErrorPath(ctx.state).path = (base + ".to").split(".");
-      const nextLayer = pushState(ctx);
-      nextLayer.state.auto.index = i;
-      nextLayer.state.auto.value = item;
-      nextLayer.state.auto.key = key;
-      i++;
-      return (parseNextStructure(nextLayer, clone(to))).data;
-    });
-  },
-  remap: (parent: Moss.ReturnValue, args: any) => {
-    const base = currentErrorPath(parent.state).path.join(".");
-    const { from, to } = args;
-    if (!from) {
-      throw {
-        message: `for $map please supply 'from:' as input`,
-        errorPaths: parent.state.errorPaths,
-      };
-    }
-    currentErrorPath(parent.state).path.push("from");
-    const fromCtx = continueWithNewFrame(parent, from);
-    currentErrorPath(fromCtx.state).path.pop();
-    if (!to) {
-      throw {
-        message: `for $map please supply 'to:' as input`,
-        errorPaths: fromCtx.state.errorPaths,
-        source: args,
-      };
-    }
-    let i = 0;
-    return okmap(fromCtx.data, (item: any, key: string) => {
-      if (fromCtx.state.autoMap[key]) {
-        currentErrorPath(fromCtx.state).path = fromCtx.state.autoMap[key].split(
-          "."
-        );
+      let eachContext = parent;
+      if (parseInput) {
+        eachContext = continueWithNewFrame(fromCtx, item);
+        currentErrorPath(eachContext.state).path = (base + ".to").split(".");
+        // console.log("")
+      } else {
+        // TODO: bug / feature = get fresh context here?
+        eachContext = pushState(fromCtx);
       }
-      const ctx = continueWithNewFrame(fromCtx, item);
-      currentErrorPath(ctx.state).path = (base + ".to").split(".");
-      const nextLayer = pushState(ctx);
-      nextLayer.state.auto.index = i;
-      nextLayer.state.auto.value = item;
-      nextLayer.state.auto.memo = key;
+      eachContext.state.auto.index = i;
+      eachContext.state.auto.value = item;
+      eachContext.state.auto.key = key;
       i++;
-      return (parseNextStructure(nextLayer, clone(to))).data;
+      // console.log("map w sel", eachContext.state.selectors)
+      return (parseNextStructure(eachContext, rclone(to))).data;
     });
   },
   reduce: (parent: Moss.ReturnValue, args: any) => {
     const layer = continueWithNewFrame(parent, args);
-    const { data } = layer;
-    if (!data.each) {
+    const { data: parsedArgs } = layer;
+    if (!parsedArgs.each) {
       throw {
         message: `for $reduce please supply 'each:' as branch`,
         errorPaths: layer.state.errorPaths,
-        source: data,
+        source: parsedArgs,
       };
     }
-    if (!data.with) {
+    if (!parsedArgs.with) {
       throw {
         message: `for $reduce please supply 'with:' in branch`,
         errorPaths: layer.state.errorPaths,
-        source: data,
+        source: parsedArgs,
       };
     }
-    if (check(data.each, Array)) {
-      let res: any = data.memo;
-      for (const i in data.each) {
-        const val = data.each[i];
-        const layer = continueWithNewFrame(parent, val);
-        if (functions[data.with]) {
-          res = functions[data.with](layer, {
+    // console.log("reduce", data.each)
+    if (check(parsedArgs.each, Array)) {
+      let res: any = parsedArgs.memo;
+      for (const i in parsedArgs.each) {
+        const val = parsedArgs.each[i];
+        let eachContext = parent.state;
+        let item = val;
+        if (parsedArgs.parseInput) {
+          const { data, state } = continueWithNewFrame(parent, val);
+          eachContext = state;
+          item = data;
+        }
+        if (functions[parsedArgs.with]) {
+          res = functions[parsedArgs.with](layer, {
             value: val,
             memo: res,
             index: i,
           });
         } else {
-          const nextLayer = pushState(layer);
-          nextLayer.state.auto.index = i;
-          nextLayer.state.auto.value = val;
-          nextLayer.state.auto.memo = res;
-          res = (parseNextStructure(nextLayer, data.with)).data;
+          // const nextLayer = pushState(layer);
+          eachContext.auto.index = parseInt(i);
+          eachContext.auto.value = item;
+          eachContext.auto.memo = res;
+          res = (parseNextStructure({ data: {}, state: eachContext }, rclone(parsedArgs.with))).data;
+          // console.log("reduce", itemState, res);
         }
       }
       parent.data = res;
     }
-    if (check(data.each, Object)) {
+    if (check(parsedArgs.each, Object)) {
       let i = 0;
       const nextLayer = pushState(layer);
       const { state } = nextLayer;
-      state.auto.memo = data.memo || 0;
-      for (const key in data.each) {
-        const val = data.each[key];
+      state.auto.memo = parsedArgs.memo || 0;
+      for (const key in parsedArgs.each) {
+        let eachContext = parent.state;
+        let value = parsedArgs.each[key];
+        if (parsedArgs.parseInput) {
+          const { data, state } = continueWithNewFrame(parent, value);
+          eachContext = state;
+          value = data;
+        }
         state.auto.index = i;
         i++;
         state.auto.key = key;
-        state.auto.value = val;
-        const res = (parseNextStructure(nextLayer, clone(data.with)))
+        state.auto.value = value;
+        const res = (parseNextStructure(nextLayer, rclone(parsedArgs.with)))
           .data;
         if (check(res, Object)) {
           extend(nextLayer.state.auto.memo, res);
@@ -568,6 +552,42 @@ addFunctions({
       parent.data = state.auto.memo;
     }
   },
+  // remap: (parent: Moss.ReturnValue, args: any) => {
+  //   const base = currentErrorPath(parent.state).path.join(".");
+  //   const { from, to } = args;
+  //   if (!from) {
+  //     throw {
+  //       message: `for $map please supply 'from:' as input`,
+  //       errorPaths: parent.state.errorPaths,
+  //     };
+  //   }
+  //   currentErrorPath(parent.state).path.push("from");
+  //   const fromCtx = continueWithNewFrame(parent, from);
+  //   currentErrorPath(fromCtx.state).path.pop();
+  //   if (!to) {
+  //     throw {
+  //       message: `for $map please supply 'to:' as input`,
+  //       errorPaths: fromCtx.state.errorPaths,
+  //       source: args,
+  //     };
+  //   }
+  //   let i = 0;
+  //   return okmap(fromCtx.data, (item: any, key: string) => {
+  //     if (fromCtx.state.autoMap[key]) {
+  //       currentErrorPath(fromCtx.state).path = fromCtx.state.autoMap[key].split(
+  //         "."
+  //       );
+  //     }
+  //     const ctx = continueWithNewFrame(fromCtx, item);
+  //     currentErrorPath(ctx.state).path = (base + ".to").split(".");
+  //     const nextLayer = pushState(ctx);
+  //     nextLayer.state.auto.index = i;
+  //     nextLayer.state.auto.value = item;
+  //     nextLayer.state.auto.memo = key;
+  //     i++;
+  //     return (parseNextStructure(nextLayer, clone(to))).data;
+  //   });
+  // },
   compare: (parent: Moss.ReturnValue, _args: any) => {
     const args = (continueWithNewFrame(parent, _args)).data;
     const [first, ...rest] = args;
@@ -585,7 +605,7 @@ addFunctions({
     const layer = continueWithNewFrame(parent, args);
     const { data } = layer;
     parent.data = sum(data, (v: any) => v);
-  },
+  }
 });
 
 function interpolate(layer: Moss.ReturnValue, input: any) {
@@ -624,7 +644,7 @@ export const dereference = (
     pushErrorPath(layer.state, {
       path: [errorPath],
     });
-    const dereferenced = valueForKeyPath(str, dictionary);
+    const dereferenced = shallowCopy(valueForKeyPath(str, dictionary));
     if (defer) {
       return dereferenced;
     }
@@ -646,15 +666,15 @@ function _interpolate(
   let popAll = 0;
   const options = {
     ...{
-      dereferenceSync: (str: string, { defer, sourceMap }: Expand.FunctionArguments = {}) =>
+      dereference: (str: string, { defer, sourceMap }: Expand.FunctionArguments = {}) =>
         dereference(str, {
           sourceMap,
-          layer,
           defer,
+          layer,
           dictionary,
           popAll: () => popAll++,
         }),
-      dereference: (str: string, { defer, sourceMap }: Expand.FunctionArguments = {}) =>
+      dereferenceSync: (str: string, { defer, sourceMap }: Expand.FunctionArguments = {}) =>
         dereference(str, {
           sourceMap,
           defer,
@@ -677,51 +697,53 @@ function _interpolate(
         return res;
       },
       fetch: (bl: string, { defer, sourceMap }: Expand.FunctionArguments = {}) => {
+        // console.log("interp fetch", bl)
         popAll++;
         pushErrorPath(layer.state, {
           path: sourceMap,
           rhs: true,
         });
-        let resolvedBranch;
+        let resolvedBranches;
         try {
-          resolvedBranch = getBranch(bl, resolvers, layer);
+          resolvedBranches = getBranches(bl, resolvers, layer);
         } catch (e) {
+
           throw {
-            message: `Failed resolve ${bl}\n ${e.message}`,
+            message: `Failed to resolve ${bl}\n ${e.message}`,
           };
         }
-        if (!resolvedBranch) {
+        if (!(resolvedBranches && resolvedBranches.length)) {
           throw {
-            message: `No sync results for ${bl}, in ${Object.keys(resolvers).length} resolvers @ ${toYaml(layer.data, { skipInvalid: true })}`,
+            message: `No results for ${bl}, in ${Object.keys(resolvers).length} resolvers @ ${toYaml(layer.data)}`
           };
         }
-        if (resolvedBranch.ast) {
-          popAll++;
-          pushErrorPath(layer.state, {
-            path: ["^" + encodeBranchLocator(resolvedBranch)],
-          });
-          if (defer) {
-            resolvedBranch.parsed = resolvedBranch.ast;
-            resolvedBranch.state = layer.state;
-            console.log("sync defer", resolvedBranch.parsed);
-            return resolvedBranch.parsed;
+        const parsedBranches = [];
+        for (const resolvedBranch of resolvedBranches) {
+          if (resolvedBranch.ast) {
+            popAll++;
+            pushErrorPath(layer.state, {
+              path: ["^" + encodeBranchLocator(resolvedBranch)],
+            });
+            if (defer) {
+              resolvedBranch.parsed = resolvedBranch.ast;
+              resolvedBranch.state = layer.state;
+              // console.log("defer", resolvedBranch.parsed);
+              return resolvedBranch.parsed;
+            }
+            const nextLayer: Moss.ReturnValue = parseNextStructure(
+              layer,
+              resolvedBranch.ast
+            );
+            const {
+              data: parsed,
+              state: { auto, stack, selectors, merge },
+            } = nextLayer;
+            resolvedBranch.parsed = parsed;
+            resolvedBranch.state = { auto, stack, selectors, merge };
+            parsedBranches.push(parsed)
           }
-          const res: Moss.ReturnValue = parseNextStructure(
-            layer,
-            resolvedBranch.ast
-          );
-          const {
-            data,
-            state: { auto, stack, selectors, merge },
-          } = res;
-          resolvedBranch.parsed = data;
-          resolvedBranch.state = { auto, stack, selectors, merge };
-          return data;
-        } else {
-          throw {
-            message: `${bl}, resolved a branch but that branch has no data`,
-          };
         }
+        return bl[0] == '?' ? parsedBranches : parsedBranches[0];
       },
       shell: () => "no shell method supplied",
       getStack: () => {
@@ -740,11 +762,11 @@ function _interpolate(
   let { value, changed } = __interpolate(input, options);
   if (changed) {
     if (check(value, Object)) {
-      return clone(value);
+      return rclone(value); // don't copy the reference
     }
     value = _interpolate(layer, value, dictionary);
   } else {
-    value = clone(value); // object immutability
+    value = rclone(value); // don't copy the reference
   }
   for (let i = 0; i < popAll; i++) {
     popErrorPath(layer.state);
@@ -758,14 +780,10 @@ export function start(trunk: Moss.BranchData) {
 }
 
 export function startBranch(branch: Moss.Branch) {
-  const res = parseNextStructure(newLayer(branch), branch.ast);
-  const {
-    data,
-    state: { auto, stack, selectors, merge },
-  } = res;
+  const { data, state } = parseNextStructure(newLayer(branch), branch.ast);
   branch.parsed = data;
-  branch.state = { auto, stack, selectors, merge }
-  return res;
+  branch.state = state;
+  return branch;
 }
 
 export function parse(

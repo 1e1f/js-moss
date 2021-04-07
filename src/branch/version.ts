@@ -1,25 +1,22 @@
-import { Moss } from "../types";
-import { encode, decode } from "./parser"
+import { importPrefix, Moss } from "../types";
+import { hydrateBranchLocator, stringifyBranchLocator } from './canonical';
 
 export const withoutVersion = (branch: Moss.Branch | string) => {
   if (typeof branch == "string") {
-    const { versionSegment, ...withoutVersion } = decode(branch);
-    return encode(withoutVersion);
+    const { versionSegment, ...withoutVersion } = hydrateBranchLocator(branch);
+    return stringifyBranchLocator(withoutVersion);
   }
   const { versionSegment, ...withoutVersion } = branch;
-  return encode(withoutVersion);
+  return stringifyBranchLocator(withoutVersion);
 };
 
-export const importPrefix = "^";
-export const queryPrefix = "?";
-
 export const encodeVersionLine = (branch: Moss.Branch) =>
-  importPrefix + encode(branch) + "\n";
+  importPrefix + stringifyBranchLocator(branch) + "\n";
 
 export const parseVersionLine = (versionLine: string) => {
   if (versionLine && versionLine.indexOf(importPrefix) == 0) {
     const bl = versionLine.split('\n')[0].slice(importPrefix.length);
-    return decode(bl);
+    return hydrateBranchLocator(bl);
   } else {
     throw new Error("bad version line: " + versionLine);
   }

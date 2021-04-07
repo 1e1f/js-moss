@@ -112,7 +112,7 @@ export async function tokenize(str: string, options: Expand.Options) {
             } else if (op == 'f') {
                 res = await sub(fetch, swap, ptr.state.sourceMap);
             } else if (op == 'q') {
-                res = await sub(query, '?' + swap, ptr.state.sourceMap);
+                res = await sub(fetch, '?' + swap, ptr.state.sourceMap);
             } else if (op == 'e') {
                 const deref = (str: string) => subSync(dereferenceSync, str, ptr.state.sourceMap)
                 res = await sub((s) => expression(deref, check).parse(s), swap, ptr.state.sourceMap)
@@ -165,8 +165,8 @@ export async function tokenize(str: string, options: Expand.Options) {
                         append(char);
                     }
                     break;
-                case ' ': case ',':
-                    if (op && (terminal == ' ' || terminal == ',')) {
+                case ' ':
+                    if (op && terminal == char) {
                         await close();
                     }
                     append(char);
@@ -180,7 +180,6 @@ export async function tokenize(str: string, options: Expand.Options) {
                         if (header == '=') open('e', '__null__');
                         else if (header == '^') open('f', '__null__');
                         else if (header == '$') open('v', ' ');
-                        else if (header == '?') open('q', ' ');
                     } else if (char == '=' || char == '$' || char == '^' || char == '?') {
                         if (i < 1) ptr.state.header = char;
                         ptr.state.detecting = char;

@@ -1,5 +1,5 @@
 import {
-  amap as map,
+  amap,
   aokmap as okmap,
   arrayify,
   extend,
@@ -13,7 +13,8 @@ import {
   setValueForKeyPath,
   contains,
   mergeLhsArray,
-  mergeLhsObject
+  mergeLhsObject,
+  shallowCopy
 } from "typed-json-transform";
 import { interpolateAsync as __interpolate } from "./interpolate";
 import {
@@ -25,7 +26,7 @@ import {
 import { toYaml, fromYaml } from "./yaml";
 const expression = require('../compiled/expression');
 
-import { getBranchAsync as getBranch } from "./resolvers";
+import { getBranchesAsync as getBranches } from "./resolvers";
 import { encodeBranchLocator } from "./branch";
 
 import {
@@ -56,7 +57,7 @@ export const next = continueWithNewFrame;
 
 export const parseFunctions = async (current: Moss.ReturnValue) => {
   const { state, data } = current;
-  const source: any = clone(data);
+  const source: any = rclone(data);
   const target = state.target || current.data;
   for (const _key of Object.keys(source)) {
     if (_key[0] === "<" || _key[_key.length - 1] === "<") {
@@ -108,6 +109,10 @@ export const parseFunction = async (
     }
   }
 }
+
+
+const rclone = (x) => shallowCopy(x);
+const nclone = (x) => x;
 
 export const parseObject = async (current: Moss.ReturnValue) => {
   const { state } = current;
@@ -187,7 +192,7 @@ export const parseArray = async (
 ) => {
   const { state } = layer;
   return {
-    data: await map(input, async (item: any, index) => {
+    data: await amap(input, async (item: any, index) => {
       currentErrorPath(state).path.push(`${index}`);
       const res: Moss.ReturnValue = (
         await continueWithNewFrame({ data: input, state }, item)
@@ -298,8 +303,8 @@ addResolvers({
 });
 
 const stack = async (current: Moss.ReturnValue, args: any) => {
-  const { data, state: _state } = current;
-  const state = clone(_state);
+  const { data, state } = pushState(current);
+  // const state = clone(_state);
   state.locked = true;
   state.target = state.stack;
   await parseNextStructure(
@@ -309,13 +314,13 @@ const stack = async (current: Moss.ReturnValue, args: any) => {
     },
     args
   );
-  _state.stack = state.stack;
+  current.state.stack = state.stack;
 };
 
 addFunctions({
   select: async (current: Moss.ReturnValue, args: any) => {
     const { data, state: _state } = current;
-    const state = clone(_state);
+    const state = rclone(_state);
     state.locked = true;
     state.target = state.selectors;
     await parseNextStructure(
@@ -432,7 +437,7 @@ addFunctions({
   },
   map: async (parent: Moss.ReturnValue, args: any) => {
     const base = currentErrorPath(parent.state).path.join(".");
-    const { from, to } = args;
+    const { from, to, parseInput } = args;
     if (!from) {
       throw {
         message: `for $map please supply 'from:' as input`,
@@ -440,118 +445,104 @@ addFunctions({
       };
     }
     currentErrorPath(parent.state).path.push("from");
-    const fromCtx = await continueWithNewFrame(parent, from);
+    const fromCtx = await continueWithNewFrame(parent, rclone(from));
     currentErrorPath(fromCtx.state).path.pop();
     if (!to) {
       throw {
         message: `for $map please supply 'to:' as input`,
-        errorPaths: fromCtx.state.errorPaths,
+        errorPaths: parent.state.errorPaths,
         source: args,
       };
     }
     let i = 0;
+
     parent.data = await okmap(fromCtx.data, async (item: any, key: string) => {
-      if (fromCtx.state.autoMap[key]) {
-        currentErrorPath(fromCtx.state).path = fromCtx.state.autoMap[key].split(
+      if (parent.state.autoMap[key]) {
+        currentErrorPath(parent.state).path = parent.state.autoMap[key].split(
           "."
         );
       }
-      const ctx = await continueWithNewFrame(fromCtx, item);
-      currentErrorPath(ctx.state).path = (base + ".to").split(".");
-      const nextLayer = pushState(ctx);
-      nextLayer.state.auto.index = i;
-      nextLayer.state.auto.value = item;
-      nextLayer.state.auto.key = key;
-      i++;
-      return (await parseNextStructure(nextLayer, clone(to))).data;
-    });
-  },
-  remap: async (parent: Moss.ReturnValue, args: any) => {
-    const base = currentErrorPath(parent.state).path.join(".");
-    const { from, to } = args;
-    if (!from) {
-      throw {
-        message: `for $map please supply 'from:' as input`,
-        errorPaths: parent.state.errorPaths,
-      };
-    }
-    currentErrorPath(parent.state).path.push("from");
-    const fromCtx = await continueWithNewFrame(parent, from);
-    currentErrorPath(fromCtx.state).path.pop();
-    if (!to) {
-      throw {
-        message: `for $map please supply 'to:' as input`,
-        errorPaths: fromCtx.state.errorPaths,
-        source: args,
-      };
-    }
-    let i = 0;
-    return await okmap(fromCtx.data, async (item: any, key: string) => {
-      if (fromCtx.state.autoMap[key]) {
-        currentErrorPath(fromCtx.state).path = fromCtx.state.autoMap[key].split(
-          "."
-        );
+      let eachContext = parent;
+      if (parseInput) {
+        eachContext = await continueWithNewFrame(fromCtx, item);
+        currentErrorPath(eachContext.state).path = (base + ".to").split(".");
+        // console.log("")
+      } else {
+        // TODO: bug / feature = get fresh context here?
+        eachContext = pushState(fromCtx);
       }
-      const ctx = await continueWithNewFrame(fromCtx, item);
-      currentErrorPath(ctx.state).path = (base + ".to").split(".");
-      const nextLayer = pushState(ctx);
-      nextLayer.state.auto.index = i;
-      nextLayer.state.auto.value = item;
-      nextLayer.state.auto.memo = key;
+      eachContext.state.auto.index = i;
+      eachContext.state.auto.value = item;
+      eachContext.state.auto.key = key;
       i++;
-      return (await parseNextStructure(nextLayer, clone(to))).data;
+      // console.log("map w sel", eachContext.state.selectors)
+      return (await parseNextStructure(eachContext, rclone(to))).data;
     });
   },
   reduce: async (parent: Moss.ReturnValue, args: any) => {
     const layer = await continueWithNewFrame(parent, args);
-    const { data } = layer;
-    if (!data.each) {
+    const { data: parsedArgs } = layer;
+    if (!parsedArgs.each) {
       throw {
         message: `for $reduce please supply 'each:' as branch`,
         errorPaths: layer.state.errorPaths,
-        source: data,
+        source: parsedArgs,
       };
     }
-    if (!data.with) {
+    if (!parsedArgs.with) {
       throw {
         message: `for $reduce please supply 'with:' in branch`,
         errorPaths: layer.state.errorPaths,
-        source: data,
+        source: parsedArgs,
       };
     }
-    if (check(data.each, Array)) {
-      let res: any = data.memo;
-      for (const i in data.each) {
-        const val = data.each[i];
-        const layer = await continueWithNewFrame(parent, val);
-        if (functions[data.with]) {
-          res = functions[data.with](layer, {
+    // console.log("reduce", data.each)
+    if (check(parsedArgs.each, Array)) {
+      let res: any = parsedArgs.memo;
+      for (const i in parsedArgs.each) {
+        const val = parsedArgs.each[i];
+        let eachContext = parent.state;
+        let item = val;
+        if (parsedArgs.parseInput) {
+          const { data, state } = await continueWithNewFrame(parent, val);
+          eachContext = state;
+          item = data;
+        }
+        if (functions[parsedArgs.with]) {
+          res = functions[parsedArgs.with](layer, {
             value: val,
             memo: res,
             index: i,
           });
         } else {
-          const nextLayer = pushState(layer);
-          nextLayer.state.auto.index = i;
-          nextLayer.state.auto.value = val;
-          nextLayer.state.auto.memo = res;
-          res = (await parseNextStructure(nextLayer, data.with)).data;
+          // const nextLayer = pushState(layer);
+          eachContext.auto.index = parseInt(i);
+          eachContext.auto.value = item;
+          eachContext.auto.memo = res;
+          res = (await parseNextStructure({ data: {}, state: eachContext }, rclone(parsedArgs.with))).data;
+          // console.log("reduce", itemState, res);
         }
       }
       parent.data = res;
     }
-    if (check(data.each, Object)) {
+    if (check(parsedArgs.each, Object)) {
       let i = 0;
       const nextLayer = pushState(layer);
       const { state } = nextLayer;
-      state.auto.memo = data.memo || 0;
-      for (const key in data.each) {
-        const val = data.each[key];
+      state.auto.memo = parsedArgs.memo || 0;
+      for (const key in parsedArgs.each) {
+        let eachContext = parent.state;
+        let value = parsedArgs.each[key];
+        if (parsedArgs.parseInput) {
+          const { data, state } = await continueWithNewFrame(parent, value);
+          eachContext = state;
+          value = data;
+        }
         state.auto.index = i;
         i++;
         state.auto.key = key;
-        state.auto.value = val;
-        const res = (await parseNextStructure(nextLayer, clone(data.with)))
+        state.auto.value = value;
+        const res = (await parseNextStructure(nextLayer, rclone(parsedArgs.with)))
           .data;
         if (check(res, Object)) {
           extend(nextLayer.state.auto.memo, res);
@@ -560,6 +551,42 @@ addFunctions({
       parent.data = state.auto.memo;
     }
   },
+  // remap: async (parent: Moss.ReturnValue, args: any) => {
+  //   const base = currentErrorPath(parent.state).path.join(".");
+  //   const { from, to } = args;
+  //   if (!from) {
+  //     throw {
+  //       message: `for $map please supply 'from:' as input`,
+  //       errorPaths: parent.state.errorPaths,
+  //     };
+  //   }
+  //   currentErrorPath(parent.state).path.push("from");
+  //   const fromCtx = await continueWithNewFrame(parent, from);
+  //   currentErrorPath(fromCtx.state).path.pop();
+  //   if (!to) {
+  //     throw {
+  //       message: `for $map please supply 'to:' as input`,
+  //       errorPaths: fromCtx.state.errorPaths,
+  //       source: args,
+  //     };
+  //   }
+  //   let i = 0;
+  //   return await okmap(fromCtx.data, async (item: any, key: string) => {
+  //     if (fromCtx.state.autoMap[key]) {
+  //       currentErrorPath(fromCtx.state).path = fromCtx.state.autoMap[key].split(
+  //         "."
+  //       );
+  //     }
+  //     const ctx = await continueWithNewFrame(fromCtx, item);
+  //     currentErrorPath(ctx.state).path = (base + ".to").split(".");
+  //     const nextLayer = pushState(ctx);
+  //     nextLayer.state.auto.index = i;
+  //     nextLayer.state.auto.value = item;
+  //     nextLayer.state.auto.memo = key;
+  //     i++;
+  //     return (await parseNextStructure(nextLayer, clone(to))).data;
+  //   });
+  // },
   compare: async (parent: Moss.ReturnValue, _args: any) => {
     const args = (await continueWithNewFrame(parent, _args)).data;
     const [first, ...rest] = args;
@@ -616,7 +643,7 @@ export const dereference = async (
     pushErrorPath(layer.state, {
       path: [errorPath],
     });
-    const dereferenced = valueForKeyPath(str, dictionary);
+    const dereferenced = shallowCopy(valueForKeyPath(str, dictionary));
     if (defer) {
       return dereferenced;
     }
@@ -638,16 +665,16 @@ async function _interpolate(
   let popAll = 0;
   const options = {
     ...{
-      dereferenceSync: (str: string, { defer, sourceMap }: Expand.FunctionArguments = {}) =>
-        dereferenceSync(str, {
+      dereference: async (str: string, { defer, sourceMap }: Expand.FunctionArguments = {}) =>
+        await dereference(str, {
           sourceMap,
-          layer,
           defer,
+          layer,
           dictionary,
           popAll: () => popAll++,
         }),
-      dereference: async (str: string, { defer, sourceMap }: Expand.FunctionArguments = {}) =>
-        await dereference(str, {
+      dereferenceSync: (str: string, { defer, sourceMap }: Expand.FunctionArguments = {}) =>
+        dereferenceSync(str, {
           sourceMap,
           defer,
           layer,
@@ -669,75 +696,29 @@ async function _interpolate(
         return res;
       },
       fetch: async (bl: string, { defer, sourceMap }: Expand.FunctionArguments = {}) => {
+        // console.log("interp fetch", bl)
         popAll++;
         pushErrorPath(layer.state, {
           path: sourceMap,
           rhs: true,
         });
-        let resolvedBranch;
+        let resolvedBranches;
         try {
-          resolvedBranch = await getBranch(bl, resolvers, layer);
+          resolvedBranches = await getBranches(bl, resolvers, layer);
         } catch (e) {
 
           throw {
             message: `Failed to resolve ${bl}\n ${e.message}`,
           };
         }
-        if (!resolvedBranch) {
-          // console.log(bl, resolvers);
+        if (!(resolvedBranches && resolvedBranches.length)) {
           throw {
-            message: `No async results for ${bl}, in ${Object.keys(resolvers).length} resolvers @ ${toYaml(layer.data)}`,
+            message: `No async results for ${bl}, in ${Object.keys(resolvers).length} resolvers @ ${toYaml(layer.data)}`
           };
         }
-        if (resolvedBranch.ast) {
-          popAll++;
-          pushErrorPath(layer.state, {
-            path: ["^" + encodeBranchLocator(resolvedBranch)],
-          });
-          if (defer) {
-            resolvedBranch.parsed = resolvedBranch.ast;
-            resolvedBranch.state = layer.state;
-            // console.log("defer", resolvedBranch.parsed);
-            return resolvedBranch.parsed;
-          }
-          const nextLayer: Moss.ReturnValue = await parseNextStructure(
-            layer,
-            resolvedBranch.ast
-          );
-          const {
-            data: parsed,
-            state: { auto, stack, selectors, merge },
-          } = nextLayer;
-          resolvedBranch.parsed = parsed;
-          resolvedBranch.state = { auto, stack, selectors, merge };
-          return parsed;
-        }
-      },
-      query: async (bl: string, { defer, sourceMap }: Expand.FunctionArguments = {}) => {
-        popAll++;
-        pushErrorPath(layer.state, {
-          path: sourceMap,
-          rhs: true,
-        });
-        let results;
-        try {
-          results = await getBranch(bl, resolvers, layer);
-          // console.log(results);
-        } catch (e) {
-
-          throw {
-            message: `Failed to resolve ${bl}\n ${e.message}`,
-          };
-        }
-        if (!results) {
-          // console.log(bl, resolvers);
-          throw {
-            message: `No async results for ${bl}, in ${Object.keys(resolvers).length} resolvers @ ${toYaml(layer.data)}`,
-          };
-        }
-        if (results) {
-          const parsedResults = [];
-          for (const resolvedBranch of results) {
+        const parsedBranches = [];
+        for (const resolvedBranch of resolvedBranches) {
+          if (resolvedBranch.ast) {
             popAll++;
             pushErrorPath(layer.state, {
               path: ["^" + encodeBranchLocator(resolvedBranch)],
@@ -758,10 +739,10 @@ async function _interpolate(
             } = nextLayer;
             resolvedBranch.parsed = parsed;
             resolvedBranch.state = { auto, stack, selectors, merge };
-            parsedResults.push(parsed);
+            parsedBranches.push(parsed)
           }
-          return parsedResults;
         }
+        return bl[0] == '?' ? parsedBranches : parsedBranches[0];
       },
       shell: () => "no shell method supplied",
       getStack: () => {
@@ -780,11 +761,11 @@ async function _interpolate(
   let { value, changed } = await __interpolate(input, options);
   if (changed) {
     if (check(value, Object)) {
-      return clone(value);
+      return rclone(value); // don't copy the reference
     }
     value = await _interpolate(layer, value, dictionary);
   } else {
-    value = clone(value); // object immutability
+    value = rclone(value); // don't copy the reference
   }
   for (let i = 0; i < popAll; i++) {
     popErrorPath(layer.state);
@@ -798,14 +779,10 @@ export async function start(trunk: Moss.BranchData) {
 }
 
 export async function startBranch(branch: Moss.Branch) {
-  const res = await parseNextStructure(newLayer(branch), branch.ast);
-  const {
-    data,
-    state: { auto, stack, selectors, merge },
-  } = res;
+  const { data, state } = await parseNextStructure(newLayer(branch), branch.ast);
   branch.parsed = data;
-  branch.state = { auto, stack, selectors, merge };
-  return res;
+  branch.state = state;
+  return branch;
 }
 
 export async function parse(

@@ -15,10 +15,11 @@ config:
         amount: 3
   mapObject:
     map<:
+      parseInput: true
       from:
         a: a
-        b:
-          select<>:
+        b>:
+          select<:
             ext: 1
       to:
         =: basic

@@ -41,3 +41,13 @@ export const transcode = (text: string, grammar = 'organizationSegment'): string
   if ((text === undefined) || (text === null)) throw new Error("decoding " + text + " branch locator");
   return parse(text + " ", grammar);
 }
+
+import { confuseables } from './confusables';
+
+const escapeRegexp = (str) => str.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1');
+
+var REPLACE_RE = RegExp(Object.keys(confuseables).map(escapeRegexp).join('|'), 'g');
+
+export const unhomoglyph = (str) => {
+  return str.replace(REPLACE_RE, match => confuseables[match]);
+}

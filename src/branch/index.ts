@@ -1,31 +1,30 @@
 import { decode, encode, transcode, } from './parser';
 export * from './parser';
-import { contains, union } from 'typed-json-transform';
+import { clone, contains, union } from 'typed-json-transform';
 import { toYaml } from '../yaml';
-import { createBranchIndex } from './canonical';
+import { createBranchIndex, hydrateBranchLocator, stringifyBranchLocator } from './canonical';
 import { newState } from '../state';
+import { BranchLocatorSelector, Moss } from '../types';
 export { decode as decodeBranchLocator, encode as encodeBranchLocator, transcode as transcodeSegment }
 
 export * from './canonical';
 
 export const slugifyBranchLocator = (bl) => encode(decode(bl), { urlSafe: true });
 
-interface BranchLocatorSelector {
-  nameSegment?: string | string[],
-  projectSegment?: string | string[],
-  organizationSegment?: string | string[],
-  version?: string | string[]
+export const cloneBranch = (branch: Moss.Branch) => {
+  const bl = stringifyBranchLocator(branch);
+  return createBranch(bl, branch.parsed, clone(branch.ast));
 }
 
-export const createBranch = (bl, parsed: any, ast?: any, hashFunction?: any) => {
-  const meta = decode(bl);
+export const createBranch = (bl: string, parsed: any, ast?: any, hashFunctions?: any) => {
+  const meta = hydrateBranchLocator(bl);
   const text = toYaml(ast || parsed);
   const branch = {
     ...meta,
     text,
     parsed,
     ast: ast || parsed,
-    s: createBranchIndex({ ...meta, text }, hashFunction),
+    s: hashFunctions && createBranchIndex({ ...meta, text }, hashFunctions),
     state: newState()
   }
   return branch;

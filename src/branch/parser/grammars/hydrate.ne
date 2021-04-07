@@ -180,7 +180,7 @@ semanticDivider
 	-> [/] {% token %}
 
 nonSemanticDivider
-  -> [-'.] {% token %}
+  -> [-'.&] {% token %}
 
 disambiguatedString
 	-> disambiguatedChar:+ {% stringOfSame %}

@@ -3,6 +3,49 @@
 
 # Moss
 
-moss is a set of parsing rules for yaml and json
+moss is a set of parsing rules for js objects, most often described in YAML-like
+syntax. moss aims to have serparable layers, each with an opinionated first choice that is ultimately swappable if desired.
+
+## Layers in moss
+```
+0 binary
+1 source
+2 linked structured ast
+3 declarative api
+```
+### Layer 0: "trunk" / container / binary:
+opinionated default:
++ [Signet Protocol](https://github.com/ChromaPDX/signet), which is essentially an IPFS compatible container format
+
+unopinionated alternatives:
++ database
++ filesystem
++ browser storage
+
+### Layer 1: "branch" / source code:
+opinionated default:
++ yaml
+
+unopinionated alternatives:
++ JSON / xml / TOML
++ any trie-like format
+
+### layer 2: "stem" / ast:
+opinionated default:
++ js-moss (this package) hydrates yaml to object, async gql resolvers for linking
+
+unopinionated alternatives:
++ load layer 1 into language specific ORM
++ be able to link other layer 2 objects.
+
+### Layer 3: "leaf" / document:
+opinionated default:
++ has a "kind" referenced in layer2
+drives declarative api like k8s
+
+unopinionated alternatives:
++ any runtime object
+
+
 
 see more and use interactively in your browser @ https://triemake.com/moss/playground

@@ -57,12 +57,6 @@ function id(d: any[]): any { return d[0]; }
 					return lhs;
 				}
 				return {or: [lhs, rhs]};
-			} if (op == "&") {
-				if (lhs.and) {
-					lhs.and = [...lhs.and, rhs]
-					return lhs;
-				}
-				return {and: [lhs, rhs]};
 			}
 		}
 
@@ -113,7 +107,7 @@ const grammar: Grammar = {
     {"name": "disambiguatedChunk", "symbols": ["disambiguatedString"], "postprocess": id},
     {"name": "gap", "symbols": ["__"], "postprocess": id},
     {"name": "semanticDivider", "symbols": [/[\/]/], "postprocess": token},
-    {"name": "nonSemanticDivider", "symbols": [/[-'.]/], "postprocess": token},
+    {"name": "nonSemanticDivider", "symbols": [/[-'.&]/], "postprocess": token},
     {"name": "disambiguatedString$ebnf$1", "symbols": ["disambiguatedChar"]},
     {"name": "disambiguatedString$ebnf$1", "symbols": ["disambiguatedString$ebnf$1", "disambiguatedChar"], "postprocess": (d) => d[0].concat([d[1]])},
     {"name": "disambiguatedString", "symbols": ["disambiguatedString$ebnf$1"], "postprocess": stringOfSame},
