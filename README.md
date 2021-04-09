@@ -3,7 +3,7 @@
 
 # Moss
 
-moss is a set of parsing rules for js objects, most often described in YAML-like syntax. It is a Turing-incomplete language that looks a bit like YAMl but is closer Kubernetes Helm. Moss aims to have serparable layers, each with an opinionated first choice that is ultimately swappable if desired.
+moss is a set of parsing rules for js objects, most often described in YAML-like syntax. It is a Turing-incomplete language that looks a bit like YAMl but is closer Kubernetes Helm. Moss aims to have serparable layers, each with an opinionated first choice that is ultimately swappable if desired. Moss is mainly used to define data input forms. You may be accustomed to HTML forms, which are defined by a developer. Moss forms are different- they are user-defined, both in their schema and their data. Moss forms can draw data and schemas from other Moss forms- together, they form a network not dissimilar to the WWW.
 
 ## Branches
 Moss "branches" are somewhat like files but with key differences. A traditional file separates its data (the file contents) from its metadata (owner, permissions). In contrast, a Moss branch is identified by its first line, called a "branch locator".
