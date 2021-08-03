@@ -778,8 +778,8 @@ export async function start(trunk: Moss.BranchData) {
   return await parseNextStructure(newLayer(), trunk);
 }
 
-export async function startBranch(branch: Moss.Branch) {
-  const { data, state } = await parseNextStructure(newLayer(branch), branch.ast);
+export async function startBranch(branch: Moss.Branch, globals?: any) {
+  const { data, state } = await parseNextStructure(newLayer(branch, globals), branch.ast);
   branch.parsed = data;
   branch.state = state;
   return branch;

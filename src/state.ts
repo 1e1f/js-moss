@@ -12,7 +12,7 @@ export const pushErrorPath = (state: Moss.State, path?: any) =>
 
 export const popErrorPath = (state: Moss.State) => state.errorPaths.pop();
 
-export const newState = (branch?: Moss.Branch): Moss.State => {
+export const newState = (branch?: Moss.Branch, globals: any = {}): Moss.State => {
   const path = canonicalBl(branch ? encodeBranchLocator(branch) : "Root");
   // const contentHash = jsonStableHash(branch ? branch.parsed : {});
 
@@ -23,9 +23,9 @@ export const newState = (branch?: Moss.Branch): Moss.State => {
   // contentHashGraph.addNode(contentHash);
 
   return {
-    auto: {},
+    auto: globals,
     autoMap: {},
-    stack: {},
+    stack: globals,
     strict: false,
     merge: {
       operator: "|",
@@ -38,8 +38,8 @@ export const newState = (branch?: Moss.Branch): Moss.State => {
   };
 };
 
-export const newLayer = (branch?: Moss.Branch): Moss.ReturnValue => {
-  return { data: {}, state: newState(branch) };
+export const newLayer = (branch?: Moss.Branch, globals?: any): Moss.ReturnValue => {
+  return { data: {}, state: newState(branch, globals) };
 };
 
 export const cloneState = (state: Moss.State) => {

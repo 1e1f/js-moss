@@ -4,6 +4,7 @@ const pluralize = require("pluralize");
 import { addFunctions, wrapFunction } from './async';
 import { addFunctions as addSyncFunctions, wrapFunction as wrapSyncFunction } from './sync';
 import { toYaml } from './yaml';
+import { buffer } from 'd3';
 
 const parseStringArgs = (args: any) => {
   if (typeof args === "string") {
@@ -51,6 +52,25 @@ const proper = (str: string) => {
   return str;
 }
 
+const toBase64 = (args: any) => {
+  let input;
+  if (!args){ return args };
+  // let options;
+  if (args.options){
+    input = args.buffer || args.blob;
+  } else {
+    input = args;
+  }
+  let buffer = input.buffer || input.data || input;
+  // console.log("buffer", buffer)
+  if (typeof buffer === 'string'){ // Assume ascii string
+    buffer = Buffer.from(buffer as string);
+  } else if (Array.isArray(buffer)){ // ArrayBuffer
+    buffer = Buffer.from(buffer)
+  }
+  const str = buffer.toString('base64')
+  return str;
+}
 
 addFunctions({
   toCamel: wrapFunction(toCamel, parseStringArgs),
@@ -72,6 +92,7 @@ addFunctions({
   print: wrapFunction(toYaml),
   toYaml: wrapFunction(toYaml),
   fromJson: wrapFunction(JSON.parse),
+  toBase64: wrapFunction(toBase64),
   toJson: wrapFunction(JSON.stringify),
   json2yaml: wrapFunction((s) => s && toYaml(JSON.parse(s))),
 })
@@ -96,6 +117,7 @@ addSyncFunctions({
   toYaml: wrapSyncFunction(toYaml),
   fromJson: wrapSyncFunction(JSON.parse),
   toJson: wrapSyncFunction(JSON.stringify),
+  toBase64: wrapSyncFunction(toBase64),
   json2yaml: wrapSyncFunction((s) => s && toYaml(JSON.parse(s))),
 })
 
