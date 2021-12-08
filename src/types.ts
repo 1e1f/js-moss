@@ -1,11 +1,11 @@
-import { Graph, Merge } from 'typed-json-transform';
+import { Graph, Merge } from "typed-json-transform";
 
 export { Merge, Graph };
 
 export function MossError(error: Moss.Error) {
   const { message, source, stack, errorPaths } = error;
   this.name = "MossError";
-  this.message = (message || "");
+  this.message = message || "";
   this.stack = stack;
   this.source = source;
   this.errorPaths = errorPaths;
@@ -15,24 +15,24 @@ MossError.prototype = Error.prototype;
 // export declare type MossError = Error & Moss.Error;
 
 export interface BLIndex {
-  o?: string
-  n?: string
-  p?: string
-  v?: string
-  h?: string
+  o?: string;
+  n?: string;
+  p?: string;
+  v?: string;
+  h?: string;
 }
 
 export interface SearchIndex extends BLIndex {
-  kind?: BLIndex
-  deps?: BLIndex[]
-  bl?: BLIndex
+  kind?: BLIndex;
+  deps?: BLIndex[];
+  bl?: BLIndex;
 }
 
 export interface BranchLocatorSelector {
-  nameSegment?: string | string[],
-  projectSegment?: string | string[],
-  organizationSegment?: string | string[],
-  version?: string | string[]
+  nameSegment?: string | string[];
+  projectSegment?: string | string[];
+  organizationSegment?: string | string[];
+  version?: string | string[];
 }
 
 export declare namespace Moss {
@@ -55,6 +55,7 @@ export declare namespace Moss {
     target?: Moss.BranchData;
     autoMap?: any;
     currentBranch?: string;
+    contexts: string[];
     errorPaths: ErrorPath[];
     graph?: Graph<Branch>;
   }
@@ -103,12 +104,16 @@ export declare namespace Moss {
   }
 
   interface ResolverOptions {
-    projection?: { [x: string]: number }
-    allowBadParse?: boolean
+    projection?: { [x: string]: number };
+    allowBadParse?: boolean;
   }
   type ErrorReporter = (error: Error) => Error;
 
-  type Function<T> = (current: Moss.ReturnValue, args: any, setter?: (...args: any[]) => void) => T;
+  type Function<T> = (
+    current: Moss.ReturnValue,
+    args: any,
+    setter?: (...args: any[]) => void
+  ) => T;
   type Resolver<T> = {
     name?: string;
     match: (uri: string, options?: ResolverOptions) => boolean;
@@ -142,44 +147,44 @@ export declare namespace Moss {
 export type ParsedObject = { [index: string]: any };
 
 export declare namespace Expand {
-  type Key = '$' | '=' | '^' | '?';
-  type Open = '{' | '(';
-  type Terminal = '}' | ')' | ' ' | ',' | '__null__';
-  type Op = 'v' | 's' | 'e' | 'f' | 'q';
+  type Key = "$" | "=" | "^" | "?";
+  type Open = "{" | "(";
+  type Terminal = "}" | ")" | " " | "," | "__null__";
+  type Op = "v" | "s" | "e" | "f" | "q";
 
   interface State {
-    detecting?: Key
-    header?: Key
-    op?: Op
+    detecting?: Key;
+    header?: Key;
+    op?: Op;
     terminal?: Terminal;
-    dirty?: boolean
-    escape?: boolean
-    sourceMap: number[]
+    dirty?: boolean;
+    escape?: boolean;
+    sourceMap: number[];
   }
 
   interface Elem {
-    state: State
-    raw: any[]
-    source: any[]
-    subst: any[]
+    state: State;
+    raw: any[];
+    source: any[];
+    subst: any[];
   }
 
   export interface FunctionArguments {
-    defer?: boolean,
-    sourceMap?: number[]
+    defer?: boolean;
+    sourceMap?: number[];
   }
 
   export interface Options {
-    dereferenceSync?: (sub: string, options?: FunctionArguments) => any
-    dereference?: (sub: string, options?: FunctionArguments) => any
-    call?: (sub: any, options?: FunctionArguments) => any
-    fetch?: (sub: any, options?: FunctionArguments) => any
-    query?: (sub: any, options?: FunctionArguments) => any
-    shell?: (sub: string, options?: FunctionArguments) => string
-    getStack?: any
-    pushErrorState?: (state?: Moss.ErrorPath) => void
-    pushErrorPath?: (s: string) => void
-    popErrorState?: () => void
+    dereferenceSync?: (sub: string, options?: FunctionArguments) => any;
+    dereference?: (sub: string, options?: FunctionArguments) => any;
+    call?: (sub: any, options?: FunctionArguments) => any;
+    fetch?: (sub: any, options?: FunctionArguments) => any;
+    query?: (sub: any, options?: FunctionArguments) => any;
+    shell?: (sub: string, options?: FunctionArguments) => string;
+    getStack?: any;
+    pushErrorState?: (state?: Moss.ErrorPath) => void;
+    pushErrorPath?: (s: string) => void;
+    popErrorState?: () => void;
   }
 }
 

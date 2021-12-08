@@ -33,7 +33,12 @@ export const parse = (text: string, grammar: string, strict?: boolean) => {
 }
 
 export const decode = (text: string, grammar = 'query'): Moss.Branch => {
-  if ((text === undefined) || (text === null)) throw new Error("decoding " + text + " branch locator");
+  if ((text === undefined) || (text === null)) {
+    throw new Error("decoding " + text + " branch locator");
+  }
+  if (typeof text !== "string") {
+    throw new Error("decoding object as branch locator");
+  }
   return parse(text + " ", grammar);
 }
 
@@ -41,6 +46,8 @@ export const transcode = (text: string, grammar = 'organizationSegment'): string
   if ((text === undefined) || (text === null)) throw new Error("decoding " + text + " branch locator");
   return parse(text + " ", grammar);
 }
+
+export const canonicalOrganizationSegment = (text: string): string =>  transcode(text, "organizationSegment");
 
 import { confuseables } from './confusables';
 

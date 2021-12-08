@@ -1,29 +1,34 @@
-import { toCamel, fromCamel } from 'typed-json-transform';
-import { encodeBranchLocator, decodeBranchLocator, canonicalBl, filterBranchName, transcode } from './branch';
+import { toCamel, fromCamel } from "typed-json-transform";
+import {
+  encodeBranchLocator,
+  decodeBranchLocator,
+  canonicalBl,
+  filterBranchName,
+  transcode,
+} from "./branch";
 const pluralize = require("pluralize");
-import { addFunctions, wrapFunction } from './async';
-import { addFunctions as addSyncFunctions, wrapFunction as wrapSyncFunction } from './sync';
-import { toYaml } from './yaml';
-import { buffer } from 'd3';
+import { addFunctions, wrapFunction } from "./async";
+import {
+  addFunctions as addSyncFunctions,
+  wrapFunction as wrapSyncFunction,
+} from "./sync";
+import { toYaml } from "./yaml";
 
 const parseStringArgs = (args: any) => {
   if (typeof args === "string") {
     return [args];
   } else if (Array.isArray(args)) {
-    return args
+    return args;
   } else if (typeof args == "object") {
     return [args.input, args.options];
   }
-}
+};
 
 const capitalize = (str: string) => {
-  return str.replace(
-    /\w\S*/g,
-    (txt: string) => {
-      return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
-    }
-  );
-}
+  return str.replace(/\w\S*/g, (txt: string) => {
+    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+  });
+};
 
 // https://stackoverflow.com/a/6475125
 const proper = (str: string) => {
@@ -34,43 +39,85 @@ const proper = (str: string) => {
 
   // Certain minor words should be left lowercase unless
   // they are the first or last words in the string
-  lowers = ['A', 'An', 'The', 'And', 'But', 'Or', 'For', 'Nor', 'As', 'At',
-    'By', 'For', 'From', 'In', 'Into', 'Near', 'Of', 'On', 'Onto', 'To', 'With',
-    'Upon', 'Van'];
+  lowers = [
+    "A",
+    "An",
+    "The",
+    "And",
+    "But",
+    "Or",
+    "For",
+    "Nor",
+    "As",
+    "At",
+    "By",
+    "For",
+    "From",
+    "In",
+    "Into",
+    "Near",
+    "Of",
+    "On",
+    "Onto",
+    "To",
+    "With",
+    "Upon",
+    "Van",
+  ];
   for (i = 0, j = lowers.length; i < j; i++)
-    str = str.replace(new RegExp('\\s' + lowers[i] + '\\s', 'g'),
+    str = str.replace(
+      new RegExp("\\s" + lowers[i] + "\\s", "g"),
       (txt: string) => {
         return txt.toLowerCase();
-      });
+      }
+    );
 
   // Certain words such as initialisms or acronyms should be left uppercase
-  uppers = ['Id', 'Tv'];
+  uppers = ["Id", "Tv"];
   for (i = 0, j = uppers.length; i < j; i++)
-    str = str.replace(new RegExp('\\b' + uppers[i] + '\\b', 'g'),
-      uppers[i].toUpperCase());
+    str = str.replace(
+      new RegExp("\\b" + uppers[i] + "\\b", "g"),
+      uppers[i].toUpperCase()
+    );
 
   return str;
-}
+};
 
-const toBase64 = (args: any) => {
+export const toBase64 = (args: any) => {
   let input;
-  if (!args){ return args };
+  if (!args) {
+    return args;
+  }
   // let options;
-  if (args.options){
+  if (args.options) {
     input = args.buffer || args.blob;
   } else {
     input = args;
   }
   let buffer = input.buffer || input.data || input;
   // console.log("buffer", buffer)
-  if (typeof buffer === 'string'){ // Assume ascii string
+  if (typeof buffer === "string") {
+    // Assume ascii string
     buffer = Buffer.from(buffer as string);
-  } else if (Array.isArray(buffer)){ // ArrayBuffer
-    buffer = Buffer.from(buffer)
+  } else if (Array.isArray(buffer)) {
+    // ArrayBuffer
+    buffer = Buffer.from(buffer);
   }
-  const str = buffer.toString('base64')
+  const str = buffer.toString("base64");
   return str;
-}
+};
+
+const toBl = (branch: any) => {
+  const bl = branch
+    ? typeof branch === "string"
+      ? branch.replace("^", "")
+      : branch.__bl || encodeBranchLocator(branch)
+    : null;
+  // console.log("toBl", branch, "=>", bl);
+  return bl;
+};
+
+const linkBl = (bl) => (bl ? "^" + toBl(bl) : undefined);
 
 addFunctions({
   toCamel: wrapFunction(toCamel, parseStringArgs),
@@ -81,9 +128,9 @@ addFunctions({
   proper: wrapFunction(proper, parseStringArgs),
   properCase: wrapFunction(proper, parseStringArgs),
   plural: wrapFunction(pluralize, parseStringArgs),
-  linkBranch: wrapFunction((branch: any) => branch ? `^${encodeBranchLocator(branch)}` : null),
-  link: wrapFunction((bl: string) => bl && `^${canonicalBl(bl)}`),
-  // link: wrapFunction((bl: string) => `^${canonicalBl(bl)}`),
+  toBl: wrapFunction(toBl),
+  linkBranch: wrapFunction(linkBl),
+  link: wrapFunction(linkBl),
   canonicalBl: wrapFunction((s) => s && canonicalBl(s)),
   nameSafe: wrapFunction((s) => s && filterBranchName(s)),
   orgSafe: wrapFunction((s) => s && transcode(filterBranchName(s))),
@@ -95,7 +142,7 @@ addFunctions({
   toBase64: wrapFunction(toBase64),
   toJson: wrapFunction(JSON.stringify),
   json2yaml: wrapFunction((s) => s && toYaml(JSON.parse(s))),
-})
+});
 
 addSyncFunctions({
   toCamel: wrapSyncFunction(toCamel, parseStringArgs),
@@ -109,8 +156,9 @@ addSyncFunctions({
   proper: wrapSyncFunction(proper, parseStringArgs),
   properCase: wrapSyncFunction(proper, parseStringArgs),
   plural: wrapSyncFunction(pluralize, parseStringArgs),
-  linkBranch: wrapSyncFunction((branch: any) => encodeBranchLocator ? `^${encodeBranchLocator(branch)}` : ''),
-  link: wrapSyncFunction((bl: string) => `^${canonicalBl(bl)}`),
+  toBl: wrapSyncFunction(toBl),
+  linkBranch: wrapSyncFunction(linkBl),
+  link: wrapSyncFunction(linkBl),
   toBranchLocator: wrapSyncFunction(encodeBranchLocator),
   toBranch: wrapSyncFunction(decodeBranchLocator),
   print: wrapSyncFunction(toYaml),
@@ -119,5 +167,4 @@ addSyncFunctions({
   toJson: wrapSyncFunction(JSON.stringify),
   toBase64: wrapSyncFunction(toBase64),
   json2yaml: wrapSyncFunction((s) => s && toYaml(JSON.parse(s))),
-})
-
+});

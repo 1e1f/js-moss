@@ -1,22 +1,34 @@
-import { decode, encode, transcode, } from './parser';
-export * from './parser';
-import { clone, contains, union } from 'typed-json-transform';
-import { toYaml } from '../yaml';
-import { createBranchIndex, hydrateBranchLocator, stringifyBranchLocator } from './canonical';
-import { newState } from '../state';
-import { BranchLocatorSelector, Moss } from '../types';
-export { decode as decodeBranchLocator, encode as encodeBranchLocator, transcode as transcodeSegment }
+import { decode, encode, transcode } from "./parser";
+export * from "./parser";
+import { clone, contains, union } from "typed-json-transform";
+import { toYaml } from "../yaml";
+import { hydrateBranchLocator, stringifyBranchLocator } from "./canonical";
+import { createBranchIndex } from "./indexer";
+import { newState } from "../state";
+import { BranchLocatorSelector, Moss } from "../types";
+export {
+  decode as decodeBranchLocator,
+  encode as encodeBranchLocator,
+  transcode as transcodeSegment,
+};
 
-export * from './canonical';
+export * from "./canonical";
+export * from "./indexer";
 
-export const slugifyBranchLocator = (bl) => encode(decode(bl), { urlSafe: true });
+export const slugifyBranchLocator = (bl) =>
+  encode(decode(bl), { urlSafe: true });
 
 export const cloneBranch = (branch: Moss.Branch) => {
   const bl = stringifyBranchLocator(branch);
   return createBranch(bl, branch.parsed, clone(branch.ast));
-}
+};
 
-export const createBranch = (bl: string, parsed: any, ast?: any, hashFunctions?: any) => {
+export const createBranch = (
+  bl: string,
+  parsed: any,
+  ast?: any,
+  hashFunctions?: any
+) => {
   const meta = hydrateBranchLocator(bl);
   const text = toYaml(ast || parsed);
   const branch = {
@@ -25,15 +37,18 @@ export const createBranch = (bl: string, parsed: any, ast?: any, hashFunctions?:
     parsed,
     ast: ast || parsed,
     s: hashFunctions && createBranchIndex({ ...meta, text }, hashFunctions),
-    state: newState()
-  }
+    state: newState(),
+  };
   return branch;
-}
+};
 
-export const selectBranchLocator = (bl: string, options: BranchLocatorSelector) => {
+export const selectBranchLocator = (
+  bl: string,
+  options: BranchLocatorSelector
+) => {
   if (!bl) {
     console.error({ bl, options });
-    throw new Error('selectBranchLocator with no bl')
+    throw new Error("selectBranchLocator with no bl");
   }
   const branch = decode(bl);
   for (const k of Object.keys(options)) {
@@ -43,13 +58,12 @@ export const selectBranchLocator = (bl: string, options: BranchLocatorSelector) 
       if (!contains(expected, actual)) {
         return false;
       }
-    }
-    else if (actual !== expected) {
+    } else if (actual !== expected) {
       return false;
     }
   }
   return true;
-}
+};
 
 export const compareBranchLocators = (bl: string, bl2: string) => {
   if (!(bl && bl2)) return null;
@@ -69,6 +83,6 @@ export const compareBranchLocators = (bl: string, bl2: string) => {
     }
     return Object.keys(diff).length ? diff : null;
   }
-}
+};
 
-export * from './version';
+export * from "./version";

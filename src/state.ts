@@ -1,7 +1,8 @@
-import { Moss } from './types';
+import { Moss } from "./types";
 
 import { clone, Graph } from "typed-json-transform";
-import { canonicalBl, encodeBranchLocator } from "./branch";
+import { canonicalBl } from "./branch/canonical";
+import { encode as encodeBranchLocator } from "./branch/parser";
 // import { jsonStableHash } from "./hash";
 
 export const currentErrorPath = (state: Moss.State) =>
@@ -12,7 +13,10 @@ export const pushErrorPath = (state: Moss.State, path?: any) =>
 
 export const popErrorPath = (state: Moss.State) => state.errorPaths.pop();
 
-export const newState = (branch?: Moss.Branch, globals: any = {}): Moss.State => {
+export const newState = (
+  branch?: Moss.Branch,
+  globals: any = {}
+): Moss.State => {
   const path = canonicalBl(branch ? encodeBranchLocator(branch) : "Root");
   // const contentHash = jsonStableHash(branch ? branch.parsed : {});
 
@@ -31,6 +35,7 @@ export const newState = (branch?: Moss.Branch, globals: any = {}): Moss.State =>
       operator: "|",
       precedence: {},
     },
+    contexts: ["global"],
     currentBranch: path,
     graph: pathGraph,
     selectors: {},
@@ -38,7 +43,10 @@ export const newState = (branch?: Moss.Branch, globals: any = {}): Moss.State =>
   };
 };
 
-export const newLayer = (branch?: Moss.Branch, globals?: any): Moss.ReturnValue => {
+export const newLayer = (
+  branch?: Moss.Branch,
+  globals?: any
+): Moss.ReturnValue => {
   return { data: {}, state: newState(branch, globals) };
 };
 
@@ -47,8 +55,8 @@ export const cloneState = (state: Moss.State) => {
   return {
     ...clone(_state),
     graph,
-  }
-}
+  };
+};
 
 // export const pushState = (layer: Moss.ReturnValue) => {
 //   if (!layer.state.locked) {
@@ -68,10 +76,26 @@ export const cloneState = (state: Moss.State) => {
 // };
 
 export const pushState = (layer: Moss.ReturnValue) => {
+  if (!layer.state) {
+    throw new Error(
+      "layer should have state if another layer shoyuld be derrived"
+    );
+  }
   if (layer.state.locked) {
     return layer;
   }
-  const { graph, currentBranch, strict, selectors, errorPaths, stack, merge, auto, autoMap } = layer.state;
+  const {
+    graph,
+    currentBranch,
+    strict,
+    selectors,
+    errorPaths,
+    stack,
+    merge,
+    contexts,
+    auto,
+    autoMap,
+  } = layer.state;
   const nextLayer = {
     data: layer.data,
     state: {
@@ -79,24 +103,23 @@ export const pushState = (layer: Moss.ReturnValue) => {
       currentBranch,
       graph,
       selectors: {
-        ...selectors
+        ...selectors,
       },
-      errorPaths: [
-        ...errorPaths
-      ],
+      contexts: [...contexts],
+      errorPaths: [...errorPaths],
       stack: {
-        ...stack
+        ...stack,
       },
       auto: {
-        ...auto
+        ...auto,
       },
       autoMap: {
-        ...autoMap
+        ...autoMap,
       },
       merge: {
         ...merge,
         precedence: {},
-      }
+      },
     },
   };
   // console.log("mutbale state", auto);
