@@ -1,6 +1,6 @@
 import { assert } from 'chai';
 
-import { decodeBranchLocator, encodeBranchLocator } from '../src';
+import { decodeBranchLocator, encodeBranchLocator, filterBranch, filterBranchName, hydrateBranchLocator, stringifyBranchLocator } from '../src';
 
 const shouldPass = [
   {
@@ -88,7 +88,7 @@ const shouldPass = [
   },
   {
     informalBl: '8675309/Dreamt Sleep Pen@dreamt~batches',
-    // canonicalBl: '8675309/dreamt Sleep Pen@dreamt~batches',
+    canonicalBl: '8675309/dreamtsleeppen@dreamt~batches',
     branch: {
       nameSegment: '8675309/Dreamt Sleep Pen',
       projectSegment: 'batches',
@@ -105,19 +105,27 @@ const shouldFail = [
   'no q@?',
   'no plus@+',
   // 'no numbers inside word@l77t',
-  'no leading dash@-fail',
-  'no trailing dash@fail-',
+  // 'no leading dash@-fail',
+  // 'no trailing dash@fail-',
 ];
 
 describe('Branch locator', () => {
-  for (const { informalBl, canonicalBl: expectedBl, branch } of shouldPass) {
-    it(informalBl, () => {
+  for (const { informalBl: expectInformalBl, canonicalBl: expectedBl, branch } of shouldPass) {
+    it(expectInformalBl, () => {
+      const informalBl = stringifyBranchLocator(branch as any);
+      // console.log('informal:', informalBl);
+      const decodedInformal = hydrateBranchLocator(informalBl);
+      // console.log("hydrated", decodedInformal, informalBl, 'expect', expectInformalBl, 'orig:', branch)
       const generatedBl = encodeBranchLocator(branch as any, { includeNamespaceSegment: true });
-      assert.deepEqual(generatedBl, informalBl, "raw bl doens't match");
+      assert.deepEqual(generatedBl, expectInformalBl, "raw bl doens't match");
+      const filteredName = filterBranchName(branch.nameSegment);
+      // console.log(filteredName);
+      assert.deepEqual(branch.nameSegment, filteredName), "test name contains non-ignored special chars";
+      assert.deepEqual(branch.nameSegment, decodedInformal.nameSegment), "test name contains non-ignored special chars";
       if (generatedBl) {
         const canonicalBranch = decodeBranchLocator(generatedBl);
         const canonicalBl = encodeBranchLocator(canonicalBranch, { includeNamespaceSegment: true });
-        assert.equal(canonicalBl, expectedBl || informalBl.toLowerCase().replace(/ /g, ''), 're-encode failed');
+        assert.equal(canonicalBl, expectedBl || expectInformalBl.toLowerCase().replace(/ /g, ''), 're-encode failed');
       }
     });
   }
@@ -130,7 +138,7 @@ describe('Branch locator', () => {
       } catch (e) {
       };
       if (result) {
-        console.log({ result, bl })
+        // console.log({ result, bl })
         assert(0, `${bl} should have failed`)
       }
     });

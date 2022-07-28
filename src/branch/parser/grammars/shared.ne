@@ -71,6 +71,7 @@ disambiguatedChunk
  	-> disambiguatedChunk gap disambiguatedString {% ([lhs, gap, rhs]) => lhs + rhs %}
 	| disambiguatedChunk _ nonSemanticDivider _ disambiguatedString {% ([lhs, ws, exp, ws2, rhs]) => lhs + rhs %}
 	| disambiguatedChunk _ semanticDivider _ disambiguatedString {% ([lhs, ws, exp, ws2, rhs]) => lhs + exp + rhs %}
+	| disambiguatedChunk _ nonSemanticDivider {% ([lhs]) => lhs %}
 	| disambiguatedString {% id %}
 
 gap

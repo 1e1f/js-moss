@@ -105,6 +105,7 @@ const grammar: Grammar = {
     {"name": "disambiguatedChunk", "symbols": ["disambiguatedChunk", "gap", "disambiguatedString"], "postprocess": ([lhs, gap, rhs]) => lhs + rhs},
     {"name": "disambiguatedChunk", "symbols": ["disambiguatedChunk", "_", "nonSemanticDivider", "_", "disambiguatedString"], "postprocess": ([lhs, ws, exp, ws2, rhs]) => lhs + rhs},
     {"name": "disambiguatedChunk", "symbols": ["disambiguatedChunk", "_", "semanticDivider", "_", "disambiguatedString"], "postprocess": ([lhs, ws, exp, ws2, rhs]) => lhs + exp + rhs},
+    {"name": "disambiguatedChunk", "symbols": ["disambiguatedChunk", "_", "nonSemanticDivider"], "postprocess": ([lhs]) => lhs},
     {"name": "disambiguatedChunk", "symbols": ["disambiguatedString"], "postprocess": id},
     {"name": "gap", "symbols": ["__"], "postprocess": id},
     {"name": "semanticDivider", "symbols": [/[/]/], "postprocess": token},

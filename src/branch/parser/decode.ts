@@ -47,7 +47,7 @@ export const transcode = (text: string, grammar = 'organizationSegment'): string
   return parse(text + " ", grammar);
 }
 
-export const canonicalOrganizationSegment = (text: string): string =>  transcode(text, "organizationSegment");
+export const canonicalOrganizationSegment = (text: string): string => transcode(text, "organizationSegment");
 
 import { confuseables } from './confusables';
 
