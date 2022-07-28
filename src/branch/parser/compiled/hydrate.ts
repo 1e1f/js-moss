@@ -197,7 +197,7 @@ const grammar: Grammar = {
     {"name": "disambiguatedChunk", "symbols": ["disambiguatedChunk", "_", "semanticDivider", "_", "disambiguatedString"], "postprocess": join},
     {"name": "disambiguatedChunk", "symbols": ["disambiguatedString"], "postprocess": id},
     {"name": "gap", "symbols": ["__"], "postprocess": () => " "},
-    {"name": "semanticDivider", "symbols": [/[\/]/], "postprocess": token},
+    {"name": "semanticDivider", "symbols": [/[/]/], "postprocess": token},
     {"name": "nonSemanticDivider", "symbols": [/[-'.&]/], "postprocess": token},
     {"name": "disambiguatedString$ebnf$1", "symbols": ["disambiguatedChar"]},
     {"name": "disambiguatedString$ebnf$1", "symbols": ["disambiguatedString$ebnf$1", "disambiguatedChar"], "postprocess": (d) => d[0].concat([d[1]])},

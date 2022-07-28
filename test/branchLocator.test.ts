@@ -78,6 +78,15 @@ const shouldPass = [
     }
   },
   {
+    informalBl: 'This name is a sentence.@Org~Prj',
+    canonicalBl: 'thisnameisasentence@org~prj',
+    branch: {
+      nameSegment: 'This name is a sentence.',
+      projectSegment: 'Prj',
+      organizationSegment: 'Org',
+    }
+  },
+  {
     informalBl: '8675309/Dreamt Sleep Pen@dreamt~batches',
     // canonicalBl: '8675309/dreamt Sleep Pen@dreamt~batches',
     branch: {

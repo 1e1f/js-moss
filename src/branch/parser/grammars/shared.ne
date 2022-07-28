@@ -64,6 +64,7 @@ caseInsensitiveChunk
  	-> caseInsensitiveChunk gap caseInsensitiveString {% ([lhs, gap, rhs]) => lhs + rhs %}
 	| caseInsensitiveChunk _ nonSemanticDivider _ caseInsensitiveString {% ([lhs, ws, exp, ws2, rhs]) => lhs + rhs %}
 	| caseInsensitiveChunk _ semanticDivider _ caseInsensitiveString {% ([lhs, ws, exp, ws2, rhs]) => lhs + exp + rhs %}
+	| caseInsensitiveChunk _ nonSemanticDivider {% ([lhs]) => lhs %}
 	| caseInsensitiveString {% id %}
 
 disambiguatedChunk

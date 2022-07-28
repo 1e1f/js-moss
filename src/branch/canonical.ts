@@ -25,7 +25,13 @@ export const filterBranchName = (text) => {
     if (text.length > 1) {
       text = text.trim();
     }
-    return text.replace(/[^a-zA-Z0-9 \-'\.&\/]/g, "");
+    const seRegex = /[^a-zA-Z0-9]/g;
+    text[0] = text[0].replace(seRegex, "");
+    if (text.length > 1) {
+      text[text.length - 1] = text[text.length - 1].replace(seRegex, "");
+      text = text.replace(/[^a-zA-Z0-9 \-'\.&\/]/g, "");
+    }
+    return text;
   }
 };
 
