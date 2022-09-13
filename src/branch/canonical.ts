@@ -22,7 +22,7 @@ export const canonicalBranchLocator = (branch: Moss.Branch) =>
 export const filterBranchName = (text) => {
   if (!text) return text;
   if (text.length > 0) {
-    return text.replace(/[^a-zA-Z0-9 \-'\.&\/]/g, "");
+    return text.replace(/[^a-zA-Z0-9 _\-'\.&\/]/g, "");
   }
   return text;
 };

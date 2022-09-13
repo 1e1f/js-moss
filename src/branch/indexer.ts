@@ -77,15 +77,14 @@ const blIndexer: IndexProducer<BLIndex> = {
         );
         return s;
       } catch (e) {
-        console.log(
-          "bad locator",
-          blLine,
-          "while building search index on key:",
-          key,
-          "with value",
-          value
+        throw new Error(
+          "bad locator " +
+            blLine +
+            " while building search index on key: " +
+            key +
+            " with value " +
+            value
         );
-        console.log(e);
       }
     }
   },

@@ -162,14 +162,14 @@ versionQuery
 
 
 caseInsensitiveChunk
- 	-> caseInsensitiveChunk gap caseInsensitiveString {% join %}
+ 	-> caseInsensitiveChunk gap caseInsensitiveChunk {% join %}
 	| caseInsensitiveChunk _ nonSemanticDivider _ caseInsensitiveString {% join %}
 	| caseInsensitiveChunk _ semanticDivider _ caseInsensitiveString {% join %}
 	| caseInsensitiveChunk _ nonSemanticDivider {% join %}
 	| caseInsensitiveString {% id %}
 
 disambiguatedChunk
- 	-> disambiguatedChunk gap disambiguatedString {% join %}
+ 	-> disambiguatedChunk gap disambiguatedChunk {% join %}
 	| disambiguatedChunk _ nonSemanticDivider _ disambiguatedString {% join %}
 	| disambiguatedChunk _ semanticDivider _ disambiguatedString {% join %}
 	| disambiguatedChunk _ nonSemanticDivider {% join %}
@@ -182,7 +182,7 @@ semanticDivider
 	-> [/] {% token %}
 
 nonSemanticDivider
-  -> [-'.&] {% token %}
+  -> [-'.&_] {% token %}
 
 disambiguatedString
 	-> disambiguatedChar:+ {% stringOfSame %}

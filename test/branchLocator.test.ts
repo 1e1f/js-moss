@@ -69,10 +69,10 @@ const shouldPass = [
     }
   },
   {
-    informalBl: 'has space@has-hyphen~has/slash',
-    canonicalBl: 'hasspace@hashyphen~has/slash',
+    informalBl: 'Has Space_underscore@has-hyphen~has/slash',
+    canonicalBl: 'hasspaceunderscore@hashyphen~has/slash',
     branch: {
-      nameSegment: 'has space',
+      nameSegment: 'Has Space_underscore',
       projectSegment: 'has/slash',
       organizationSegment: 'has-hyphen',
     }
@@ -105,8 +105,9 @@ const shouldFail = [
   'no q@?',
   'no plus@+',
   // 'no numbers inside word@l77t',
-  // 'no leading dash@-fail',
-  // 'no trailing dash@fail-',
+  'no leading dash@-fail',
+  'no leading underscore@_fail',
+  // 'no trailing dash in project@org~fail-',
 ];
 
 describe('Branch locator', () => {
