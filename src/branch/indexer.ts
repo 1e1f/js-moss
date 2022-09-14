@@ -8,7 +8,7 @@ import {
 } from "typed-json-transform";
 import { fromYaml } from "../yaml";
 import { importPrefix } from "../types";
-import { canonicalBranchLocator } from "./canonical";
+import { canonicalBranchLocator, stringifyBranchLocator } from "./canonical";
 
 type HashFunction = (x) => string;
 type HashFunctions = {
@@ -28,6 +28,15 @@ interface IndexProducer<T = string> {
 type MetaHashFunction = (meta: Moss.Branch, options?: any) => string;
 
 export const searchableLocator = (meta, hashMetadata?: MetaHashFunction) => {
+  if (
+    meta.nameSegment ==
+    "Signup for our mailing list to be the first to hear about new products"
+  ) {
+    const encoded = encode(meta);
+    console.log("decode", encoded);
+    const canonicalLocator = decode(encoded);
+    console.log("decoded", canonicalLocator);
+  }
   const canonicalLocator = canonicalBranchLocator(meta);
   const locator = {
     o: canonicalLocator.organizationSegment,
@@ -44,8 +53,10 @@ const blIndexer: IndexProducer<BLIndex> = {
     typeof value === "string" ? value.indexOf(importPrefix) !== -1 : false,
   encode: (value, key, hashFunctions) => {
     const importTokenPos = value.indexOf(importPrefix);
+
     if (importTokenPos != -1) {
       let blLine = value.slice(importTokenPos + 1);
+      console.log("calc import", blLine);
       if (blLine[0] === "?") {
         // is Query not import, skip
         return;
@@ -53,8 +64,11 @@ const blIndexer: IndexProducer<BLIndex> = {
       if (blLine.indexOf("#") !== -1) {
         blLine = blLine.split("#")[0];
       }
+      if (blLine.indexOf("}.") !== -1) {
+        blLine = blLine.split("}.")[0] + "}";
+      }
       if (blLine.indexOf("{") !== -1) {
-        const res = blLine.match(/\{(.*)\}/);
+        let res = blLine.match(/\{(.*)\}/);
         if (!res.length) {
           throw new Error("poorly formated import statement");
         }
@@ -63,6 +77,7 @@ const blIndexer: IndexProducer<BLIndex> = {
           // this is a dynamic import and cannot be indexed
           return;
         }
+
         // console.log("BLLine", blLine, res);
       }
       // remove trailing deferment
@@ -198,19 +213,24 @@ export const createBranchIndex = (
   branch: Moss.Branch,
   hashFunctions?: HashFunctions
 ) => {
-  let ast = branch.ast;
-  if (!ast) {
-    ast = fromYaml(branch.text);
-  }
+  // console.log("index", stringifyBranchLocator(branch));
+  const bl = searchableLocator(
+    branch,
+    hashFunctions && hashFunctions.branchMeta
+  );
+  // console.log("createdBlIndex", bl.n);
+  let ast = fromYaml(branch.text);
+  const kind = searchableLocator(
+    decode(ast.kind || "data"),
+    hashFunctions && hashFunctions.branchMeta
+  );
+  // console.log("createdKindIndex", kind.n);
   const bi: SearchIndex = {};
   indexAny(ast, branchIndexer, bi, hashFunctions);
   return {
     ...bi,
-    bl: searchableLocator(branch, hashFunctions && hashFunctions.branchMeta),
-    kind: searchableLocator(
-      decode(ast.kind || "data"),
-      hashFunctions && hashFunctions.branchMeta
-    ),
+    bl,
+    kind,
   };
 };
 

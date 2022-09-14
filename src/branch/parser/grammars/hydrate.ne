@@ -162,14 +162,14 @@ versionQuery
 
 
 caseInsensitiveChunk
- 	-> caseInsensitiveChunk gap caseInsensitiveChunk {% join %}
+ 	-> caseInsensitiveChunk gap caseInsensitiveString {% join %}
 	| caseInsensitiveChunk _ nonSemanticDivider _ caseInsensitiveString {% join %}
 	| caseInsensitiveChunk _ semanticDivider _ caseInsensitiveString {% join %}
 	| caseInsensitiveChunk _ nonSemanticDivider {% join %}
 	| caseInsensitiveString {% id %}
 
 disambiguatedChunk
- 	-> disambiguatedChunk gap disambiguatedChunk {% join %}
+ 	-> disambiguatedChunk gap disambiguatedString {% join %}
 	| disambiguatedChunk _ nonSemanticDivider _ disambiguatedString {% join %}
 	| disambiguatedChunk _ semanticDivider _ disambiguatedString {% join %}
 	| disambiguatedChunk _ nonSemanticDivider {% join %}

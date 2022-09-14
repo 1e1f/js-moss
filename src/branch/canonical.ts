@@ -16,8 +16,11 @@ export const nameHash = (org: string) => {
   return decode(org, "nameSegment");
 };
 
-export const canonicalBranchLocator = (branch: Moss.Branch) =>
-  decode(encode(branch));
+export const canonicalBranchLocator = (branch: Moss.Branch) => {
+  const encoded = encode(branch);
+  return decode(encoded);
+}
+
 
 export const filterBranchName = (text) => {
   if (!text) return text;
