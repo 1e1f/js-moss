@@ -56,7 +56,7 @@ const blIndexer: IndexProducer<BLIndex> = {
 
     if (importTokenPos != -1) {
       let blLine = value.slice(importTokenPos + 1);
-      console.log("calc import", blLine);
+      // console.log("calc import", blLine);
       if (blLine[0] === "?") {
         // is Query not import, skip
         return;

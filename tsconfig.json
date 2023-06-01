@@ -12,6 +12,8 @@
     "removeComments": false,
     "lib": ["esnext", "dom"],
     "preserveConstEnums": true,
-    "noEmitOnError": false
+    "noEmitOnError": false,
+    "skipLibCheck": true,
+    "types": ["node"]
   }
 }
