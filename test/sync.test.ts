@@ -6,6 +6,10 @@ import { exec } from 'shelljs';
 
 import { Sync, newLayer, SourceMapper } from '../src';
 
+interface TestFixture {
+    config, env, expect
+}
+
 const { parse, next, setOptions } = Sync;
 describe('Sync API', () => {
     it('can produce a source map', () => {
@@ -15,53 +19,53 @@ describe('Sync API', () => {
     });
 
     it('state', async () => {
-        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'state.moss'), 'utf8'));
+        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'state.moss'), 'utf8')) as TestFixture;
         assert.deepEqual(parse(config, env), expect);
     });
 
     it('cascade', async () => {
-        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'cascade.moss'), 'utf8'));
+        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'cascade.moss'), 'utf8')) as TestFixture;
         assert.deepEqual(parse(config, env), expect);
     });
 
     it('inherit', async () => {
-        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'inherit.moss'), 'utf8'));
+        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'inherit.moss'), 'utf8')) as TestFixture;
         assert.deepEqual(parse(config, env), expect);
     });
 
     it('escape', async () => {
-        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'escape.moss'), 'utf8'));
+        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'escape.moss'), 'utf8')) as TestFixture;
         assert.deepEqual(parse(config, env), expect);
     });
 
     it('functional', async () => {
-        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'functional.moss'), 'utf8'));
+        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'functional.moss'), 'utf8')) as TestFixture;
         assert.deepEqual(parse(config, env), expect);
     });
 
     it('environment', async () => {
-        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8'));
+        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8')) as TestFixture;
         const result = (next(newLayer(), env)).state;
         assert.isBoolean(result.selectors.production);
     });
 
     it('import', async () => {
-        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'import.moss'), 'utf8'));
+        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'import.moss'), 'utf8')) as TestFixture;
         assert.deepEqual(parse(config, env), expect);
     });
 
     it('kitchen sink', async () => {
-        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8'));
+        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8')) as TestFixture;
         assert.deepEqual(parse(config, env), expect);
     });
 
     it('without shell', async () => {
-        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'shell.moss'), 'utf8'));
+        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'shell.moss'), 'utf8')) as TestFixture;
         assert.deepEqual(parse(config, env), expect.withoutShell);
     });
 
     it('shell', async () => {
-        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'shell.moss'), 'utf8'));
+        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'shell.moss'), 'utf8')) as TestFixture;
         setOptions({
             shell: (str) => {
                 return (<string>exec(str, { silent: true }).stdout).replace('\r', '').replace('\n', '');
@@ -71,7 +75,7 @@ describe('Sync API', () => {
     });
 
     it('test equivalent js code', () => {
-        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8'));
+        const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8')) as TestFixture;
         const result = require('./compare').default;
         assert.deepEqual(result, expect);
     });

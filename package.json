@@ -1,7 +1,7 @@
 {
   "name": "js-moss",
   "description": "moss is a set of parsing rules for yaml and json",
-  "version": "0.22.28",
+  "version": "0.22.30",
   "homepage": "https://github.com/1e1f/js-moss",
   "author": {
     "name": "Leif Shackelford",
@@ -36,30 +36,30 @@
   },
   "Keywords": [],
   "devDependencies": {
-    "@types/js-yaml": "^3.11",
-    "@types/mathjs": "^5",
-    "@types/mocha": "^5",
-    "@types/node": "^10",
+    "@types/js-yaml": "^4",
+    "@types/mathjs": "^9.4",
+    "@types/mocha": "^10",
     "@types/shelljs": "^0.8",
-    "@types/chai": "^4.1.7",
-    "chai": "^4.2",
-    "coveralls": "^3.0",
-    "jaguarjs-jsdoc": "github:dcodeIO/jaguarjs-jsdoc",
-    "jsdoc": "^3.6.3",
-    "mocha": "^5.2",
-    "nyc": "^13.2",
+    "@types/chai": "^4.3",
+    "@types/node": "^16",
+    "chai": "^4.3",
+    "coveralls": "^3.1",
+    "jaguarjs-jsdoc": "github:dcodeIO/jaguarjs-jsdoc#ade85ac841f5ca8be40c60d506102039a036a8fa",
+    "jsdoc": "^4",
+    "mocha": "^10",
+    "nyc": "^15",
     "shelljs": "^0.8",
-    "ts-node": "^9.0",
-    "typescript": "5"
+    "ts-node": "^10.9",
+    "typescript": "^5"
   },
   "cliDependencies": [
     "jsdoc"
   ],
   "dependencies": {
-    "js-yaml": "^3.14",
-    "typed-json-transform": "^0.26.4",
-    "pluralize": "^7.0.0",
-    "nearley": "^2.19.7"
+    "js-yaml": "^4.1",
+    "typed-json-transform": "^0.26.6",
+    "pluralize": "^8.0.0",
+    "nearley": "^2.20"
   },
   "nyc": {
     "include": [

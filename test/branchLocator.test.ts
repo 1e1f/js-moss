@@ -87,6 +87,15 @@ const shouldPass = [
     }
   },
   {
+    informalBl: 'main@QA~test',
+    canonicalBl: 'main@qa~test',
+    branch: {
+      nameSegment: 'main',
+      projectSegment: 'test',
+      organizationSegment: 'QA',
+    }
+  },
+  {
     informalBl: '8675309/Dreamt Sleep Pen@dreamt~batches',
     canonicalBl: '8675309/dreamtsleeppen@dreamt~batches',
     branch: {

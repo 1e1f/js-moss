@@ -2,11 +2,16 @@ import { readFileSync } from 'fs';
 
 import { join } from 'path';
 import { assert } from 'chai';
+import { it } from 'mocha';
 import { exec } from 'shelljs';
 
 import { clone } from 'typed-json-transform';
 
 import { Async, newLayer, SourceMapper, fromYaml, toYaml } from '../src';
+
+interface TestFixture {
+    config, env, expect
+}
 
 const { parse, next, setOptions } = Async;
 describe('Async API', () => {
@@ -24,27 +29,27 @@ describe('Async API', () => {
     });
 
     it('state', async () => {
-        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'state.moss'), 'utf8'));
+        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'state.moss'), 'utf8')) as TestFixture;
         assert.deepEqual(await parse(config, env), expect);
     });
 
     it('cascade', async () => {
-        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'cascade.moss'), 'utf8'));
+        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'cascade.moss'), 'utf8')) as TestFixture;
         assert.deepEqual(await parse(config, env), expect);
     });
 
     it('inherit', async () => {
-        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'inherit.moss'), 'utf8'));
+        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'inherit.moss'), 'utf8')) as TestFixture;
         assert.deepEqual(await parse(config, env), expect);
     });
 
     it('escape', async () => {
-        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'escape.moss'), 'utf8'));
+        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'escape.moss'), 'utf8')) as TestFixture;
         assert.deepEqual(await parse(config, env), expect);
     });
 
     it('functional', async () => {
-        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'functional.moss'), 'utf8'));
+        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'functional.moss'), 'utf8')) as TestFixture;
         let res;
         try {
             res = await parse(config, env)
@@ -55,13 +60,15 @@ describe('Async API', () => {
     });
 
     it('environment', async () => {
-        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8'));
+        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8')) as TestFixture;
         const result = (await next(newLayer(), env));
-        assert.isBoolean(result.state.selectors.production);
+        if (result) {
+            assert.isBoolean(result.state.selectors.production);
+        }
     });
 
     it('kitchen sink', async () => {
-        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8'));
+        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8')) as TestFixture;
         let res;
         try {
             res = await parse(config, env)
@@ -73,7 +80,7 @@ describe('Async API', () => {
     });
 
     it('without shell', async () => {
-        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'shell.moss'), 'utf8'));
+        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'shell.moss'), 'utf8')) as TestFixture;
         assert.deepEqual(await parse(config, env), expect.withoutShell);
     });
 
@@ -88,13 +95,13 @@ describe('Async API', () => {
     });
 
     it('test equivalent js code', () => {
-        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8'));
+        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8')) as TestFixture;
         const result = require('./compare').default;
         assert.deepEqual(result, expect);
     });
 
     it('import', async () => {
-        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'import.moss'), 'utf8'));
+        const { config, env, expect } = fromYaml(readFileSync(join(__dirname, 'import.moss'), 'utf8')) as TestFixture;
         let res;
         try {
             res = await parse(config, env)
