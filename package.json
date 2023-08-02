@@ -8,7 +8,7 @@
     "email": "structuresound@gmail.com"
   },
   "engines": {
-    "node": ">= 10"
+    "node": ">= 16"
   },
   "repository": {
     "type": "git",
@@ -24,9 +24,10 @@
     }
   ],
   "main": "dist/index.js",
+  "module": "esm/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc --project esm.tsconfig.json",
     "bl": "nearleyc src/branch/parser/grammars/hydrate.ne -o src/branch/parser/compiled/hydrate.ts && nearleyc src/branch/parser/grammars/query.ne -o src/branch/parser/compiled/query.ts && nearleyc src/branch/parser/grammars/versionChunk.ne -o src/branch/parser/compiled/versionChunk.ts && nearleyc src/branch/parser/grammars/disambiguatedChunk.ne -o src/branch/parser/compiled/disambiguatedChunk.ts && nearleyc src/branch/parser/grammars/caseInsensitiveChunk.ne -o src/branch/parser/compiled/caseInsensitiveChunk.ts",
     "yaml": "nearleyc src/yaml/parser/yaml.ne -o src/yaml/parser/compiled.ts",
     "test": "NODE_ENV=test mocha --recursive --require ts-node/register \"test/**/*.ts\" --bail",

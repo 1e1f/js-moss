@@ -5,4 +5,5 @@ coverage/
 /config
 /docs
 /dist
+/lib
 /esm
