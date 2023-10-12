@@ -8,6 +8,6 @@ import * as Async from "./async";
 import * as Sync from "./sync";
 export { Async, Sync };
 
-import './moreFunctions';
+import "./moreFunctions";
 
-export { Moss, importPrefix, queryPrefix } from './types';
+export type { Moss, importPrefix, queryPrefix } from "./types";

@@ -5,7 +5,7 @@
     "declaration": true,
     "allowSyntheticDefaultImports": true,
     "outDir": "esm",
-    "sourceMap": true,
+    "sourceMap": false,
     "noImplicitAny": false,
     "moduleResolution": "node",
     "module": "es6",

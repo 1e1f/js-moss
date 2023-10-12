@@ -65,23 +65,26 @@ caseInsensitiveChunk
 	| caseInsensitiveChunk _ nonSemanticDivider _ caseInsensitiveString {% ([lhs, ws, exp, ws2, rhs]) => lhs + rhs %}
 	| caseInsensitiveChunk _ semanticDivider _ caseInsensitiveString {% ([lhs, ws, exp, ws2, rhs]) => lhs + exp + rhs %}
 	| caseInsensitiveChunk _ nonSemanticDivider {% ([lhs]) => lhs %}
+	| caseInsensitiveChunk _ semanticDivider {% ([lhs, ws, exp]) => lhs + exp %}
 	| caseInsensitiveString {% id %}
 
 disambiguatedChunk
  	-> disambiguatedChunk gap disambiguatedString {% ([lhs, gap, rhs]) => lhs + rhs %}
-	| disambiguatedChunk _ nonSemanticDivider _ disambiguatedString {% ([lhs, ws, exp, ws2, rhs]) => lhs + rhs %}
-	| disambiguatedChunk _ semanticDivider _ disambiguatedString {% ([lhs, ws, exp, ws2, rhs]) => lhs + exp + rhs %}
-	| disambiguatedChunk _ nonSemanticDivider {% ([lhs]) => lhs %}
+	| disambiguatedChunk _ disambiguatedDivider _ disambiguatedString {% ([lhs, ws, exp, ws2, rhs]) => lhs + rhs %}
 	| disambiguatedString {% id %}
 
 gap
   -> __ {% id %}
 
 semanticDivider
-	-> [/] {% token %}
+  -> [./] {% token %}
 
 nonSemanticDivider
-  -> [-'.&_] {% token %}
+  -> [-&#'_()+] {% token %}
+
+disambiguatedDivider
+  -> nonSemanticDivider 
+  | semanticDivider
 
 disambiguatedString
 	-> disambiguatedChar:+ {% stringOfSame %}

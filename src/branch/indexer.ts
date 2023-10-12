@@ -30,12 +30,12 @@ type MetaHashFunction = (meta: Moss.Branch, options?: any) => string;
 export const searchableLocator = (meta, hashMetadata?: MetaHashFunction) => {
   if (
     meta.nameSegment ==
-    "Signup for our mailing list to be the first to hear about new products"
+    "Futura-Medium"
   ) {
     const encoded = encode(meta);
-    console.log("decode", encoded);
+    console.log("decode", meta.nameSegment, encoded);
     const canonicalLocator = decode(encoded);
-    console.log("decoded", canonicalLocator);
+    console.log("decoded", meta.nameSegment, canonicalLocator);
   }
   const canonicalLocator = canonicalBranchLocator(meta);
   const locator = {
@@ -94,11 +94,11 @@ const blIndexer: IndexProducer<BLIndex> = {
       } catch (e) {
         throw new Error(
           "bad locator " +
-            blLine +
-            " while building search index on key: " +
-            key +
-            " with value " +
-            value
+          blLine +
+          " while building search index on key: " +
+          key +
+          " with value " +
+          value
         );
       }
     }

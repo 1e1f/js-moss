@@ -1,11 +1,13 @@
 import { Parser, Grammar } from 'nearley';
 import { Moss } from '../../types';
 
-const queryGrammar = require('./compiled/query').default;
-const hydrateGrammar = require('./compiled/hydrate').default;
+import queryGrammar from "./compiled/query";
+// const queryGrammar = require('./compiled/query').default;
+import hydrateGrammar from './compiled/hydrate';
 
-const caseInsensitiveChunk = require('./compiled/caseInsensitiveChunk').default;
-const disambiguatedChunk = require('./compiled/disambiguatedChunk').default;
+import caseInsensitiveChunk from './compiled/caseInsensitiveChunk';
+import disambiguatedChunk from './compiled/disambiguatedChunk';
+
 const grammars = {
   query: Grammar.fromCompiled(queryGrammar),
   hydrate: Grammar.fromCompiled(hydrateGrammar),

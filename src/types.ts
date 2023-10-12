@@ -89,6 +89,11 @@ export declare namespace Moss {
     state?: State;
   }
 
+  interface Stem<Schema = any> {
+    kind?: string;
+    data?: Schema;
+  }
+
   type BranchData = any;
 
   type ReturnValue = Merge.ReturnValue<State>;
