@@ -77,15 +77,16 @@ const shouldPass = [
       organizationSegment: 'has-hyphen',
     }
   },
-  {
-    informalBl: 'This name is a sentence.@Org~Prj',
-    canonicalBl: 'thisnameisasentence@org~prj',
-    branch: {
-      nameSegment: 'This name is a sentence.',
-      projectSegment: 'Prj',
-      organizationSegment: 'Org',
-    }
-  },
+  // This is no longer allowed (ending with dot)
+  // {
+  //   informalBl: 'This name is a sentence.@Org~Prj',
+  //   canonicalBl: 'thisnameisasentence.@org~prj',
+  //   branch: {
+  //     nameSegment: 'This name is a sentence.',
+  //     projectSegment: 'Prj',
+  //     organizationSegment: 'Org',
+  //   }
+  // },
   {
     informalBl: 'main@QA~test',
     canonicalBl: 'main@qa~test',

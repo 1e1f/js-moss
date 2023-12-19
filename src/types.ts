@@ -24,6 +24,7 @@ export interface BLIndex {
 
 export interface SearchIndex extends BLIndex {
   kind?: BLIndex;
+  m?: string;
   deps?: BLIndex[];
   bl?: BLIndex;
 }

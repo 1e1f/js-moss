@@ -179,10 +179,10 @@ gap
   -> __ {% () => " " %}
 
 semanticDivider
-	-> [/] {% token %}
+  -> [./] {% token %}
 
 nonSemanticDivider
-  -> [-'.&_] {% token %}
+  -> [-&#'_()+] {% token %}
 
 disambiguatedString
 	-> disambiguatedChar:+ {% stringOfSame %}

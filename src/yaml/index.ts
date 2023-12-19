@@ -11,7 +11,7 @@ export const toYaml = (obj: any, options?: any): string => {
 
 export const fromYaml = (yaml: string, options?: any): any => {
   if (!yaml) {
-    console.warn("loading empty yaml string");
+    console.debug("loading empty yaml string");
     return {};
   }
   return load(yaml, options);

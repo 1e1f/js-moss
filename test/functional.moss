@@ -33,6 +33,21 @@ config:
       each: [1,2,3,4]
       with>: =memo * value
       memo: 1
+  reduceToString:
+    reduce<:
+      each: ["a: 2", "b: 4"]
+      with>:
+        <select:
+          hasMemo: $memo?
+        =hasMemo: ${memo?}, ${value}
+        =: ${value}
+  reduceToArray:
+    reduce<:
+      each: [{name: "b"}, {name: "c"}]
+      with>:
+        =: $memo
+        +: $value
+      memo: [{name: "a"}] 
   sumArray:
     <:
       assign: var
@@ -65,9 +80,15 @@ expect:
     b: extended
   mapArray: [2,4,6]
   reduceArray: 24
+  reduceToString: "a: 2, b: 4"
+  reduceToArray:
+    - { name: "a" }
+    - { name: "b" }
+    - { name: "c" }
   sumArray: -5
   reduceObject: 4.25
   mapReduceObject:
     rain: .25
     snow: 4
   mapReduceArray: 384
+

@@ -2,10 +2,14 @@ import { Moss } from "../types";
 import { decode, encode } from "./parser";
 
 export const canonicalBl = (bl: string | Moss.Branch) => {
-  if (typeof bl == "string") {
-    return encode(decode(bl));
+  try {
+    if (typeof bl == "string") {
+      return encode(decode(bl));
+    }
+    return encode(canonicalBranchLocator(bl));
+  } catch (e) {
+    console.error("canonicalBl bl failed for input", bl)
   }
-  return encode(canonicalBranchLocator(bl));
 };
 
 export const disambiguatedHash = (org: string) => {

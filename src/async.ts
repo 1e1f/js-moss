@@ -193,7 +193,7 @@ export const parseObject = async (current: Moss.ReturnValue) => {
         if (readKey[0] === "$") {
           try {
             writeKey = <any>(await interpolate(current, readKey)).data;
-          } catch (e) {}
+          } catch (e) { }
         } else if (readKey[0] == "\\") {
           writeKey = readKey.slice(1);
         } else {
@@ -770,9 +770,8 @@ async function _interpolate(
         }
         if (!(resolvedBranches && resolvedBranches.length)) {
           throw {
-            message: `No async results for ${bl}, in ${
-              Object.keys(resolvers).length
-            } resolvers @ ${toYaml(layer.data)}`,
+            message: `No async results for ${bl}, in ${Object.keys(resolvers).length
+              } resolvers @ ${toYaml(layer.data)}`,
           };
         }
         const parsedBranches = [];

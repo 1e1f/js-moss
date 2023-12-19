@@ -112,6 +112,9 @@ const blIndexer: IndexProducer<BLIndex> = {
   keyPath: "deps",
 };
 
+
+
+
 const branchIndexer = [blIndexer];
 
 const indexAny = (
@@ -227,11 +230,18 @@ export const createBranchIndex = (
   // console.log("createdKindIndex", kind.n);
   const bi: SearchIndex = {};
   indexAny(ast, branchIndexer, bi, hashFunctions);
+  if (ast.data?.market) {
+    bi.m = ast.data?.market;
+  }
   return {
     ...bi,
     bl,
     kind,
   };
+};
+
+export const marketIndex = {
+  market: "s.m"
 };
 
 export const indexPaths = {
