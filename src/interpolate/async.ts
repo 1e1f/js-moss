@@ -115,7 +115,8 @@ export async function tokenize(str: string, options: Expand.Options) {
                 res = await sub(fetch, '?' + swap, ptr.state.sourceMap);
             } else if (op == 'e') {
                 const deref = (str: string) => subSync(dereferenceSync, str, ptr.state.sourceMap)
-                res = await sub((s) => expression(deref, check).parse(s), swap, ptr.state.sourceMap)
+                // res = await sub((s) => expression(deref, check).parse(s), swap, ptr.state.sourceMap)
+                res = expression(deref).parse(swap);
             }
         }
         if (y > 0) {

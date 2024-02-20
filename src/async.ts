@@ -424,7 +424,7 @@ addFunctions({
     const { data } = await continueWithNewFrame(current, args);
     console.log("schema", data);
   },
-  log: async (current: Moss.ReturnValue, args: any) => {
+  logKeys: async (current: Moss.ReturnValue, args: any) => {
     each(arrayify(args), (i) => {
       let kp = i;
       let format = "json";
@@ -442,6 +442,14 @@ addFunctions({
           break;
       }
     });
+  },
+  log: async (current: Moss.ReturnValue, args: any) => {
+    if (args) {
+      const layer = await continueWithNewFrame(current, args);
+      console.log(layer.data);
+    } else {
+      console.log(current);
+    }
   },
   assert: async (parent: Moss.ReturnValue, args: any) => {
     throw {

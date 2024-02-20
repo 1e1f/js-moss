@@ -191,7 +191,7 @@ export const parseObject = (current: Moss.ReturnValue) => {
         if (readKey[0] === "$") {
           try {
             writeKey = <any>interpolate(current, readKey).data;
-          } catch (e) {}
+          } catch (e) { }
         } else if (readKey[0] == "\\") {
           writeKey = readKey.slice(1);
         } else {
@@ -419,7 +419,7 @@ addFunctions({
     const { data } = continueWithNewFrame(current, args);
     console.log("schema", data);
   },
-  log: (current: Moss.ReturnValue, args: any) => {
+  logKeys: (current: Moss.ReturnValue, args: any) => {
     each(arrayify(args), (i) => {
       let kp = i;
       let format = "json";
@@ -437,6 +437,14 @@ addFunctions({
           break;
       }
     });
+  },
+  log: (current: Moss.ReturnValue, args: any) => {
+    if (args) {
+      const layer = continueWithNewFrame(current, args);
+      console.log(layer.data);
+    } else {
+      console.log(current);
+    }
   },
   assert: (parent: Moss.ReturnValue, args: any) => {
     throw {
@@ -751,9 +759,8 @@ function _interpolate(layer: Moss.ReturnValue, input: any, dictionary: any) {
         }
         if (!(resolvedBranches && resolvedBranches.length)) {
           throw {
-            message: `No results for ${bl}, in ${
-              Object.keys(resolvers).length
-            } resolvers @ ${toYaml(layer.data)}`,
+            message: `No results for ${bl}, in ${Object.keys(resolvers).length
+              } resolvers @ ${toYaml(layer.data)}`,
           };
         }
         const parsedBranches = [];

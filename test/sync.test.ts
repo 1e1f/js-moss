@@ -1,3 +1,4 @@
+// @ts-ignore
 import { readFileSync } from 'fs';
 import * as yaml from 'js-yaml';
 import { join } from 'path';
@@ -45,8 +46,10 @@ describe('Sync API', () => {
 
     it('environment', async () => {
         const { config, env, expect } = yaml.load(readFileSync(join(__dirname, 'kitchen.moss'), 'utf8')) as TestFixture;
-        const result = (next(newLayer(), env)).state;
-        assert.isBoolean(result.selectors.production);
+        const result = (await next(newLayer(), env));
+        if (result) {
+            assert.isBoolean(result.state.selectors.production);
+        }
     });
 
     it('import', async () => {

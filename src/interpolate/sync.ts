@@ -74,6 +74,8 @@ export function tokenize(str: string, options: Expand.Options) {
         return res;
     }
 
+
+
     const subSync = sub;
 
     const close = () => {
@@ -94,7 +96,8 @@ export function tokenize(str: string, options: Expand.Options) {
                 res = sub(fetch, swap, ptr.state.sourceMap);
             } else if (op == 'e') {
                 const deref = (str: string) => subSync(dereference, str, ptr.state.sourceMap)
-                res = sub((s) => expression(deref, check).parse(s), swap, ptr.state.sourceMap)
+                // res = sub((s) => expression(deref, check).parse(s), swap, ptr.state.sourceMap)
+                res = expression(deref).parse(swap);
             }
         }
         if (y > 0) {
