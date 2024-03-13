@@ -8,10 +8,12 @@ import hydrateGrammar from './compiled/hydrate';
 import caseInsensitiveChunk from './compiled/caseInsensitiveChunk';
 import disambiguatedChunk from './compiled/disambiguatedChunk';
 
+import versionCheck from './compiled/versionChunk';
+
 const grammars = {
   query: Grammar.fromCompiled(queryGrammar),
   hydrate: Grammar.fromCompiled(hydrateGrammar),
-  versionSegment: Grammar.fromCompiled(require('./compiled/versionChunk').default),
+  versionSegment: Grammar.fromCompiled(versionCheck),
   nameSegment: Grammar.fromCompiled(caseInsensitiveChunk),
   organizationSegment: Grammar.fromCompiled(disambiguatedChunk),
   projectSegment: Grammar.fromCompiled(caseInsensitiveChunk),
