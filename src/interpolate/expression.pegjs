@@ -89,9 +89,9 @@ Comparison = head:AddOp tail:(_ (Keyword / ">=" / "<=" / "!==" / "===" / "==" / 
           case '>=':
           case '>': {
           	if (method[1] === "="){
-              boolean =  lhs <= arg;
+              boolean = lhs >= arg;
             }
-          	else boolean = lhs < arg;
+          	else boolean = lhs > arg;
             break;
           }
           case "=": {

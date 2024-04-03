@@ -320,9 +320,9 @@ function peg$parse(input, options) {
           case '>=':
           case '>': {
           	if (method[1] === "="){
-              boolean =  lhs <= arg;
+              boolean =  lhs >= arg;
             }
-          	else boolean = lhs < arg;
+          	else boolean = lhs > arg;
             break;
           }
           case "=": {
