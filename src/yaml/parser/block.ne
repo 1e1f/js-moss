@@ -6,6 +6,26 @@ blockNestedScope
 		return scope
 		} %}
 
+blockNestedSequence
+	-> pushScope blockSequence popScope {% ([push, scope]) => {
+		return scope
+		} %}
+
+blockSequence
+    -> (sol blockSequenceItem):+ {% ([items], ref) => {
+		const s = new Sequence(items.map(([sol, item]) => item));
+		s.source.flow = Flow.block;
+		return s;
+	} %}
+
+blockSequenceItem
+	-> bullet expression
+			{% ([key, expression]) => {
+					return expression
+				} %}
+	| comment {% id %}
+	| endLine {% id %}
+
 blockScope
   # -> (sol kvPair):+ {% ([lines], ref, fail) => {
 	# 		const pairs = lines.map(([sol, pair]: any) => pair);
@@ -14,38 +34,30 @@ blockScope
 	# 		return map;
 	#  } %}
 	-> blockMapping {% id %}
-  # | blockSequence {% id %}
-	# | sol statement {% second %}
+  	# | blockSequence {% id %}
+	# | sol expression {% second %}
 # if a scope has been started inline,
 # and needs indent afterwards
 
 blockMapping
-	-> blockMappingLine (lineBreak:* blockMappingLine):* {% ([head, tail]) => {
-		const m = createMap([[head]]);
-		if (tail && tail.length){
-			const pairs = tail.map(([br, i]: any) => i);
-			for (const p of pairs){
-					 addPairToMap([m, p]);
-			}
-		}
-			return m;
+	-> blockMappingLine:+ {% ([pairs]) => {
+		const m = new Mapping(pairs);
+		m.source.flow = Flow.block;
+		return m;
 	} %}
 
 blockMappingLine
 	-> sol kvPair {% second %}
-	| sol eol  {% nuller %}
+	| sol endLine {% second %}
 
-blockSequence
-	-> sol blockSequenceItem (lineBreak:* sol blockSequenceItem):* {% ([sol, head, tail]) => {
-		if (tail && tail.length){
-			return appendToSequence([head, tail.map(([br, sol, i]: any) => i)]);
+expression
+	-> identifier endLine {% ([identifier, endl]) => {
+		if (endl){
+			identifier.source.expandWithMap(endl);
 		}
-			return createBlockSequence([[head]]);
+		return identifier;
 	} %}
-
-rhsNode
-	-> statement {% id %}
-	# | bullet rhsNode {% second %}
+	# | bullet expression {% second %}
 	# | bullet (statement | kvPair) (indent blockSequenceItem:+ dedent)
 	# {% ([key, firstItem, nested]) => {
 	# 	console.log('bs <= bs', firstItem);
@@ -60,75 +72,41 @@ rhsNode
 	# 	return createMap([head, ...tail]);
 	# } %}
 
-statement
-	-> scalar endLine {% first %}
+anchor 
+  -> "&" chunk {% ([tok, sequence]) => join([tokenValue(tok), sequence]) %}
 
 kvPair
 	# nested block
-	-> blockKey blockNestedScope
-  		{% ([key, scope]) => {
-			console.log('k: block', key[0], scope);
-			return [key, scope];
+	-> blockKey anchor:? blockNestedScope
+  		{% ([key, anchor, value]) => {
+			return new Pair(key, value);
 		} %}
 
-	# default map pair, rhs is a scalar
-	| blockKey __ scalar endLine
-  		{% ([key, sep, scalar]) => {
-				console.log('k: v', [key[0], scalar[0]]);
-				return [key, scalar]
-			} %}
+	# default map pair, rhs is a expression
+	| blockKey __ expression
+  		{% ([key, sep, value]) => {
+			return new Pair(key, value);
+		} %}
 
 	# null / undefined pair. Does yaml support undefined?
-	| blockKey nullOrNestedSequence
-		{% ([key, nullOrNestedSequence], ref) => {
-						return [key, nullOrNestedSequence]
-					} %}
+	# | blockKey nullOrNestedSequence
+	# 	{% ([key, nullOrNestedSequence], ref) => {
+	# 			return new Pair(key, nullOrNestedSequence);
+	# 	} %}
+	
 	# nested flow pair
-	| blockKey __ blockToFlowScope endLine
+	| blockKey __ blockToFlowScope
   		{% ([key, sep, flow]) => {
-        console.log('k: {}', key[0], flow);
-				return [key, flow]
-			} %}
-
-	| blockKey __ blockToFlowSequence endLine
-  		{% ([key, sep, flow]) => {
-        console.log('k: <= []', key[0], flow);
-				return [key, flow]
-			} %}
-
-	# item is sequence starting on next line
-
-lineBreak
-	-> endLine {% nuller %}
-	| comment {% nuller %}
-
-# this is strange but it allows for sequence to
-# take priority overempty key
-nullOrNestedSequence
-	-> nullOrNestedSequence sol blockSequenceItem {% ([list, sol, item], ref) => {
-				const [ v, ctx ] = list;
-				if (ctx.isIterable){
-					return appendToSequence([list, item]);
-				} else if (item) {
-					return createBlockSequence([[item]]);
-				}
+			return new Pair(key, flow);
 		} %}
-	| endLine
-	{% ([endLine], ref, fail) => {
-		const nullValue = [null, {empty: true}]
-		return nullValue;
-	} %}
 
-blockSequenceItem
-	-> bullet statement
-			{% ([key, rhsNode]) => {
-					return rhsNode
-				} %}
-	| comment {% id %}
-	| eol {% nuller %}
+	| blockKey __ blockToFlowSequence
+  		{% ([key, sep, flow, comment]) => {
+			return new Pair(key, flow);
+		} %}
 
 blockKey
-	-> scalar ":" {% ([key, sep]) => key %}
+	-> identifier ":" {% id %}
 
 bullet
 	-> "-" space {% first %}

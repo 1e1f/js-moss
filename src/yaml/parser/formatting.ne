@@ -1,46 +1,41 @@
 # Formatting
 pushScope
-	-> endLine indent {% ([eol, indent]) => {
-		return indent;
+	-> endLine indent {% ([comment, _]) => {
+		return [comment];
 	 } %}
 
 popScope
-	-> dedent {% null %}
+	-> dedent {% nuller %}
 
 endLine
 	-> __ comment {% second %}
-	| _ eol {% nuller %}
+	| eol {% nuller %}
 
 comment
 	-> "#" _escapedString:? eol {%
 		([hash, comment]) => {
-			console.log({comment});
-			 return [comment || '', {isComment: true}]
+			if (comment){
+				const [text, sm] = join([tokenValue([hash]), comment]);
+				return new Comment(comment, sm);
+			}
+			const [_, sm] = tokenValue([hash]);
+			return new Comment(null, sm);
 		} %}
 
 # syntactic whitespace
-sof -> %sof {% ([tok]) => tok.value %}
-eof -> %eof {% ([tok]) => tok.value %}
-sol -> %sol {% ([tok]) => tok %}
-eol -> %eol {% ([ws, tok]) => tok %}
+sof -> %sof {% tokenValue %}
+eof -> %eof {% tokenValue %}
+sol -> %sol {% tokenText %}
+eol -> %eol {% tokenText %}
 indent
-	-> %indent {% ([tok]) => tok %}
+	-> %indent {% tokenText %}
 dedent
-	-> %dedent {% ([tok]) => tok %}
-space -> %space {% ([tok]) => tok.value %}
+	-> %dedent {% tokenText %}
+space -> %space {% tokenValue %}
 
 __
-	-> %space:+ {% ([tokens]) => {
-				let spaces = '';
-				for (const i of tokens){
-					spaces += ' ';
-				}
-				return spaces;
-			} %}
+	-> %space:+ {% chars %}
 
 # ignored whitespace or chars
 _
-	-> _ space {% ([e]) => {
-			return e ? e + ' ': null;
-		} %}
-	| null {% () => null %}
+	-> %space:* {% chars %}

@@ -1,37 +1,45 @@
-import { SourceMap, Token } from './post/types';
+import { SourceMap, Token, Location } from './post/types';
 
 // import moo from 'moo';
 const moo = require('moo');
 
-const makeToken = (type: string, text: string, sourceMap?: SourceMap, indent?: number) =>
-    ({ ...sourceMap, type, text, value: text, indent, toString: () => text });
+// const makeToken = (type: string, text: string, location?: Location, indent?: number) =>
+// ({
+//     line: location?.line || 0,
+//     col: location?.col || 0,
+//     indent: indent || location?.indent || 0,
+//     type,
+//     text,
+//     value: text,
+//     toString: () => text
+// });
 
-const makeSol = (sourceMap: any, indent: number) => {
-    const t = makeToken('sol', '\n', sourceMap, indent);
+const makeSol = (location: Location) => {
+    const t = new Token('sol', '\n', location);
     //console.log(t);
     return t
 }
-const makeEol = (sourceMap: SourceMap, indent: number) =>
-    makeToken('eol', '\n', sourceMap, indent)
+const makeEol = (location: Location) =>
+    new Token('eol', '\n', location)
 
-const makeIndent = (sourceMap: SourceMap, indent: number) =>
-    makeToken('indent', 'indent', sourceMap, indent)
+const makeIndent = (location: Location) =>
+    new Token('indent', 'indent', location)
 
-const makeDedent = (sourceMap: SourceMap, indent: number) =>
-    makeToken('dedent', 'dedent', sourceMap, indent)
+const makeDedent = (location: Location) =>
+    new Token('dedent', 'dedent', location)
 
-const makeSof = () => makeToken('sof', 'sof', { line: 0, col: 0 }, -1);
-const makeEof = () => makeToken('eof', 'eof', { line: 0, col: 0 }, -1);
+const makeSof = () => new Token('sof', 'sof', { line: 0, col: 0, indent: 0 }, -1);
+const makeEof = () => new Token('eof', 'eof', { line: 0, col: 0, indent: 0 }, -1);
 
-const doDedent = (ruleMap: any, indent: number, nextIndent: number, sourceMap: any) => {
-    const tokens = [makeEol(sourceMap, indent)];
+const doDedent = (ruleMap: any, location: Location, nextIndent: number) => {
+    const tokens = [makeEol(location)];
     const ruleToken = ruleMap.get(indent);
     if (ruleToken) {
-        tokens.push(makeToken('stopRule', `/${ruleToken.text}`, sourceMap, indent));
+        tokens.push(new Token('stopRule', `/${ruleToken.text}`, location));
         ruleMap.delete(indent)
     }
-    tokens.push(makeDedent(sourceMap, nextIndent));
-    tokens.push(makeSol(sourceMap, nextIndent));
+    tokens.push(makeDedent({ ...location, indent: nextIndent }));
+    tokens.push(makeSol({ ...location, indent: nextIndent }));
     return tokens;
 }
 
@@ -44,18 +52,19 @@ function* indented(lexer: any, source: any, info?: any) {
     // console.log(all.join(''));
     // iter = peekable(lexer.reset(source, info))
 
-    let stack = []
+    let stack: number[] = []
     let ruleMap = new Map();
 
     // absorb initial blank lines and indentation
     let indent = iter.nextIndent();
 
     yield makeSof();
-    yield makeSol(null, indent);
+    yield makeSol({ line: 0, col: 0, indent });
 
 
+    let location;
     for (let tok: Token; tok = iter.next();) {
-        const sourceMap = { line: tok.line, col: tok.col };
+        location = { line: tok.line, col: tok.col, indent };
         if (tok.type === 'eol' || tok.type === 'startRule') {
             const beforeSkip = iter.peek();
             const newIndent = iter.nextIndent();
@@ -72,28 +81,28 @@ function* indented(lexer: any, source: any, info?: any) {
             }// eof
             else if (newIndent == indent) {
                 if (tok.type === 'startRule') {
-                    const ruleToken = makeToken('startRule', tok.text.slice(0, tok.text.indexOf('<') + 1));
+                    const ruleToken = new Token('startRule', tok.text.slice(0, tok.text.indexOf('<') + 1));
                     ruleMap.set(indent, ruleToken);
                     yield ruleToken;
                 }
 
-                yield makeEol(sourceMap, indent);
-                yield makeSol(sourceMap, indent);
+                yield makeEol(location);
+                yield makeSol(location);
             } else if (newIndent > indent) {
                 stack.push(indent)
                 indent = newIndent
                 if (tok.type === 'startRule') {
-                    const ruleToken = makeToken('startRule', tok.text.slice(0, tok.text.indexOf('<') + 1));
+                    const ruleToken = new Token('startRule', tok.text.slice(0, tok.text.indexOf('<') + 1));
                     ruleMap.set(indent, ruleToken);
                     yield ruleToken;
                 }
-                yield makeEol(sourceMap, indent);
-                yield makeIndent(sourceMap, indent)
-                yield makeSol(sourceMap, indent);
+                yield makeEol(location);
+                yield makeIndent(location)
+                yield makeSol(location);
             } else if (newIndent < indent) {
                 while (newIndent < indent) {
                     const nextIndent = stack.pop();
-                    const dedentTokens = doDedent(ruleMap, indent, nextIndent, sourceMap);
+                    const dedentTokens = doDedent(ruleMap, location, nextIndent);
                     for (const t of dedentTokens) {
                         yield t;
                     }
@@ -103,8 +112,8 @@ function* indented(lexer: any, source: any, info?: any) {
                     throw new Error(`inconsistent indentation ${newIndent} != ${indent}`)
                 }
             } else {
-                yield makeEol(sourceMap, indent);
-                yield makeSol(sourceMap, indent);
+                yield makeEol(location);
+                yield makeSol(location);
             }
             indent = newIndent
         } else {
@@ -116,17 +125,17 @@ function* indented(lexer: any, source: any, info?: any) {
     // dedent remaining blocks at eof
     for (let i = stack.length; i--;) {
         const nextIndent = stack.pop() || 0;
-        const dedentTokens = doDedent(ruleMap, indent, nextIndent, { line: 'eof', col: 'eof' });
+        const dedentTokens = doDedent(ruleMap, location, nextIndent);
         for (const t of dedentTokens) {
             yield t;
         }
         indent = nextIndent;
     }
 
-    yield makeEol({ line: 0, col: 0 }, indent);
+    yield makeEol(location);
     const ruleToken = ruleMap.get(0);
     if (ruleToken) {
-        yield makeToken('stopRule', `/${ruleToken.text}`);
+        yield new Token('stopRule', `/${ruleToken.text}`);
         ruleMap.delete(0)
     }
 

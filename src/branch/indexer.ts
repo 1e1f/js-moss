@@ -55,6 +55,11 @@ const blIndexer: IndexProducer<BLIndex> = {
     const importTokenPos = value.indexOf(importPrefix);
 
     if (importTokenPos != -1) {
+      if (importTokenPos > 0) // not first char
+        if (value[importTokenPos - 1] === "\\") {
+          // this import is escaped... probably a regex
+          return;
+        }
       let blLine = value.slice(importTokenPos + 1);
       // console.log("calc import", blLine);
       if (blLine[0] === "?") {
@@ -213,7 +218,7 @@ const indexWithIndexer = (
 };
 
 export const createBranchIndex = (
-  branch: Moss.Branch,
+  branch: Partial<Moss.Branch>,
   hashFunctions?: HashFunctions
 ) => {
   // console.log("index", stringifyBranchLocator(branch));
@@ -223,6 +228,7 @@ export const createBranchIndex = (
   );
   // console.log("createdBlIndex", bl.n);
   let ast = fromYaml(branch.text);
+
   const kind = searchableLocator(
     decode(ast.kind || "data"),
     hashFunctions && hashFunctions.branchMeta
@@ -237,6 +243,7 @@ export const createBranchIndex = (
     ...bi,
     bl,
     kind,
+    iid: ast.iid ? parseInt(ast.iid) : undefined
   };
 };
 

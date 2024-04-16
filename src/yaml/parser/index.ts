@@ -1,4 +1,5 @@
 
+import { dump } from 'js-yaml';
 import { Parser, Grammar } from 'nearley';
 const grammar = require('./compiled').default;
 
@@ -8,7 +9,14 @@ export const parse = (text: string) => {
     // ignore empty chars in parser is probably faster
     let withoutEmptyChars = text.replace(/[\u200B-\u200D\uFEFF]/g, '');
     const parser = new Parser(compiled);
-    return parser.feed(withoutEmptyChars);
+    console.log("feed", withoutEmptyChars);
+    try {
+        const { results } = parser.feed(withoutEmptyChars);
+        console.log("finished", results)
+        return results[0];
+    } catch (e) {
+        console.log("parse failed", e.message)
+    }
 }
 
 export const load = (text: string) => {

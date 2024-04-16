@@ -8,7 +8,7 @@ export const canonicalBl = (bl: string | Moss.Branch) => {
     }
     return encode(canonicalBranchLocator(bl));
   } catch (e) {
-    console.error("canonicalBl bl failed for input", bl)
+    console.error(`canonicalBl bl failed for ${typeof bl}: ${bl}`);
   }
 };
 

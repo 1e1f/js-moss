@@ -24,7 +24,7 @@ flowNestedScope
 		return scope
 		} %}
 
-flowMappingScope -> flowPairConstructor:+ {% createMap %}
+flowMappingScope -> flowPairConstructor:+ {% id %}
 
 flowPairConstructor
 	# nested block mapping
@@ -34,11 +34,11 @@ flowPairConstructor
 			return [key, scope];
 		} %}
 
-	# default map pair, rhs is a scalar
-	| flowKey _ scalar
-  		{% ([key, sep, scalar]) => {
-				console.log('flow pair', [key[0], scalar[0]]);
-				return [key, scalar]
+	# default map pair, rhs is a expression
+	| flowKey _ expression
+  		{% ([key, sep, expression]) => {
+				console.log('flow pair', [key[0], expression[0]]);
+				return [key, expression]
 			} %}
 
 flowPushSequence
@@ -67,19 +67,21 @@ flowNestedSequence
 		return scope
 		} %}
 
-flowSequenceScope -> flowSequenceConstructor:+ {% createFlowSequence %}
+flowSequenceScope -> flowSequenceConstructor:+ {% ([seq]) => {
+	return new Sequence(seq);
+} %}
 
 sequenceToBlockMapping
   -> flowKey _ flowToBlockScope {% ([key, sep, scope]) => {
     console.log('sequenceToBlockMapping', key);
-		return createMap([key, scope])
+		return new Mapping(scope)
 		} %}
 
 flowSequenceConstructor
-	-> ("," _):? (scalar | flowNestedScope | flowNestedSequence | sequenceToBlockMapping)
+	-> ("," _):? (expression | flowNestedScope | flowNestedSequence | sequenceToBlockMapping)
   		{% ([key, sequenceStatement]) => {
           return sequenceStatement
 		} %}
 
 flowKey
-	-> ("," _):? scalar _ ":" {% ([w, key, w2, sep]) => key %}
+	-> ("," _):? expression _ ":" {% ([w, key, w2, sep]) => key %}

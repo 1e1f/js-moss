@@ -12,7 +12,7 @@ import {
   addFunctions as addSyncFunctions,
   wrapFunction as wrapSyncFunction,
 } from "./sync";
-import { toYaml } from "./yaml";
+import { toYaml, sourceMap } from "./yaml";
 
 const parseStringArgs = (args: any) => {
   if (typeof args === "string") {
@@ -138,6 +138,7 @@ addFunctions({
   toBranch: wrapFunction(decodeBranchLocator),
   print: wrapFunction(toYaml),
   toYaml: wrapFunction(toYaml),
+  sourceMap: wrapFunction(sourceMap),
   fromJson: wrapFunction(JSON.parse),
   toBase64: wrapFunction(toBase64),
   toJson: wrapFunction(JSON.stringify),
@@ -162,6 +163,7 @@ addSyncFunctions({
   toBranchLocator: wrapSyncFunction(encodeBranchLocator),
   toBranch: wrapSyncFunction(decodeBranchLocator),
   print: wrapSyncFunction(toYaml),
+  sourceMap: wrapSyncFunction(sourceMap),
   toYaml: wrapSyncFunction(toYaml),
   fromJson: wrapSyncFunction(JSON.parse),
   toJson: wrapSyncFunction(JSON.stringify),

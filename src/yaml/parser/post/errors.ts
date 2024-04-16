@@ -37,3 +37,7 @@ export function missingRhs(){
 export function unknownOrEmpty(){
 	throw new Error("unknown or empty");
 }
+
+export function unreachable(){
+	throw new Error("this rule should have taken another path");
+}
